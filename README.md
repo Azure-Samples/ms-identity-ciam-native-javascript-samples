@@ -1,1 +1,1 @@
-### SPA Samples for APIs and Javascript SDK using Native Auth
+### SPA Samples for Native Auth APIs 
