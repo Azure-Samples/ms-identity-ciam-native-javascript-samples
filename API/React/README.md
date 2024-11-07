@@ -1,5 +1,5 @@
 # Introduction 
-These are simple React applications that demostrate the usage of the Native Authentication API in front end applications.
+These are simple React applications that demonstrate the usage of the Native Authentication API in front end applications.
 The full documentation of the API can be found [here](https://learn.microsoft.com/en-us/entra/identity-platform/reference-native-authentication-api?tabs=emailOtp#sign-in-api-reference).
 
 ## React Authentication with Username and Password
@@ -11,7 +11,7 @@ The second application shows how to authenticate a user with email OTP. The user
 - `ReactAuthOTPSimple`
 
 ## Full libraries React Authentication with Redux Toolkit and Material UI for React
-The third application shows how to authenticate a user with username and password. This application uses Redux Toolkit for state management and Material UI for React for the UI components to show case how to implemenet a full authentication with state management and UI components.
+The third application shows how to authenticate a user with username and password. This application uses Redux Toolkit for state management and Material UI for React for the UI components to show case how to implemented a full authentication with state management and UI components.
 - `ReactAuthStateAndUI`
 
 
@@ -47,15 +47,13 @@ The react app has the following structure:
 
 ## CORS configuration for local development
 Due to CORS limitation to be able to call the API from a development environment, you need to run a local proxy server that will allow the application to make requests to the Identity Platform Cross-Origin Resource Sharing (CORS) policy.
-All the samples app include a CORS proxy server that forwards requests to the Tenat URL endpoints. The CORS proxy server is a simple Node.js server that listens on port 3001. 
-To configured the proxy server open the `proxy.config.js` file and set `localApiPath` to the value of the endpoint that will be called from localhost. (Recommended `/api`).
-Example 
-```
-const tenantSubdomain = "Enter_the_Tenant_Subdomain_Here";
-const tenantId = "Enter_the_Tenant_Id_Here";
-```
+All the samples app include a CORS proxy server that forwards requests to the Tenant URL endpoints. The CORS proxy server is a simple Node.js server that listens on port 3001. 
+To configure the proxy server open the `proxy.config.js` file and 
+- set `tenantSubdomain` to the Tenant Subdomain. For tenant `contoso.onmicrosoft.com` tenant subdomain is `contoso`
+- set `tenantId` to the Tenant Id in your Microsoft Entra portal
+- set `localApiPath` to the value of the endpoint that will be called from localhost. (Recommended `/api`)
+- set `port` to the port you want the CORS proxy server to run on. (Recommended `3001`)
 
-The default CORS proxy runs on port 3001 with domain `http://localhost`. You can change the port by setting the `port` configuration in the `proxy.config.js` file.
 Make sure to have the full proxy URL configured in `src/config.ts` file by setting the `const BASE_API_URL = 'http://localhost:3001/api';`;
 This configuration file is read by `cors.js` which is the proxy server.
 
@@ -68,6 +66,3 @@ These instructions will get you a copy of the project up and running on your loc
 3. Run `yarn start` to start the development server
 4. Open your browser and navigate to `http://localhost:3000/`
 5. Open a new command prompt and run `yarn cors` to start a local proxy server that will allow the application to make requests to the Identity Platform Cross-Origin Resource Sharing (CORS) policy.
-
-
-
