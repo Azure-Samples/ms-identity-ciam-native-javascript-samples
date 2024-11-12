@@ -1,79 +1,90 @@
 {
-  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "parameters": {
-    "functionAppName": {
-      "type": "string",
-      "metadata": {
-        "description": "The name for the function app."
-      }
-    },
-    "sku": {
-      "type": "string",
-      "defaultValue": "Y1",
-      "metadata": {
-        "description": "The SKU for the Function App. Use Y1 for Consumption Plan."
-      }
-    },
-    "sku": {
-      "type": "string",
-      "defaultValue": "Consumption",
-      "metadata": {
-        "description": "The tier for the Function App. Use Consumption for the Y1 sku."
-      }
-    },
-    "SPAurl": {
-      "type": "string",
-      "metadata": {
-        "description": "The url where your SPA is hosted. This is needed for CORS configuration."
-      }
-    }
-  },
-  "resources": [
-    {
-      "type": "Microsoft.Web/serverfarms",
-      "apiVersion": "2022-03-01",
-      "name": "[concat(parameters('functionAppName'), 'Plan')]",
-      "location": "[parameters('location')]",
-      "sku": {
-        "name": "[parameters('sku')]",
-        "tier": "[parameters('tier')]",
-        "capacity": 1
-      },
-      "properties": {
-        "name": "[concat(parameters('functionAppName'), 'Plan')]"
-      }
-    },
-    {
-      "type": "Microsoft.Web/sites",
-      "kind": "functionapp",
-      "apiVersion": "2022-03-01",
-      "name": "[parameters('functionAppName')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/serverfarms', concat(parameters('functionAppName'), 'Plan'))]"
-      ],
-      "properties": {
-        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', concat(parameters('functionAppName'), 'Plan'))]",
-        "siteConfig": {
-          "appSettings": [
-            {
-              "name": "FUNCTIONS_WORKER_RUNTIME",
-              "value": "node"
-            },
-            {
-              "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "1"
-            }
-          ],
-          "cors": {
-              "allowedOrigins": [
-                  "https://portal.azure.com",
-                  "[parameters('SPAurl')]"
-              ]
-          }
+  "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion":"1.0.0.0",
+  "parameters":{
+     "functionAppName":{
+        "type":"string",
+        "metadata":{
+           "description":"The name for the function app."
         }
-      }
-    }
+     },
+     "sku":{
+        "type":"string",
+        "defaultValue":"Y1",
+        "metadata":{
+           "description":"The SKU for the Function App. Use Y1 for Consumption Plan."
+        }
+     },
+     "tier":{
+        "type":"string",
+        "defaultValue":"Consumption",
+        "metadata":{
+           "description":"The tier for the Function App. Use Consumption for the Y1 sku."
+        }
+     },
+     "location":{
+        "type":"string",
+        "defaultValue":"eastus",
+        "metadata":{
+           "description":"The location for the Function App."
+        }
+     },
+     "SPAurl":{
+        "type":"string",
+        "metadata":{
+           "description":"The url where your SPA is hosted. This is needed for CORS configuration."
+        }
+     }
+  },
+  "resources":[
+     {
+        "type":"Microsoft.Web/serverfarms",
+        "apiVersion":"2022-03-01",
+        "name":"[concat(parameters('functionAppName'), 'Plan')]",
+        "location":"[parameters('location')]",
+        "sku":{
+           "name":"[parameters('sku')]",
+           "tier":"[parameters('tier')]",
+           "capacity":1
+        },
+        "properties":{
+           "name":"[concat(parameters('functionAppName'), 'Plan')]"
+        }
+     },
+     {
+        "type":"Microsoft.Web/sites",
+        "kind":"functionapp",
+        "apiVersion":"2022-03-01",
+        "name":"[parameters('functionAppName')]",
+        "location":"[parameters('location')]",
+        "dependsOn":[
+           "[resourceId('Microsoft.Web/serverfarms', concat(parameters('functionAppName'), 'Plan'))]"
+        ],
+        "properties":{
+           "serverFarmId":"[resourceId('Microsoft.Web/serverfarms', concat(parameters('functionAppName'), 'Plan'))]",
+           "siteConfig":{
+              "appSettings":[
+                 {
+                    "name":"FUNCTIONS_WORKER_RUNTIME",
+                    "value":"node"
+                 },
+                 {
+                    "name":"WEBSITE_NODE_DEFAULT_VERSION",
+                    "value":"~18"
+                 },
+                 {
+                    "name":"WEBSITE_RUN_FROM_PACKAGE",
+                    "value":"1"
+                 }
+              ],
+              "cors":{
+                 "allowedOrigins":[
+                    "https://portal.azure.com",
+                    "[parameters('SPAurl')]"
+                 ]
+              }
+           }
+        }
+     }
   ]
 }
