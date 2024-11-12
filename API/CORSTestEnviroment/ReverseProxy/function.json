@@ -12,7 +12,7 @@
         "delete", 
         "options" 
       ], 
-      "route": "Enter_Your_Http_Trigger_Name_Here/{*path}" 
+      "route": "ReverseProxy/{*path}" 
     }, 
     { 
       "type": "http", 
