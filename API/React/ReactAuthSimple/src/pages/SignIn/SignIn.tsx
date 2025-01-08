@@ -35,7 +35,7 @@ export const SignIn: React.FC = () => {
       });
       navigate("/user", { state: res3 });
     } catch (err) {
-      setError("An error occurred");
+      setError("GEneric error");
     } finally {
       setIsloading(false);
     }

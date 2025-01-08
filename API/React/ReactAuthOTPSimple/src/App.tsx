@@ -1,16 +1,27 @@
-import React from 'react';
-import { BrowserRouter } from "react-router-dom";
-import logo from './logo.svg';
-import './App.css';
-import { AppRoutes } from './AppRoutes';
+import React from "react";
+import { BrowserRouter, Link } from "react-router-dom";
+import "./App.css";
+import { AppRoutes } from "./AppRoutes";
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-
-      </header>
       <BrowserRouter>
+        <header>
+          <nav>
+            <ul>
+              <li>
+                <Link to="/signin">Sign In</Link>
+              </li>
+              <li>
+                <Link to="/signup">Sign Up</Link>
+              </li>
+              <li>
+                <Link to="/reset">Reset Password</Link>
+              </li>
+            </ul>
+          </nav>
+        </header>
         <AppRoutes />
       </BrowserRouter>
     </div>
