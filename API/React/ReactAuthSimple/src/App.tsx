@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Link as LinkTo } from "react-router-dom";
+import { BrowserRouter, Link } from "react-router-dom";
 import "./App.css";
 import { AppRoutes } from "./AppRoutes";
 
@@ -11,13 +11,13 @@ function App() {
           <nav>
             <ul>
               <li>
-                <LinkTo to="/signin">Sign In</LinkTo>
+                <Link to="/signup">Sign Up</Link>
               </li>
               <li>
-                <LinkTo to="/signup">Sign Up</LinkTo>
+                <Link to="/signin">Sign In</Link>
               </li>
               <li>
-                <LinkTo to="/reset">Reset Password</LinkTo>
+                <Link to="/reset">Reset Password</Link>
               </li>
             </ul>
           </nav>

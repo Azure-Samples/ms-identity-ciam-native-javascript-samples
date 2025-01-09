@@ -10,7 +10,7 @@ import { ResetPassword } from "./pages/ResetAccount/ResetPassword";
 export const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<SignIn />} />
+      <Route path="/" element={<SignUp />} />
       <Route path="/signin" element={<SignIn />} />
       <Route path="/user" element={<UserInfo />} />
       <Route path="/signup" element={<SignUp />} />

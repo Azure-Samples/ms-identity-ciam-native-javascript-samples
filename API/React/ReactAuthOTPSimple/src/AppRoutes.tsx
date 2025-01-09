@@ -11,7 +11,7 @@ import { SingInChallenge } from "./pages/SignIn/SingInChallenge";
 export const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<SignIn />} />
+      <Route path="/" element={<SignUp />} />
       <Route path="/signin" element={<SignIn />} />
       <Route path="/signin/challenge" element={<SingInChallenge />} />
       <Route path="/user" element={<UserInfo />} />
