@@ -5,7 +5,7 @@
 
 export const CLIENT_ID = "Enter_the_Application_Id_Here";
 
-const BASE_API_URL = `https://spasampletest.azurewebsites.net/api/HttpTrigger1`;
+const BASE_API_URL = `http://localhost:3001/api`;
 const REDIRECT_URI = "https://localhost:3000";
 
 // DEV ENDPOINTS
