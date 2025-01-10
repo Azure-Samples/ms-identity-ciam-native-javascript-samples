@@ -37,6 +37,7 @@ export const ResetPassword: React.FC = () => {
       setStep(2);
     } catch (err) {
       setError("An error occurred during password reset " + (err as ErrorResponseType).error_description);
+    }
   };
 
   const handleSubmitCode = async (e: React.FormEvent<HTMLFormElement>) => {
