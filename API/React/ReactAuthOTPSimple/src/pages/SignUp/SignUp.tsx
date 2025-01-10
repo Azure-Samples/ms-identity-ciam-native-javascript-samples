@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signupChallenge, signupStart } from '../../sdk/SignUpService';
+import { signupChallenge, signupStart } from '../../client/SignUpService';
 import { useNavigate } from 'react-router-dom';
 
 export const SignUp: React.FC = () => {

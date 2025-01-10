@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { signInTokenRequest } from "../../sdk/SignInService";
+import { signInTokenRequest } from "../../client/SignInService";
 
 export const SingInChallenge: React.FC = () => {
   const { state } = useLocation();

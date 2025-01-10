@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { signUpSubmitOTP } from "../../sdk/SignUpService";
+import { signUpSubmitOTP } from "../../client/SignUpService";
 
 export const SignUpChallenge: React.FC = () => {
   const { state } = useLocation();

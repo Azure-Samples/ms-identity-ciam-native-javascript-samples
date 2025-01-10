@@ -1,7 +1,7 @@
 // LoginForm.tsx
 import React, { useState } from "react";
 import { Link as LinkTo, useNavigate } from "react-router-dom";
-import { signInStart, signInChallenge, signInTokenRequest } from "../../sdk/SignInService";
+import { signInStart, signInChallenge, signInTokenRequest } from "../../client/SignInService";
 
 export const SignIn: React.FC = () => {
   const [email, setEmail] = useState<string>("");

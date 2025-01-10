@@ -1,7 +1,7 @@
 // ResetPassword.tsx
 import React, { useState } from "react";
-import { resetChallenge, resetStart, resetSubmitNewPassword, resetSubmitOTP } from "../../sdk/ResetPasswordService";
-import { ChallengeResetResponse, ChallengeResponse } from "../../sdk/ResponseTypes";
+import { resetChallenge, resetStart, resetSubmitNewPassword, resetSubmitOTP } from "../../client/ResetPasswordService";
+import { ChallengeResetResponse, ChallengeResponse } from "../../client/ResponseTypes";
 
 export const ResetPassword: React.FC = () => {
   const [username, setUsername] = useState<string>("");
