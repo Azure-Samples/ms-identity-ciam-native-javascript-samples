@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { signupChallenge, signupStart } from '../../client/SignUpService';
 import { useNavigate } from 'react-router-dom';
+import { ErrorResponseType } from "../../client/ResponseTypes";
 
 export const SignUp: React.FC = () => {
     const [name, setName] = useState<string>('');
@@ -29,7 +30,7 @@ export const SignUp: React.FC = () => {
         const res2 = await signupChallenge({ continuation_token: res1.continuation_token });
         navigate('/signup/challenge', { state: { ...res2} });
       } catch (err) {
-        setError('An error occurred during sign up');
+        setError("An error occurred during sign up " + (err as ErrorResponseType).error_description);
       }
     };
   

@@ -16,6 +16,9 @@ export const postRequest = async (url: string, payloadExt: any) => {
       const errorData: ErrorResponseType = await response.json();
       throw errorData;
     } catch (jsonError) {
+      if (jsonError as ErrorResponseType) {
+        throw jsonError
+      }
       const errorData = {
         error: response.status,
         description: response.statusText,

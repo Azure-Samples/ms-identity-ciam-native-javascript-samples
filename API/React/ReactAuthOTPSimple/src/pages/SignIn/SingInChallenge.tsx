@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signInTokenRequest } from "../../client/SignInService";
+import { ErrorResponseType } from "../../client/ResponseTypes";
 
 export const SingInChallenge: React.FC = () => {
   const { state } = useLocation();
@@ -28,7 +29,7 @@ export const SingInChallenge: React.FC = () => {
       });
       navigate("/user", { state: res3 });
     } catch (err) {
-      setError("An error occurred during sign up");
+      setError("An error occurred during sign up " + (err as ErrorResponseType).error_description);
     } finally {
       setIsloading(false);
     }

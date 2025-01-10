@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { signUpSubmitOTP } from "../../client/SignUpService";
+import { ErrorResponseType } from "../../client/ResponseTypes";
 
 export const SignUpChallenge: React.FC = () => {
   const { state } = useLocation();
@@ -22,7 +23,7 @@ export const SignUpChallenge: React.FC = () => {
       const res = await signUpSubmitOTP({ continuation_token, oob: code });
       navigate("/signup/completed");
     } catch (err) {
-      setError("An error occurred during sign up");
+      setError("An error occurred during sign up " + (err as ErrorResponseType).error_description);
     }
   };
 

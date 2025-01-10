@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { Link as LinkTo, useNavigate } from "react-router-dom";
 import { signInStart, signInChallenge, signInTokenRequest } from "../../client/SignInService";
+import { ErrorResponseType } from "../../client/ResponseTypes";
 
 export const SignIn: React.FC = () => {
   const [email, setEmail] = useState<string>("");
@@ -35,7 +36,7 @@ export const SignIn: React.FC = () => {
       });
       navigate("/user", { state: res3 });
     } catch (err) {
-      setError("GEneric error");
+      setError("An error has occured " + (err as ErrorResponseType).error_description);
     } finally {
       setIsloading(false);
     }

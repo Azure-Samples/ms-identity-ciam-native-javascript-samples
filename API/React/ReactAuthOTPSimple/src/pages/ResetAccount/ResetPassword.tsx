@@ -1,7 +1,7 @@
 // ResetPassword.tsx
 import React, { useState } from "react";
 import { resetChallenge, resetStart, resetSubmitNewPassword, resetSubmitOTP } from "../../client/ResetPasswordService";
-import { ChallengeResetResponse, ChallengeResponse } from "../../client/ResponseTypes";
+import { ChallengeResetResponse, ChallengeResponse, ErrorResponseType } from "../../client/ResponseTypes";
 
 export const ResetPassword: React.FC = () => {
   const [username, setUsername] = useState<string>("");
@@ -36,7 +36,7 @@ export const ResetPassword: React.FC = () => {
       setTokenRes(tokenRes);
       setStep(2);
     } catch (err) {
-      setError("An error occurred during password reset");
+      setError("An error occurred during password reset " + (err as ErrorResponseType).error_description);
     }
   };
 
@@ -55,7 +55,7 @@ export const ResetPassword: React.FC = () => {
       setOTPRes(res);
       setStep(3);
     } catch (err) {
-      setError("An error occurred while submitting the otp code");
+      setError("An error occurred while submitting the otp code " + (err as ErrorResponseType).error_description);
     }
   };
 
@@ -73,7 +73,7 @@ export const ResetPassword: React.FC = () => {
       });
       setStep(4);
     } catch (err) {
-      setError('An error occurred while submitting the new password');
+      setError("An error occurred while submitting the new password " + (err as ErrorResponseType).error_description);
     }
   };
 
