@@ -8,6 +8,7 @@ export const SignUp: React.FC = () => {
     const [surname, setSurname] = useState<string>('');
     const [email, setEmail] = useState<string>('');
     const [error, setError] = useState<string>('');
+    const [isLoading, setIsloading] = useState<boolean>(false);
     const navigate = useNavigate();
     const validateEmail = (email: string): boolean => {
       const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,11 +27,14 @@ export const SignUp: React.FC = () => {
       }
       setError('');
       try {
+        setIsloading(true);
         const res1 = await signupStart({ name, surname, username: email });
         const res2 = await signupChallenge({ continuation_token: res1.continuation_token });
         navigate('/signup/challenge', { state: { ...res2} });
       } catch (err) {
         setError("An error occurred during sign up " + (err as ErrorResponseType).error_description);
+      } finally {
+        setIsloading(false);
       }
     };
   
@@ -66,6 +70,7 @@ export const SignUp: React.FC = () => {
             />
           </div>
           {error && <div className="error">{error}</div>}
+          {isLoading && <div className="warning">Sending request...</div>}
           <button type="submit">Sign Up</button>
         </form>
       </div>

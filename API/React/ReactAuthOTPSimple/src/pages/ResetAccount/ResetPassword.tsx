@@ -9,6 +9,7 @@ export const ResetPassword: React.FC = () => {
   const [newPassword, setNewPassword] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [step, setStep] = useState<number>(1);
+  const [isLoading, setIsloading] = useState<boolean>(false);
   const [tokenRes, setTokenRes] = useState<ChallengeResponse>({
     binding_method: "",
     challenge_channel: "",
@@ -31,12 +32,15 @@ export const ResetPassword: React.FC = () => {
     }
     setError("");
     try {
+      setIsloading(true);
       const res1 = await resetStart({ username });
       const tokenRes = await resetChallenge({ continuation_token: res1.continuation_token });
       setTokenRes(tokenRes);
       setStep(2);
     } catch (err) {
       setError("An error occurred during password reset " + (err as ErrorResponseType).error_description);
+    } finally {
+      setIsloading(false);
     }
   };
 
@@ -48,6 +52,7 @@ export const ResetPassword: React.FC = () => {
     }
     setError("");
     try {
+      setIsloading(true);
       const res = await resetSubmitOTP({
         continuation_token: tokenRes.continuation_token,
         oob: otp,
@@ -56,6 +61,8 @@ export const ResetPassword: React.FC = () => {
       setStep(3);
     } catch (err) {
       setError("An error occurred while submitting the otp code " + (err as ErrorResponseType).error_description);
+    } finally {
+      setIsloading(false);
     }
   };
 
@@ -67,6 +74,7 @@ export const ResetPassword: React.FC = () => {
     }
     setError('');
     try {
+      setIsloading(true);
       await resetSubmitNewPassword({
         continuation_token: otpRes.continuation_token,
         new_password: newPassword,
@@ -74,6 +82,8 @@ export const ResetPassword: React.FC = () => {
       setStep(4);
     } catch (err) {
       setError("An error occurred while submitting the new password " + (err as ErrorResponseType).error_description);
+    } finally {
+      setIsloading(false);
     }
   };
 
@@ -85,8 +95,9 @@ export const ResetPassword: React.FC = () => {
           <div className="form-group">
             <label>Username:</label>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
-          </div>
+          </div>          
           {error && <div className="error">{error}</div>}
+          {isLoading && <div className="warning">Sending request...</div>}
           <button type="submit">Reset Password</button>
         </form>
       )}
@@ -96,8 +107,9 @@ export const ResetPassword: React.FC = () => {
           <div className="form-group">
             <label>One time code:</label>
             <input type="text" maxLength={tokenRes.code_length} value={otp} onChange={(e) => setOTP(e.target.value)} required />
-          </div>
+          </div>          
           {error && <div className="error">{error}</div>}
+          {isLoading && <div className="warning">Sending request...</div>}
           <button type="submit">Submit code</button>
         </form>
       )}
@@ -109,6 +121,7 @@ export const ResetPassword: React.FC = () => {
             <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
           </div>
           {error && <div className="error">{error}</div>}
+          {isLoading && <div className="warning">Sending request...</div>}
           <button type="submit">Submit New Password</button>
         </form>
       )}
