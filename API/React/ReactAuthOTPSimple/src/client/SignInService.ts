@@ -7,7 +7,7 @@ export const signInStart = async ({ username }: { username: string }) => {
   const payloadExt: SignInStartRequest = {
     username,
     client_id: CLIENT_ID,
-    challenge_type: "password oob redirect",
+    challenge_type: "oob redirect",
   };
 
   return await postRequest(ENV.urlOauthInit, payloadExt);
@@ -17,7 +17,7 @@ export const signInChallenge = async ({ continuation_token }: { continuation_tok
   const payloadExt: ChallengeRequest = {
     continuation_token,
     client_id: CLIENT_ID,
-    challenge_type: "password oob redirect",
+    challenge_type: "oob redirect",
   };
 
   return await postRequest(ENV.urlOauthChallenge, payloadExt);
@@ -27,7 +27,7 @@ export const signInTokenRequest = async (request: TokenSignInType): Promise<Toke
   const payloadExt: TokenRequestType = {
     ...request,
     client_id: CLIENT_ID,
-    challenge_type: "password oob redirect",
+    challenge_type: "oob redirect",
     scope: "openid offline_access",
   };
 
