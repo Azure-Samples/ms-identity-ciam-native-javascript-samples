@@ -27,6 +27,18 @@ export const SignIn: React.FC = () => {
       const res1 = await signInStart({
         username: email,
       });
+      //Redirect comes back as 200 so it has to be parsed here
+      if (res1.challenge_type == "redirect") {
+        const errorData = {
+          error: "redirect",
+          error_description: "redirect",
+          codes: [],
+          timestamp: "",
+          trace_id: "",
+          correlation_id: "",
+        };
+        throw errorData
+      }
       const res2 = await signInChallenge({ continuation_token: res1.continuation_token });
       navigate("/signin/challenge", { state: res2 });
     } catch (err) {

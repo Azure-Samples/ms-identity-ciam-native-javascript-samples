@@ -4,7 +4,7 @@ import { SignUpChallengeRequest, SignUpForm, SignUpStartRequest } from "interfac
 
 export const signupStart = async (payload: SignUpForm) => {
   const payloadExt = {
-    attributes:  JSON.stringify({
+    attributes: JSON.stringify({
       given_name: payload.name,
       surname: payload.surname,
     }),

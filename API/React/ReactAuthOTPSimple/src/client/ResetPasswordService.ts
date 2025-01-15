@@ -7,7 +7,7 @@ export const resetStart = async ({ username }: { username: string }) => {
   const payloadExt: ResetPasswordStartRequest = {
     username,
     client_id: CLIENT_ID,
-    challenge_type: "password oob redirect",
+    challenge_type: "oob redirect",
   };
 
   return await postRequest(ENV.urlResetPwdStart, payloadExt);

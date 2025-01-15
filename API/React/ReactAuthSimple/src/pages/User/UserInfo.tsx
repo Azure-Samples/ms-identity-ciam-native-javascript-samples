@@ -6,10 +6,11 @@ import { parseJwt } from "../../client/Utils";
 export const UserInfo: React.FC = () => {
   const { state } = useLocation();
   const decodedToken = parseJwt(state.access_token);
-  const { name, scp, family_name, unique_name: email } = decodedToken;
+  const { given_name, scp, family_name, email: email } = decodedToken;
 
   console.log(decodedToken);
   const familyName = family_name;
+  const givenName = given_name;
   const tokenExpireTime = state.expires_in;
   const scopes = state.scope;
 
@@ -17,8 +18,8 @@ export const UserInfo: React.FC = () => {
     <div className="user-info">
       <h2>User Information</h2>
       <div className="info-group">
-        <label>Name:</label>
-        <span>{name}</span>
+        <label>Given Name:</label>
+        <span>{givenName}</span>
       </div>
       <div className="info-group">
         <label>Family Name:</label>

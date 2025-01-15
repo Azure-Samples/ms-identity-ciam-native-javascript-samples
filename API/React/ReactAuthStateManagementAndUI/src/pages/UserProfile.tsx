@@ -10,7 +10,7 @@ import { SitemarkIcon } from "../components/CustomIcons";
 export const UserProfile: React.FC = () => {
   const { access_token, id_token } = useSelector((state: RootState) => state.authState);
   const decodedToken = parseJwt(access_token);
-  const { name, scp, family_name: surname, unique_name: email, exp } = decodedToken;
+  const { given_name, scp, family_name, email: email, exp } = decodedToken;
   const expiryDate = new Date(exp * 1000).toLocaleString();
 
   return (
@@ -27,14 +27,14 @@ export const UserProfile: React.FC = () => {
         {/* Name */}
         <Box mt={2} mb={1}>
           <Typography variant="body1" color="textSecondary">
-            <strong>Name:</strong> {name}
+            <strong>Given Name:</strong> {given_name}
           </Typography>
         </Box>
 
         {/* Surname */}
         <Box mb={1}>
           <Typography variant="body1" color="textSecondary">
-            <strong>Surname:</strong> {surname}
+            <strong>Family Name:</strong> {family_name}
           </Typography>
         </Box>
 

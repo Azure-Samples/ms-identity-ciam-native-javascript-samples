@@ -10,6 +10,7 @@ export const SignUpChallenge: React.FC = () => {
 
   const [code, setCode] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [isLoading, setIsloading] = useState<boolean>(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -20,10 +21,13 @@ export const SignUpChallenge: React.FC = () => {
 
     setError("");
     try {
+      setIsloading(true);
       const res = await signUpSubmitOTP({ continuation_token, oob: code });
       navigate("/signup/completed");
     } catch (err) {
       setError("An error occurred during sign up " + (err as ErrorResponseType).error_description);
+    } finally {
+      setIsloading(false);
     }
   };
 
@@ -37,6 +41,7 @@ export const SignUpChallenge: React.FC = () => {
         </div>
 
         {error && <div className="error">{error}</div>}
+        {isLoading && <div className="warning">Sending request...</div>}
         <button type="submit">Sign Up</button>
       </form>
     </div>
