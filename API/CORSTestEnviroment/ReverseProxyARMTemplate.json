@@ -69,6 +69,10 @@
                     "value":"node"
                  },
                  {
+                  "name":"FUNCTIONS_EXTENSION_VERSION",
+                  "value":"~4"
+                 },
+                 {
                     "name":"WEBSITE_NODE_DEFAULT_VERSION",
                     "value":"~18"
                  },
