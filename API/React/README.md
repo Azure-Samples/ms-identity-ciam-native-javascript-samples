@@ -61,8 +61,8 @@ This configuration file is read by `cors.js` which is the proxy server.
 These instructions will get you a copy of the project up and running on your local machine for development purposes:
 
 1. Clone the repository
-2. Run `yarn install` to install the dependencies
+2. Run `npm install` to install the dependencies
 3. Open `src/config.ts` and set the `CLIENT_ID` to the value of your application's client ID. You can find these values in the Entra portal.
-3. Run `yarn start` to start the development server
+3. Run `npm start` to start the development server
 4. Open your browser and navigate to `http://localhost:3000/`
-5. Open a new command prompt and run `yarn cors` to start a local proxy server that will allow the application to make requests to the Identity Platform Cross-Origin Resource Sharing (CORS) policy.
+5. Open a new command prompt and run `npm run cors` to start a local proxy server that will allow the application to make requests to the Identity Platform Cross-Origin Resource Sharing (CORS) policy.
