@@ -6,7 +6,7 @@ import { ChallengeResponse } from "./ResponseTypes";
 export const signupStart = async (payload: SignUpFormPassword) => {
   const payloadExt: SignUpStartRequest = {
     attributes: JSON.stringify({
-      given_name: payload.name,
+      givenName: payload.name,
       surname: payload.surname,
     }),
     username: payload.username,
