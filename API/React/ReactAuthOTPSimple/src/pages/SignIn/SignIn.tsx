@@ -31,7 +31,7 @@ export const SignIn: React.FC = () => {
       if (res1.challenge_type == "redirect") {
         const errorData = {
           error: "redirect",
-          error_description: "redirect",
+          error_description: "The user cannot be logged in using this application as it was created using a password flow",
           codes: [],
           timestamp: "",
           trace_id: "",
