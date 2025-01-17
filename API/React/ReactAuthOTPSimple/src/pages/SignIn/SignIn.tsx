@@ -31,7 +31,7 @@ export const SignIn: React.FC = () => {
       if (res1.challenge_type == "redirect") {
         const errorData = {
           error: "redirect",
-          error_description: "The user cannot be logged in using this application as it was created using a password flow",
+          error_description: "Additional challenge types required - https://learn.microsoft.com/en-us/entra/external-id/customers/concept-native-authentication-web-fallback",
           codes: [],
           timestamp: "",
           trace_id: "",
@@ -40,6 +40,17 @@ export const SignIn: React.FC = () => {
         throw errorData
       }
       const res2 = await signInChallenge({ continuation_token: res1.continuation_token });
+      if (res2.challenge_type == "password") {
+        const errorData = {
+          error: "redirect",
+          error_description: "You tried to signIn with a user that has registered with a password. This application only accepts username and code users",
+          codes: [],
+          timestamp: "",
+          trace_id: "",
+          correlation_id: "",
+        };
+        throw errorData
+      }
       navigate("/signin/challenge", { state: res2 });
     } catch (err) {
       setError("An error occurred " + (err as ErrorResponseType).error_description);
