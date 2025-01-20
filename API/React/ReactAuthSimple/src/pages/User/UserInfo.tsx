@@ -6,7 +6,7 @@ import { parseJwt } from "../../client/Utils";
 export const UserInfo: React.FC = () => {
   const { state } = useLocation();
   const decodedToken = parseJwt(state.access_token);
-  const { given_name, scp, family_name, email: email } = decodedToken;
+  const { given_name, scp, family_name, unique_name: email } = decodedToken;
 
   console.log(decodedToken);
   const familyName = family_name;
