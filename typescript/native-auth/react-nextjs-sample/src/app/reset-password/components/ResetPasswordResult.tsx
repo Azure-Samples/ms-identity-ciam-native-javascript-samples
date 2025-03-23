@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-interface SignUpResultProps {
+interface ResetPasswordResultProps {
     result: any;
 }
 
-export function SignUpResult({ result }: SignUpResultProps) {
+export function ResetPasswordResult({ result }: ResetPasswordResultProps) {
     const router = useRouter();
 
     return (
@@ -17,17 +16,17 @@ export function SignUpResult({ result }: SignUpResultProps) {
                 marginTop: "20px",
             }}
         >
-            <h3>Sign Up Successful</h3>
+            <h3>Password Reset Successful</h3>
 
             <div style={{ marginTop: "15px" }}>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Name:</strong> {result.displayName}
+                    Your password has been successfully reset. You can now sign in with your new password.
                 </div>
                 <div style={{ marginBottom: "10px" }}>
                     <strong>Email:</strong> {result.email}
                 </div>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Account Created:</strong> {new Date(result.timestamp).toLocaleString()}
+                    <strong>Reset Completed:</strong> {new Date(result.timestamp).toLocaleString()}
                 </div>
             </div>
 
@@ -42,9 +41,9 @@ export function SignUpResult({ result }: SignUpResultProps) {
                         cursor: "pointer",
                         fontSize: "16px",
                     }}
-                    onClick={() => router.push("/sign-up/complete")}
+                    onClick={() => router.push("/sign-in")}
                 >
-                    View Complete Profile
+                    Go to Sign In
                 </button>
             </div>
 
