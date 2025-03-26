@@ -6,8 +6,8 @@ export const customAuthConfig: CustomAuthConfiguration = {
         authApiProxyUrl: "http://localhost:3001/api",
     },
     auth: {
-        clientId: "",
-        authority: "",
+        clientId: "Enter_the_Application_Id_Here",
+        authority: "https://Enter_the_Tenant_Subdomain_Here.ciamlogin.com",
         redirectUri: "/",
         postLogoutRedirectUri: "/",
         navigateToLoginRequestUrl: false,
