@@ -10,7 +10,8 @@
         "cors": "node cors.js"
     },
     "dependencies": {
-        "@azure/msal-custom-auth": "^0.0.1",
+        "@azure/msal-custom-auth": "https://raw.githubusercontent.com/Azure-Samples/ms-identity-ciam-native-javascript-samples/main/typescript/native-auth/azure-msal-custom-auth-0.0.1.tgz",
+        "@azure/msal-browser": "v4.9.1",
         "next": "15.1.7",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
