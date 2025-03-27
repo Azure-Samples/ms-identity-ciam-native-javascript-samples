@@ -34,6 +34,9 @@ export default function ResetPassword() {
 
         try {
             const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            const account = app.getCurrentAccount();
+            account.data?.signOut();
+            
             const result = await app.resetPassword({
                 username: email,
             });

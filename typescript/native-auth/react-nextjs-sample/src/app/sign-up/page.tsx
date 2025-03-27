@@ -34,6 +34,8 @@ export default function SignUp() {
 
         try {
             const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            const account = app.getCurrentAccount();
+            account.data?.signOut();
 
             const attributes = new UserAccountAttributes();
             attributes.setDisplayName(`${firstName} ${lastName}`);
