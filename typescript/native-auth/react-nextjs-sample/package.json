@@ -13,7 +13,7 @@
         "@azure/msal-common": "https://raw.githubusercontent.com/Azure-Samples/ms-identity-ciam-native-javascript-samples/main/typescript/native-auth/azure-msal-common-15.2.1.tgz",
         "@azure/msal-browser": "https://raw.githubusercontent.com/Azure-Samples/ms-identity-ciam-native-javascript-samples/main/typescript/native-auth/azure-msal-browser-4.7.0.tgz",
         "@azure/msal-custom-auth": "https://raw.githubusercontent.com/Azure-Samples/ms-identity-ciam-native-javascript-samples/main/typescript/native-auth/azure-msal-custom-auth-0.0.1.tgz",
-        "next": "15.1.7",
+        "next": "15.2.3",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"
     },
