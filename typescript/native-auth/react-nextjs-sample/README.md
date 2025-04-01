@@ -40,6 +40,7 @@ This is a [Next.js](https://nextjs.org) project that demonstrates custom authent
 
 ```bash
 git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
+#If needed: cd ms-identity-ciam-native-javascript-samples
 cd typescript/native-auth/react-nextjs-sample
 ```
 
