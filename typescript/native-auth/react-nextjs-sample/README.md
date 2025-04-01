@@ -39,8 +39,8 @@ This is a [Next.js](https://nextjs.org) project that demonstrates custom authent
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/AzureAD/microsoft-authentication-library-for-js
-cd samples/msal-custom-auth-samples/react-sample-nextjs
+git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
+cd typescript/native-auth/react-nextjs-sample
 ```
 
 2. Install dependencies:
