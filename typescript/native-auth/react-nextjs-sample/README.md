@@ -50,13 +50,47 @@ cd typescript/native-auth/react-nextjs-sample
 npm install
 ```
 
-3. Start the development server:
+## Configure the sample SPA
+
+1. Open *src\config\auth-config.ts* and replace the following with the values obtained from the Microsoft Entra admin center:
+
+     * `Enter_the_Application_Id_Here` and replace it with the Application (client) ID of the app you registered earlier.
+     * `Enter_the_Tenant_Subdomain_Here` and replace it with the Tenant Subdomain in your Microsoft Entra portal.
+
+1. Save the file.
+
+## Native Auth APIs with Cross Origin Resource Sharing
+The Native Auth APIs [currently don't support ](https://learn.microsoft.com/en-us/entra/identity-platform/reference-native-authentication-api?tabs=emailOtp) Cross-Origin Resource Sharing [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) so a proxy server must be setup between the web app and the APIs. 
+
+## CORS configuration for local development
+All the sample apps include a CORS proxy server that forwards requests to the Tenant URL endpoints. The CORS proxy server is a simple Node.js server that listens on port 3001. 
+To configure the proxy server open the `proxy.config.js` file (in the root folder of the project) and 
+- set `tenantSubdomain` to the Tenant Subdomain. For tenant `contoso.onmicrosoft.com` tenant subdomain is `contoso`
+- set `tenantId` to the Tenant Id in your Microsoft Entra portal
+- set `localApiPath` to the value of the endpoint that will be called from localhost. (Recommended `/api`)
+- set `port` to the port you want the CORS proxy server to run on. (Recommended `3001`)
+
+## Run your project and sign in
+
+All the required code snippets have been added, so the application can now be called and tested in a web browser.
+
+1. Open a new terminal by selecting **Terminal** > **New Terminal**.
+1. Run the following command to start the cors proxy.
 
 ```bash
-npm run dev
+#If needed: cd ms-identity-ciam-native-javascript-samples
+cd typescript/native-auth/react-nextjs-sample/
+npm run cors
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+1. Open a new terminal by selecting **Terminal** > **New Terminal**.
+1. Run the following command to start your web server.
+
+```bash
+#If needed: cd ms-identity-ciam-native-javascript-samples
+cd typescript/native-auth/react-nextjs-sample/
+npm run dev
+```
 
 ## Development
 
