@@ -2,10 +2,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 interface SignUpResultProps {
-    result: any;
+    state: any;
 }
 
-export function SignUpResult({ result }: SignUpResultProps) {
+export function SignUpResultPage({ state }: SignUpResultProps) {
     const router = useRouter();
 
     return (
@@ -18,19 +18,18 @@ export function SignUpResult({ result }: SignUpResultProps) {
             }}
         >
             <h3>Sign Up Successful</h3>
-
+            {/*
             <div style={{ marginTop: "15px" }}>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Name:</strong> {result.displayName}
+                    <strong>Name:</strong> {state.displayName}
                 </div>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Email:</strong> {result.email}
+                    <strong>Email:</strong> {state.email}
                 </div>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Account Created:</strong> {new Date(result.timestamp).toLocaleString()}
+                    <strong>Account Created:</strong> {new Date(state.timestamp).toLocaleString()}
                 </div>
             </div>
-
             <div style={{ marginTop: "20px" }}>
                 <button
                     style={{
@@ -47,7 +46,7 @@ export function SignUpResult({ result }: SignUpResultProps) {
                     View Complete Profile
                 </button>
             </div>
-
+            */}
             <details style={{ marginTop: "20px" }}>
                 <summary style={{ cursor: "pointer", color: "#666" }}>Technical Details</summary>
                 <pre
@@ -59,7 +58,7 @@ export function SignUpResult({ result }: SignUpResultProps) {
                         marginTop: "10px",
                     }}
                 >
-                    {JSON.stringify(result, null, 2)}
+                    {JSON.stringify(state, null, 2)}
                 </pre>
             </details>
         </div>

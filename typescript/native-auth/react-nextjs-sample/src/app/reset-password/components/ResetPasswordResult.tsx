@@ -1,10 +1,10 @@
 import { useRouter } from "next/navigation";
 
 interface ResetPasswordResultProps {
-    result: any;
+    state: any;
 }
 
-export function ResetPasswordResult({ result }: ResetPasswordResultProps) {
+export function ResetPasswordResultPage({ state }: ResetPasswordResultProps) {
     const router = useRouter();
 
     return (
@@ -22,12 +22,14 @@ export function ResetPasswordResult({ result }: ResetPasswordResultProps) {
                 <div style={{ marginBottom: "10px" }}>
                     Your password has been successfully reset. You can now sign in with your new password.
                 </div>
+                {/*
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Email:</strong> {result.email}
+                    <strong>Email:</strong> {state.email}
                 </div>
                 <div style={{ marginBottom: "10px" }}>
-                    <strong>Reset Completed:</strong> {new Date(result.timestamp).toLocaleString()}
+                    <strong>Reset Completed:</strong> {new Date(state.timestamp).toLocaleString()}
                 </div>
+                */}
             </div>
 
             <div style={{ marginTop: "20px" }}>
@@ -58,7 +60,7 @@ export function ResetPasswordResult({ result }: ResetPasswordResultProps) {
                         marginTop: "10px",
                     }}
                 >
-                    {JSON.stringify(result, null, 2)}
+                    {JSON.stringify(state, null, 2)}
                 </pre>
             </details>
         </div>

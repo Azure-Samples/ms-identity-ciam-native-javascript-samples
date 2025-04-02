@@ -7,14 +7,12 @@ import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import { CodeForm } from "./components/CodeForm";
 import { NewPasswordForm } from "./components/NewPasswordForm";
-import { ResetPasswordResult } from "./components/ResetPasswordResult";
+import { ResetPasswordResultPage } from "./components/ResetPasswordResult";
 import {
-    AuthFlowStateHandlerFactory,
     CustomAuthPublicClientApplication,
-    ResetPasswordState,
-    ResetPasswordCodeRequired,
-    ResetPasswordPasswordRequired,
-    ResetPasswordCompleted,
+    ResetPasswordCodeRequiredState,
+    ResetPasswordPasswordRequiredState,
+    ResetPasswordCompletedState,
 } from "@azure/msal-custom-auth";
 
 export default function ResetPassword() {
@@ -23,9 +21,8 @@ export default function ResetPassword() {
     const [code, setCode] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
-    const [flowState, setFlowState] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [resetResult, setResetResult] = useState<any>(null);
+    const [resetState, setResetState] = useState<any>(null);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,7 +45,7 @@ export default function ResetPassword() {
                 return;
             }
 
-            setFlowState(result.state);
+            setResetState(result.state);
         } catch (err) {
             setError("An unexpected error occurred");
             console.error(err);
@@ -63,9 +60,8 @@ export default function ResetPassword() {
         setLoading(true);
 
         try {
-            if (flowState instanceof ResetPasswordCodeRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitCode(code);
+            if (resetState instanceof ResetPasswordCodeRequiredState) {
+                const result = await resetState.submitCode(code);
 
                 if (result.error) {
                     if (result.error.isInvalidCode()) {
@@ -76,7 +72,7 @@ export default function ResetPassword() {
                     return;
                 }
 
-                setFlowState(result.state);
+                setResetState(result.state);
             }
         } catch (err) {
             setError("An unexpected error occurred");
@@ -92,17 +88,16 @@ export default function ResetPassword() {
         setLoading(true);
 
         try {
-            if (flowState instanceof ResetPasswordPasswordRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitNewPassword(newPassword);
+            if (resetState instanceof ResetPasswordPasswordRequiredState) {
+                const result = await resetState.submitNewPassword(newPassword);
 
                 if (result.error) {
                     setError(result.error.errorData.errorDescription || "An error occurred while setting new password");
                     return;
                 }
 
-                if (result.state instanceof ResetPasswordCompleted) {
-                    setResetResult(result.state);
+                if (result.state instanceof ResetPasswordCompletedState) {
+                    setResetState(result.state);
                 }
             }
         } catch (err) {
@@ -113,21 +108,21 @@ export default function ResetPassword() {
         }
     };
 
-    if (resetResult) {
-        return <ResetPasswordResult result={resetResult} />;
+    if (resetState instanceof ResetPasswordCompletedState) {
+        return <ResetPasswordResultPage state={resetState} />;
     }
 
     return (
         <div style={styles.container}>
             <h2>Reset Password</h2>
-            {flowState instanceof ResetPasswordPasswordRequired ? (
+            {resetState instanceof ResetPasswordPasswordRequiredState ? (
                 <NewPasswordForm
                     onSubmit={handleNewPasswordSubmit}
                     newPassword={newPassword}
                     setNewPassword={setNewPassword}
                     loading={loading}
                 />
-            ) : flowState instanceof ResetPasswordCodeRequired ? (
+            ) : resetState instanceof ResetPasswordCodeRequiredState ? (
                 <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />
             ) : (
                 <InitialForm onSubmit={handleInitialSubmit} email={email} setEmail={setEmail} loading={loading} />

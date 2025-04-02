@@ -6,15 +6,13 @@ import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import { CodeForm } from "./components/CodeForm";
-import { SignUpResult } from "./components/SignUpResult";
+import { SignUpResultPage } from "./components/SignUpResult";
 import {
-    AuthFlowStateHandlerFactory,
-    SignUpCodeRequired,
     CustomAuthPublicClientApplication,
-    SignUpState,
+    SignUpCodeRequiredState,
+    SignUpCompletedState,
     UserAccountAttributes,
 } from "@azure/msal-custom-auth";
-import { SignUpCompleted } from "@azure/msal-custom-auth";
 
 export default function SignUp() {
     const router = useRouter();
@@ -23,9 +21,8 @@ export default function SignUp() {
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
-    const [flowState, setFlowState] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [signUpResult, setSignUpResult] = useState<any>(null);
+    const [signUpState, setSignUpState] = useState<any>(null);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,7 +41,7 @@ export default function SignUp() {
                 username: email,
                 attributes,
             });
-
+            
             if (result.error) {
                 if (result.error.isUserAlreadyExists()) {
                     setError("An account with this email already exists");
@@ -54,7 +51,7 @@ export default function SignUp() {
                 return;
             }
 
-            setFlowState(result.state);
+            setSignUpState(result.state);            
         } catch (err) {
             setError("An unexpected error occurred");
             console.error(err);
@@ -69,9 +66,9 @@ export default function SignUp() {
         setLoading(true);
 
         try {
-            if (flowState instanceof SignUpCodeRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitCode(code);
+            if (signUpState instanceof SignUpCodeRequiredState )
+            {
+                const result = await signUpState.submitCode(code);
                 if (result.error) {
                     if (result.error.isInvalidCode()) {
                         setError("Invalid verification code");
@@ -80,8 +77,8 @@ export default function SignUp() {
                     }
                     return;
                 }
-                if (result.state instanceof SignUpCompleted) {
-                    setSignUpResult(result.state);
+                if (result.isCompleted()) {
+                    setSignUpState(result.state);
                 }
             }
         } catch (err) {
@@ -92,14 +89,14 @@ export default function SignUp() {
         }
     };
 
-    if (signUpResult) {
-        return <SignUpResult result={signUpResult} />;
+    if (signUpState instanceof SignUpCompletedState) {
+        return <SignUpResultPage state={signUpState} />;
     }
 
     return (
         <div style={styles.container}>
             <h2>Sign Up</h2>
-            {flowState?.type === SignUpState.CodeRequired ? (
+            {signUpState instanceof SignUpCodeRequiredState ? (
                 <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />
             ) : (
                 <InitialForm
