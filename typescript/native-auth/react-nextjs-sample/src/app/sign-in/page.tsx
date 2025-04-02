@@ -19,6 +19,7 @@ export default function SignIn() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [signInState, setSignInState] = useState<any>(null);
+    const [data, setData] = useState<any>(null);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -42,6 +43,7 @@ export default function SignIn() {
                 }
                 return;
             }
+            setData(result.data);
             setSignInState(result.state);
             if (result.isCompleted()) {
                 return;
@@ -72,7 +74,7 @@ export default function SignIn() {
                     }
                     return;
                 }
-
+                setData(result.data);
                 setSignInState(result.state);
             }
         } catch (err) {
@@ -100,6 +102,7 @@ export default function SignIn() {
                     return;
                 }
                 setSignInState(result.state);
+                setData(result.data);
             }
         } catch (err) {
             handleError(err, setError);
@@ -123,7 +126,7 @@ export default function SignIn() {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
         }
         if (signInState instanceof SignInCompletedState) {
-            return <UserInfo signInState={signInState} />;
+            return <UserInfo signInState={data} />;
         }
 
         return (
