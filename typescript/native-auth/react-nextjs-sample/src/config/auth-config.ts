@@ -9,7 +9,7 @@ export const customAuthConfig: CustomAuthConfiguration = {
         clientId: "Enter_the_Application_Id_Here",
         authority: "https://Enter_the_Tenant_Subdomain_Here.ciamlogin.com",
         redirectUri: "",
-        postLogoutRedirectUri: "v",
+        postLogoutRedirectUri: "",
         navigateToLoginRequestUrl: false,
     },
     cache: {
