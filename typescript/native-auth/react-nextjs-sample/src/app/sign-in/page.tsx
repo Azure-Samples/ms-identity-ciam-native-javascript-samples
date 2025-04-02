@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CustomAuthPublicClientApplication } from "@azure/msal-custom-auth";
+import { CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-custom-auth";
 import { SignInState } from "@azure/msal-custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
@@ -10,16 +10,15 @@ import { InitialForm } from "./components/InitialForm";
 import { PasswordForm } from "./components/PasswordForm";
 import { CodeForm } from "./components/CodeForm";
 import { UserInfo } from "./components/UserInfo";
-import { AuthFlowStateHandlerFactory, SignInCodeRequired, SignInPasswordRequired } from "@azure/msal-custom-auth";
+import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msal-custom-auth";
 
 export default function SignIn() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
-    const [flowState, setFlowState] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [signInResult, setSignInResult] = useState<any>(null);
+    const [signInState, setSignInState] = useState<any>(null);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,14 +42,10 @@ export default function SignIn() {
                 }
                 return;
             }
-
-            if (result.state?.type === SignInState.Completed) {
-                setSignInResult(result);
-                setFlowState(result.state);
+            setSignInState(result.state);
+            if (result.isCompleted()) {
                 return;
             }
-
-            setFlowState(result.state);
         } catch (err) {
             handleError(err, setError);
         } finally {
@@ -64,9 +59,8 @@ export default function SignIn() {
         setLoading(true);
 
         try {
-            if (flowState instanceof SignInPasswordRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitPassword(password);
+            if (signInState instanceof SignInPasswordRequiredState) {
+                const result = await signInState.submitPassword(password);
 
                 if (result.error) {
                     if (result.error.errorData?.error === "invalid_password") {
@@ -79,13 +73,7 @@ export default function SignIn() {
                     return;
                 }
 
-                if (result.state?.type === SignInState.Completed) {
-                    setSignInResult(result);
-                    setFlowState(result.state);
-                    return;
-                }
-
-                setFlowState(result.state);
+                setSignInState(result.state);
             }
         } catch (err) {
             handleError(err, setError);
@@ -100,9 +88,8 @@ export default function SignIn() {
         setLoading(true);
 
         try {
-            if (flowState instanceof SignInCodeRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitCode(code);
+            if (signInState instanceof SignInCodeRequiredState) {
+                const result = await signInState.submitCode(code);
 
                 if (result.error) {
                     if (result.error.isInvalidCode()) {
@@ -112,12 +99,7 @@ export default function SignIn() {
                     }
                     return;
                 }
-
-                if (result.state?.type === SignInState.Completed) {
-                    setSignInResult(result);
-                    setFlowState(result.state);
-                    return;
-                }
+                setSignInState(result.state);
             }
         } catch (err) {
             handleError(err, setError);
@@ -127,7 +109,7 @@ export default function SignIn() {
     };
 
     const renderForm = () => {
-        if (flowState?.type === SignInState.PasswordRequired) {
+        if (signInState instanceof SignInPasswordRequiredState) {
             return (
                 <PasswordForm
                     onSubmit={handlePasswordSubmit}
@@ -137,11 +119,11 @@ export default function SignIn() {
                 />
             );
         }
-        if (flowState?.type === SignInState.CodeRequired) {
+        if (signInState instanceof SignInCodeRequiredState) {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
         }
-        if (flowState?.type === SignInState.Completed) {
-            return <UserInfo signInResult={signInResult} />;
+        if (signInState instanceof SignInCompletedState) {
+            return <UserInfo signInState={signInState} />;
         }
 
         return (

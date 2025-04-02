@@ -1,8 +1,8 @@
 interface UserInfoProps {
-    signInResult: any;
+    signInState: any;
 }
 
-export function UserInfo({ signInResult }: UserInfoProps) {
+export function UserInfo({ signInState }: UserInfoProps) {
     return (
         <div
             style={{
@@ -21,7 +21,7 @@ export function UserInfo({ signInResult }: UserInfoProps) {
                     overflowX: "auto",
                 }}
             >
-                {JSON.stringify(signInResult, null, 2)}
+                {JSON.stringify(signInState, null, 2)}
             </pre>
         </div>
     );

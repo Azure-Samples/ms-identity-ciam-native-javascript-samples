@@ -6,15 +6,13 @@ import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialFormWithPassword } from "./components/InitialFormWithPassword";
 import { CodeForm } from "../sign-up/components/CodeForm";
-import { SignUpResult } from "../sign-up/components/SignUpResult";
+import { SignUpResultPage } from "../sign-up/components/SignUpResult";
 import {
-    AuthFlowStateHandlerFactory,
-    SignUpCodeRequired,
     CustomAuthPublicClientApplication,
-    SignUpState,
+    SignUpCodeRequiredState,
+    SignUpCompletedState,
     UserAccountAttributes,
 } from "@azure/msal-custom-auth";
-import { SignUpCompleted } from "@azure/msal-custom-auth";
 
 export default function SignUpPassword() {
     const router = useRouter();
@@ -24,9 +22,8 @@ export default function SignUpPassword() {
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
-    const [flowState, setFlowState] = useState<any>(null);
     const [loading, setLoading] = useState(false);
-    const [signUpResult, setSignUpResult] = useState<any>(null);
+    const [signUpState, setSignUpState] = useState<any>(null);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,11 +53,7 @@ export default function SignUpPassword() {
                 return;
             }
 
-            if (result.state instanceof SignUpCompleted) {
-                setSignUpResult(result.state);
-            } else {
-                setFlowState(result.state);
-            }
+            setSignUpState(result.state);
         } catch (err) {
             setError("An unexpected error occurred");
             console.error(err);
@@ -75,9 +68,8 @@ export default function SignUpPassword() {
         setLoading(true);
 
         try {
-            if (flowState instanceof SignUpCodeRequired) {
-                const handler = AuthFlowStateHandlerFactory.create(flowState);
-                const result = await handler.submitCode(code);
+            if (signUpState instanceof SignUpCodeRequiredState) {
+                const result = await signUpState.submitCode(code);
                 if (result.error) {
                     if (result.error.isInvalidCode()) {
                         setError("Invalid verification code");
@@ -86,8 +78,8 @@ export default function SignUpPassword() {
                     }
                     return;
                 }
-                if (result.state instanceof SignUpCompleted) {
-                    setSignUpResult(result.state);
+                if (result.state instanceof SignUpCompletedState) {
+                    setSignUpState(result.state);
                 }
             }
         } catch (err) {
@@ -98,14 +90,14 @@ export default function SignUpPassword() {
         }
     };
 
-    if (signUpResult) {
-        return <SignUpResult result={signUpResult} />;
+    if (signUpState instanceof SignUpCompletedState) {
+        return <SignUpResultPage state={signUpState} />;
     }
 
     return (
         <div style={styles.container}>
             <h2>Sign Up with Password</h2>
-            {flowState?.type === SignUpState.CodeRequired ? (
+            {signUpState instanceof SignUpCodeRequiredState ? (
                 <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />
             ) : (
                 <InitialFormWithPassword
