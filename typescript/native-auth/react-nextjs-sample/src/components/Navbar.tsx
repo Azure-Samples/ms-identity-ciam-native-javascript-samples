@@ -19,6 +19,9 @@ export default function Navbar() {
                 <Link href="/sign-up-password" className={styles.link}>
                     Sign Up with Password
                 </Link>
+                <Link href="/sign-up-attribute" className={styles.link}>
+                    Sign Up with Attributes
+                </Link>
                 <Link href="/reset-password" className={styles.link}>
                     Reset Password
                 </Link>
