@@ -41,7 +41,7 @@ export default function SignIn() {
                 } else if (result.error.isRedirectionRequired()) {
                     const popUpRequest: PopupRequest = {
                         authority: customAuthConfig.auth.authority,
-                        scopes: ["openid"],
+                        scopes: [],
                         redirectUri: customAuthConfig.auth.redirectUri || "",
                     }
                     const redirectResult = await app.loginPopup(popUpRequest);
