@@ -38,8 +38,7 @@ export default function SignIn() {
             if (result.error) {
                 if (result.error.isUserNotFound()) {
                     setError("User not found");
-                } else if (result.error.isRedirect()) {
-                    console.log(result)
+                } else if (result.error.isRedirectionRequired()) {
                     const popUpRequest: PopupRequest = {
                         authority: customAuthConfig.auth.authority,
                         scopes: ["openid"],
