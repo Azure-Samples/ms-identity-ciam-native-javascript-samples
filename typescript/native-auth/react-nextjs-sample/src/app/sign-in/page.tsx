@@ -38,7 +38,7 @@ export default function SignIn() {
             if (result.error) {
                 if (result.error.isUserNotFound()) {
                     setError("User not found");
-                } else if (result.error.isRedirectionRequired()) {
+                } else if (result.error.isFallbackRequired()) {
                     const popUpRequest: PopupRequest = {
                         authority: customAuthConfig.auth.authority,
                         scopes: [],
