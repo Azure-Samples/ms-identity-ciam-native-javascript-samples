@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-custom-auth";
-import { SignInState } from "@azure/msal-custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { handleError } from "./utils";
@@ -11,6 +10,7 @@ import { PasswordForm } from "./components/PasswordForm";
 import { CodeForm } from "./components/CodeForm";
 import { UserInfo } from "./components/UserInfo";
 import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msal-custom-auth";
+import { PopupRequest } from "@azure/msal-browser";
 
 export default function SignIn() {
     const [username, setUsername] = useState("");
@@ -38,6 +38,16 @@ export default function SignIn() {
             if (result.error) {
                 if (result.error.isUserNotFound()) {
                     setError("User not found");
+                } else if (result.error.isRedirectRequired()) {
+                    const popUpRequest: PopupRequest = {
+                        authority: customAuthConfig.auth.authority,
+                        scopes: [],
+                        redirectUri: customAuthConfig.auth.redirectUri || "",
+                    }
+                    const redirectResult = await app.loginPopup(popUpRequest);
+                    result.state = new SignInCompletedState()
+                    setData(redirectResult.account);
+                    setSignInState(result.state);
                 } else {
                     setError("An error occurred during sign in");
                 }
