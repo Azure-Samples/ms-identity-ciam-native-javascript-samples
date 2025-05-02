@@ -8,13 +8,13 @@ http
     const reqUrl = url.parse(req.url);
     const domain = url.parse(proxyConfig.proxy).hostname;
     if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-      
+
       const targetUrl = proxyConfig.proxy + reqUrl.pathname?.replace(proxyConfig.localApiPath, "") + (reqUrl.search || "");
 
       console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
 
       const proxyReq = https.request(
-        targetUrl,
+        targetUrl, // CodeQL [SM04580] The newly generated target URL utilizes the configured proxy URL to resolve the CORS issue and will be used exclusively for demo purposes and run locally.
         {
           method: req.method,
           headers: {
