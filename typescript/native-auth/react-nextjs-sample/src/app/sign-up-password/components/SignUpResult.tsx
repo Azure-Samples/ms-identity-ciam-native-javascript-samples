@@ -1,6 +1,6 @@
 import { useRouter } from "next/navigation";
 
-export function ResetPasswordResultPage() {
+export function SignUpResultPage() {
     const router = useRouter();
 
     return (
@@ -12,8 +12,7 @@ export function ResetPasswordResultPage() {
                 marginTop: "20px",
             }}
         >
-            <div>Password Reset Successful</div>
-
+            <div>Sign Up Successful</div>
             <div style={{ marginTop: "20px" }}>
                 <button
                     style={{

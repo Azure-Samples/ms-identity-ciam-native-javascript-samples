@@ -58,8 +58,6 @@ export function InitialFormWithPassword({
                 onChange={(e) => setPassword(e.target.value)}
                 style={styles.input}
                 required
-                minLength={8}
-                pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
             />
             <button type="submit" style={styles.button} disabled={loading}>
                 {loading ? "Signing up..." : "Sign Up"}

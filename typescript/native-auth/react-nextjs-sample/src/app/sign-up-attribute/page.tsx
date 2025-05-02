@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialFormWithAttributes } from "./components/InitialFormWithAttributes";
@@ -15,7 +14,6 @@ import {
 } from "@azure/msal-custom-auth";
 
 export default function SignUpWithAttributes() {
-    const router = useRouter();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
@@ -62,7 +60,7 @@ export default function SignUpWithAttributes() {
                 username: email,
                 attributes,
             });
-            
+
             if (result.error) {
                 if (result.error.isUserAlreadyExists()) {
                     setError("An account with this email already exists");
@@ -72,7 +70,7 @@ export default function SignUpWithAttributes() {
                 return;
             }
 
-            setSignUpState(result.state);            
+            setSignUpState(result.state);
         } catch (err) {
             setError("An unexpected error occurred");
             console.error(err);
