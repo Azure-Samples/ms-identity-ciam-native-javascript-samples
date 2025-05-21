@@ -1,4 +1,4 @@
-import { CustomAuthConfiguration, LogLevel } from "@azure/msal-custom-auth";
+import { CustomAuthConfiguration, LogLevel } from "@azure/msal-browser/custom-auth";
 
 export const customAuthConfig: CustomAuthConfiguration = {
     customAuth: {

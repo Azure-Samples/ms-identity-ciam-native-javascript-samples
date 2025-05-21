@@ -12,7 +12,7 @@ import {
     SignUpCodeRequiredState,
     SignUpCompletedState,
     UserAccountAttributes,
-} from "@azure/msal-custom-auth";
+} from "@azure/msal-browser/custom-auth";
 
 export default function SignUpWithAttributes() {
     const router = useRouter();
@@ -62,7 +62,7 @@ export default function SignUpWithAttributes() {
                 username: email,
                 attributes,
             });
-            
+
             if (result.error) {
                 if (result.error.isUserAlreadyExists()) {
                     setError("An account with this email already exists");
@@ -72,7 +72,7 @@ export default function SignUpWithAttributes() {
                 return;
             }
 
-            setSignUpState(result.state);            
+            setSignUpState(result.state);
         } catch (err) {
             setError("An unexpected error occurred");
             console.error(err);
