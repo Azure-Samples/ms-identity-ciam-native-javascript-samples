@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-custom-auth";
+import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { handleError } from "./utils";
@@ -9,7 +9,7 @@ import { InitialForm } from "./components/InitialForm";
 import { PasswordForm } from "./components/PasswordForm";
 import { CodeForm } from "./components/CodeForm";
 import { UserInfo } from "./components/UserInfo";
-import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msal-custom-auth";
+import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msal-browser/custom-auth";
 import { PopupRequest } from "@azure/msal-browser";
 
 export default function SignIn() {
@@ -18,8 +18,8 @@ export default function SignIn() {
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [signInState, setSignInState] = useState<any>(null);
-    const [data, setData] = useState<any>(null);
+    const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
+    const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,9 +44,10 @@ export default function SignIn() {
                         scopes: [],
                         redirectUri: customAuthConfig.auth.redirectUri || "",
                     }
-                    const redirectResult = await app.loginPopup(popUpRequest);
+                    await app.loginPopup(popUpRequest);
                     result.state = new SignInCompletedState()
-                    setData(redirectResult.account);
+                    const accountData = app.getCurrentAccount();
+                    setData(accountData.data);
                     setSignInState(result.state);
                 } else {
                     setError("An error occurred during sign in");

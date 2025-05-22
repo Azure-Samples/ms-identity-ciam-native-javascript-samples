@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CustomAuthPublicClientApplication } from "@azure/msal-custom-auth";
+import { CustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../config/auth-config";
 import styles from "./Navbar.module.css";
 

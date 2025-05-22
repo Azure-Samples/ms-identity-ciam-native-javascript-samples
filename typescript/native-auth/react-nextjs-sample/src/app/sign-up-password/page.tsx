@@ -12,7 +12,7 @@ import {
     SignUpCodeRequiredState,
     SignUpCompletedState,
     UserAccountAttributes,
-} from "@azure/msal-custom-auth";
+} from "@azure/msal-browser/custom-auth";
 
 export default function SignUpPassword() {
     const router = useRouter();

@@ -13,7 +13,7 @@ import {
     ResetPasswordCodeRequiredState,
     ResetPasswordPasswordRequiredState,
     ResetPasswordCompletedState,
-} from "@azure/msal-custom-auth";
+} from "@azure/msal-browser/custom-auth";
 
 export default function ResetPassword() {
     const router = useRouter();
@@ -33,7 +33,7 @@ export default function ResetPassword() {
             const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
             const account = app.getCurrentAccount();
             account.data?.signOut();
-            
+
             const result = await app.resetPassword({
                 username: email,
             });
