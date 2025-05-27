@@ -1,7 +1,7 @@
-import { CustomAuthAccountData } from "@azure/msal-custom-auth";
+import { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 
 interface UserInfoProps {
-    userData: CustomAuthAccountData | undefined | null | unknown;
+    userData: CustomAuthAccountData | undefined | null;
 }
 
 export function UserInfo({ userData }: UserInfoProps) {
@@ -14,7 +14,7 @@ export function UserInfo({ userData }: UserInfoProps) {
                 marginTop: "20px",
             }}
         >
-            {`The user ${userData?.getAccount().username} has been signed in`}
+            {`The user '${userData?.getAccount().username}' has signed in`}
         </div>
     );
 }

@@ -30,4 +30,7 @@ export const styles = {
         color: "#d13438",
         marginTop: "10px",
     },
+    h2: {
+        margin: "0 0 10px 0",
+    },
 } as const;

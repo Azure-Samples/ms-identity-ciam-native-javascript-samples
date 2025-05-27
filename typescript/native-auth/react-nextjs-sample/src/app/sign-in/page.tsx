@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
+import { useEffect, useState } from "react";
+import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, ICustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
@@ -12,6 +12,7 @@ import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msa
 import { PopupRequest } from "@azure/msal-browser";
 
 export default function SignIn() {
+    const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
@@ -19,17 +20,45 @@ export default function SignIn() {
     const [loading, setLoading] = useState(false);
     const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
+    const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
+    const [isSignedIn, setCurrentSignInStatus] = useState(false);
+
+    useEffect(() => {
+            const initializeApp = async () => {
+                const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
+                setAuthClient(appInstance);
+            };
+
+            initializeApp();
+        }, []);
+
+    useEffect(() => {
+        const checkAccount = async () => {
+            if (!authClient) return;
+
+            const accountResult = authClient.getCurrentAccount();
+
+            if (accountResult.isCompleted()) {
+                setCurrentSignInStatus(true);
+            }
+
+            setData(accountResult.data);
+
+            setLoadingAccountStatus(false);
+        };
+
+        checkAccount();
+    }, [authClient]);
 
     const startSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        // Create a new instance of the CustomAuthPublicClientApplication
-        const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
+        if (!authClient) return;
 
         // Start the sign-in flow
-        const result = await app.signIn({
+        const result = await authClient.signIn({
             username,
         });
 
@@ -54,9 +83,9 @@ export default function SignIn() {
                     redirectUri: customAuthConfig.auth.redirectUri || "",
                 }
 
-                await app.loginPopup(popUpRequest);
+                await authClient.loginPopup(popUpRequest);
 
-                const accountResult = app.getCurrentAccount();
+                const accountResult = authClient.getCurrentAccount();
 
                 if (accountResult.isFailed()) {
                     setError(accountResult.error?.errorData?.errorDescription ?? "An error occurred while getting the account from cache");
@@ -87,8 +116,6 @@ export default function SignIn() {
 
         if (signInState instanceof SignInPasswordRequiredState) {
             const result = await signInState.submitPassword(password);
-
-            // the result object may have the different states, such as Failed state and Completed state.
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
@@ -138,6 +165,14 @@ export default function SignIn() {
     };
 
     const renderForm = () => {
+        if (loadingAccountStatus) {
+            return;
+        }
+
+        if (isSignedIn || signInState instanceof SignInCompletedState) {
+            return <UserInfo userData={data} />;
+        }
+
         if (signInState instanceof SignInPasswordRequiredState) {
             return (
                 <PasswordForm
@@ -148,11 +183,9 @@ export default function SignIn() {
                 />
             );
         }
+
         if (signInState instanceof SignInCodeRequiredState) {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
-        }
-        if (signInState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
         }
 
         return (
@@ -167,7 +200,7 @@ export default function SignIn() {
 
     return (
         <div style={styles.container}>
-            <h2>Sign In</h2>
+            <h2 style={styles.h2}>Sign In</h2>
             <>
                 {renderForm()}
                 {error && <div style={styles.error}>{error}</div>}

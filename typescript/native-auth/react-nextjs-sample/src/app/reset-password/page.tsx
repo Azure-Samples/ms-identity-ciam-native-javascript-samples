@@ -135,12 +135,7 @@ export default function ResetPassword() {
 
         if (isSignedIn) {
             return (
-                <div style={{
-                    padding: "20px",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    marginTop: "20px",
-                }}>Please sign out before processing the password reset.</div>
+                <div style={styles.signed_in_msg}>Please sign out before processing the password reset.</div>
             );
         }
 
@@ -175,7 +170,7 @@ export default function ResetPassword() {
 
     return (
         <div style={styles.container}>
-            <h2>Reset Password</h2>
+            <h2 style={styles.h2}>Reset Password</h2>
             {renderForm()}
             {error && <div style={styles.error}>{error}</div>}
         </div>

@@ -34,16 +34,10 @@ export default function Navbar() {
             </div>
             <div className={styles.links}>
                 <Link href="/sign-in" className={styles.link}>
-                    Sign In OTP/password
+                    Sign In
                 </Link>
                 <Link href="/sign-up" className={styles.link}>
-                    Sign Up with OTP
-                </Link>
-                <Link href="/sign-up-password" className={styles.link}>
-                    Sign Up with Password
-                </Link>
-                <Link href="/sign-up-attribute" className={styles.link}>
-                    Sign Up with Attributes
+                    Sign Up
                 </Link>
                 <Link href="/reset-password" className={styles.link}>
                     Reset Password
