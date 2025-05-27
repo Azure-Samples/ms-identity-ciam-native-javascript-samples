@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialFormWithPassword } from "./components/InitialFormWithPassword";
-import { CodeForm } from "../sign-up/components/CodeForm";
-import { SignUpResultPage } from "../sign-up/components/SignUpResult";
 import {
     CustomAuthPublicClientApplication,
+    ICustomAuthPublicClientApplication,
     SignUpCodeRequiredState,
     SignUpCompletedState,
     UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
+import { SignUpResultPage } from "./components/SignUpResult";
+import { CodeForm } from "./components/CodeForm";
 
 export default function SignUpPassword() {
-    const router = useRouter();
+    const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
@@ -24,42 +24,70 @@ export default function SignUpPassword() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [signUpState, setSignUpState] = useState<any>(null);
+    const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
+    const [isSignedIn, setSignInState] = useState(false);
+
+    useEffect(() => {
+        const initializeApp = async () => {
+            const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            setAuthClient(appInstance);
+        };
+
+        initializeApp();
+    }, []);
+
+    useEffect(() => {
+        const checkAccount = async () => {
+            if (!authClient) return;
+
+            const accountResult = authClient.getCurrentAccount();
+
+            if (accountResult.isCompleted()) {
+                setSignInState(true);
+            }
+
+            setLoadingAccountStatus(false);
+        };
+
+        checkAccount();
+    }, [authClient]);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        try {
-            const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
-            const account = app.getCurrentAccount();
-            account.data?.signOut();
+        if (!authClient) return;
 
-            const attributes = new UserAccountAttributes();
-            attributes.setDisplayName(`${firstName} ${lastName}`);
+        const attributes = new UserAccountAttributes();
+        attributes.setDisplayName(`${firstName} ${lastName}`);
 
-            const result = await app.signUp({
-                username: email,
-                password: password,
-                attributes,
-            });
+        const result = await authClient.signUp({
+            username: email,
+            password: password,
+            attributes,
+        });
+        const state = result.state;
 
-            if (result.error) {
-                if (result.error.isUserAlreadyExists()) {
-                    setError("An account with this email already exists");
-                } else {
-                    setError(result.error.errorData.errorDescription || "An error occurred while signing up");
-                }
-                return;
+        if (result.isFailed()) {
+            if (result.error?.isUserAlreadyExists()) {
+                setError("An account with this email already exists");
+            } else if (result.error?.isInvalidUsername()) {
+                setError("Invalid uername");
+            } else if (result.error?.isInvalidPassword()) {
+                setError("Invalid password");
+            } else if (result.error?.isAttributesValidationFailed()) {
+                setError("Invalid attributes");
+            } else if (result.error?.isMissingRequiredAttributes()) {
+                setError("Missing required attributes");
+            } else {
+                setError(result.error?.errorData.errorDescription || "An error occurred while signing up");
             }
-
-            setSignUpState(result.state);
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
+        } else {
+            setSignUpState(state);
         }
+
+        setLoading(false);
     };
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -67,39 +95,53 @@ export default function SignUpPassword() {
         setError("");
         setLoading(true);
 
-        try {
-            if (signUpState instanceof SignUpCodeRequiredState) {
-                const result = await signUpState.submitCode(code);
-                if (result.error) {
-                    if (result.error.isInvalidCode()) {
-                        setError("Invalid verification code");
-                    } else {
-                        setError("An error occurred while verifying the code");
-                    }
-                    return;
+        if (signUpState instanceof SignUpCodeRequiredState) {
+            const result = await signUpState.submitCode(code);
+            const state = result.state;
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidCode()) {
+                    setError("Invalid verification code");
+                } else {
+                    setError(result.error?.errorData.errorDescription || "An error occurred while verifying the code");
                 }
-                if (result.state instanceof SignUpCompletedState) {
-                    setSignUpState(result.state);
-                }
+            } else {
+                setSignUpState(state);
             }
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
 
-    if (signUpState instanceof SignUpCompletedState) {
-        return <SignUpResultPage state={signUpState} />;
-    }
+    const renderForm = () => {
+        if (loadingAccountStatus) {
+            return;
+        }
 
-    return (
-        <div style={styles.container}>
-            <h2>Sign Up with Password</h2>
-            {signUpState instanceof SignUpCodeRequiredState ? (
-                <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />
-            ) : (
+        if (isSignedIn) {
+            return (
+                <div style={{
+                    padding: "20px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    marginTop: "20px",
+                }}>Please sign out before processing the sign up.</div>
+            );
+        }
+
+        if (signUpState instanceof SignUpCodeRequiredState) {
+            return (
+                <CodeForm
+                    onSubmit={handleCodeSubmit}
+                    code={code}
+                    setCode={setCode}
+                    loading={loading}
+                />
+            );
+        } else if (signUpState instanceof SignUpCompletedState) {
+            return <SignUpResultPage />;
+        } else {
+            return (
                 <InitialFormWithPassword
                     onSubmit={handleInitialSubmit}
                     firstName={firstName}
@@ -112,7 +154,14 @@ export default function SignUpPassword() {
                     setPassword={setPassword}
                     loading={loading}
                 />
-            )}
+            );
+        }
+    }
+
+    return (
+        <div style={styles.container}>
+            <h2>Sign Up with Password</h2>
+            {renderForm()}
             {error && <div style={styles.error}>{error}</div>}
         </div>
     );

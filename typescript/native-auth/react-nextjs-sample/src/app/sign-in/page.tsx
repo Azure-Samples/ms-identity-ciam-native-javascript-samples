@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
-import { handleError } from "./utils";
 import { InitialForm } from "./components/InitialForm";
 import { PasswordForm } from "./components/PasswordForm";
 import { CodeForm } from "./components/CodeForm";
@@ -21,49 +20,64 @@ export default function SignIn() {
     const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
-    const handleInitialSubmit = async (e: React.FormEvent) => {
+    const startSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        try {
-            const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
-            const account = app.getCurrentAccount();
-            account.data?.signOut();
+        // Create a new instance of the CustomAuthPublicClientApplication
+        const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
 
-            const result = await app.signIn({
-                username,
-            });
+        // Start the sign-in flow
+        const result = await app.signIn({
+            username,
+        });
 
-            if (result.error) {
-                if (result.error.isUserNotFound()) {
-                    setError("User not found");
-                } else if (result.error.isRedirectRequired()) {
-                    const popUpRequest: PopupRequest = {
-                        authority: customAuthConfig.auth.authority,
-                        scopes: [],
-                        redirectUri: customAuthConfig.auth.redirectUri || "",
-                    }
-                    await app.loginPopup(popUpRequest);
-                    result.state = new SignInCompletedState()
-                    const accountData = app.getCurrentAccount();
-                    setData(accountData.data);
-                    setSignInState(result.state);
-                } else {
-                    setError("An error occurred during sign in");
+        // Thge result may have the different states,
+        // such as Password required state, OTP code rquired state, Failed state and Completed state.
+
+        if (result.isFailed()) {
+            console.error(result.error?.isPasswordIncorrect());
+            console.error(result.error?.errorData);
+
+            if (result.error?.isUserNotFound()) {
+                setError("User not found");
+            }  else if (result.error?.isInvalidUsername()) {
+                setError("Username is invalid");
+            } else if (result.error?.isPasswordIncorrect()) {
+                setError("Password is invalid");
+            } else if (result.error?.isRedirectRequired()) {
+                // Fallback to the delegated authentication flow.
+                const popUpRequest: PopupRequest = {
+                    authority: customAuthConfig.auth.authority,
+                    scopes: [],
+                    redirectUri: customAuthConfig.auth.redirectUri || "",
                 }
-                return;
+
+                await app.loginPopup(popUpRequest);
+
+                const accountResult = app.getCurrentAccount();
+
+                if (accountResult.isFailed()) {
+                    setError(accountResult.error?.errorData?.errorDescription ?? "An error occurred while getting the account from cache");
+                }
+
+                if (accountResult.isCompleted()) {
+                    result.state = new SignInCompletedState();
+                    result.data = accountResult.data;
+                }
+            } else {
+                setError(`An error occurred: ${result.error?.errorData?.errorDescription}`);
             }
-            setData(result.data);
-            setSignInState(result.state);
-            if (result.isCompleted()) {
-                return;
-            }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
         }
+
+        if (result.isCompleted()) {
+            setData(result.data);
+        }
+
+        setSignInState(result.state);
+
+        setLoading(false);
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -71,28 +85,29 @@ export default function SignIn() {
         setError("");
         setLoading(true);
 
-        try {
-            if (signInState instanceof SignInPasswordRequiredState) {
-                const result = await signInState.submitPassword(password);
+        if (signInState instanceof SignInPasswordRequiredState) {
+            const result = await signInState.submitPassword(password);
 
-                if (result.error) {
-                    if (result.error.errorData?.error === "invalid_password") {
-                        setError("Incorrect password");
-                    } else {
-                        setError(
-                            result.error.errorData?.errorDescription || "An error occurred while verifying the password"
-                        );
-                    }
-                    return;
+            // the result object may have the different states, such as Failed state and Completed state.
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidPassword()) {
+                    setError("Incorrect password");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription || "An error occurred while verifying the password"
+                    );
                 }
+            }
+
+            if (result.isCompleted()) {
                 setData(result.data);
+
                 setSignInState(result.state);
             }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -100,26 +115,26 @@ export default function SignIn() {
         setError("");
         setLoading(true);
 
-        try {
-            if (signInState instanceof SignInCodeRequiredState) {
-                const result = await signInState.submitCode(code);
+        if (signInState instanceof SignInCodeRequiredState) {
+            const result = await signInState.submitCode(code);
 
-                if (result.error) {
-                    if (result.error.isInvalidCode()) {
-                        setError("Invalid code");
-                    } else {
-                        setError("An error occurred while verifying the code");
-                    }
-                    return;
+            // the result object may have the different states, such as Failed state and Completed state.
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidCode()) {
+                    setError("Invalid code");
+                } else {
+                    setError(result.error?.errorData?.errorDescription || "An error occurred while verifying the code");
                 }
-                setSignInState(result.state);
-                setData(result.data);
             }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
+
+            if (result.isCompleted()) {
+                setData(result.data);
+                setSignInState(result.state);
+            }
         }
+
+        setLoading(false);
     };
 
     const renderForm = () => {
@@ -137,12 +152,12 @@ export default function SignIn() {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
         }
         if (signInState instanceof SignInCompletedState) {
-            return <UserInfo signInState={data} />;
+            return <UserInfo userData={data} />;
         }
 
         return (
             <InitialForm
-                onSubmit={handleInitialSubmit}
+                onSubmit={startSignIn}
                 username={username}
                 setUsername={setUsername}
                 loading={loading}

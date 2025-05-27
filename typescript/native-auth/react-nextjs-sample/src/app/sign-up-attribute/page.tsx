@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialFormWithAttributes } from "./components/InitialFormWithAttributes";
@@ -15,7 +14,6 @@ import {
 } from "@azure/msal-browser/custom-auth";
 
 export default function SignUpWithAttributes() {
-    const router = useRouter();
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");

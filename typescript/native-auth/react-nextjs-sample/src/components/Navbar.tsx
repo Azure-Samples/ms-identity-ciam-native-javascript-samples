@@ -49,7 +49,7 @@ export default function Navbar() {
                     Reset Password
                 </Link>
                 <button onClick={handleLogout} className={styles.link} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}>
-                    Logout
+                    Sign Out
                 </button>
             </div>
         </nav>

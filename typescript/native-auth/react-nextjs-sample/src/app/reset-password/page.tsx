@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
@@ -10,48 +9,77 @@ import { NewPasswordForm } from "./components/NewPasswordForm";
 import { ResetPasswordResultPage } from "./components/ResetPasswordResult";
 import {
     CustomAuthPublicClientApplication,
+    ICustomAuthPublicClientApplication,
     ResetPasswordCodeRequiredState,
     ResetPasswordPasswordRequiredState,
     ResetPasswordCompletedState,
+    AuthFlowStateBase,
 } from "@azure/msal-browser/custom-auth";
 
 export default function ResetPassword() {
-    const router = useRouter();
+    const [app, setApp] = useState<ICustomAuthPublicClientApplication | null>(null);
+    const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
+    const [isSignedIn, setSignInState] = useState(false);
     const [email, setEmail] = useState("");
     const [code, setCode] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [resetState, setResetState] = useState<any>(null);
+    const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
+
+    useEffect(() => {
+        const initializeApp = async () => {
+            const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            setApp(appInstance);
+        };
+
+        initializeApp();
+    }, []);
+
+    useEffect(() => {
+        const checkAccount = async () => {
+            if (!app) return;
+
+            const accountResult = app.getCurrentAccount();
+
+            if (accountResult.isCompleted()) {
+                setSignInState(true);
+            }
+
+            setLoadingAccountStatus(false);
+        };
+
+        checkAccount();
+    }, [app]);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
+        if (!app) return;
+
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        try {
-            const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
-            const account = app.getCurrentAccount();
-            account.data?.signOut();
+        const result = await app.resetPassword({
+            username: email,
+        });
 
-            const result = await app.resetPassword({
-                username: email,
-            });
+        const state = result.state;
 
-            if (result.error) {
+        if (result.isFailed()) {
+            if (result.error?.isInvalidUsername()) {
+                setError("Invalid email address");
+            } else if (result.error?.isUserNotFound()) {
+                setError("User not found");
+            } else {
                 setError(
-                    result.error.errorData.errorDescription || "An error occurred while initiating password reset"
+                    result.error?.errorData.errorDescription || "An error occurred while initiating password reset"
                 );
-                return;
             }
-
-            setResetState(result.state);
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
+        } else {
+            setResetState(state);
         }
+
+        setLoading(false);
     };
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -59,27 +87,22 @@ export default function ResetPassword() {
         setError("");
         setLoading(true);
 
-        try {
-            if (resetState instanceof ResetPasswordCodeRequiredState) {
-                const result = await resetState.submitCode(code);
+        if (resetState instanceof ResetPasswordCodeRequiredState) {
+            const result = await resetState.submitCode(code);
+            const state = result.state;
 
-                if (result.error) {
-                    if (result.error.isInvalidCode()) {
-                        setError("Invalid verification code");
-                    } else {
-                        setError("An error occurred while verifying the code");
-                    }
-                    return;
+            if (result.isFailed()) {
+                if (result.error?.isInvalidCode()) {
+                    setError("Invalid verification code");
+                } else {
+                    setError(result.error?.errorData.errorDescription || "An error occurred while verifying the code");
                 }
-
-                setResetState(result.state);
+            } else {
+                setResetState(state);
             }
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
 
     const handleNewPasswordSubmit = async (e: React.FormEvent) => {
@@ -87,46 +110,73 @@ export default function ResetPassword() {
         setError("");
         setLoading(true);
 
-        try {
-            if (resetState instanceof ResetPasswordPasswordRequiredState) {
-                const result = await resetState.submitNewPassword(newPassword);
+        if (resetState instanceof ResetPasswordPasswordRequiredState) {
+            const result = await resetState.submitNewPassword(newPassword);
+            const state = result.state;
 
-                if (result.error) {
-                    setError(result.error.errorData.errorDescription || "An error occurred while setting new password");
-                    return;
+            if (result.isFailed()) {
+                if (result.error?.isInvalidPassword()) {
+                    setError("Invalid password");
+                } else {
+                    setError(result.error?.errorData.errorDescription || "An error occurred while setting new password");
                 }
-
-                if (result.state instanceof ResetPasswordCompletedState) {
-                    setResetState(result.state);
-                }
+            } else {
+                setResetState(state);
             }
-        } catch (err) {
-            setError("An unexpected error occurred");
-            console.error(err);
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
 
-    if (resetState instanceof ResetPasswordCompletedState) {
-        return <ResetPasswordResultPage state={resetState} />;
-    }
+    const renderForm = () => {
+        if (loadingAccountStatus) {
+            return;
+        }
 
-    return (
-        <div style={styles.container}>
-            <h2>Reset Password</h2>
-            {resetState instanceof ResetPasswordPasswordRequiredState ? (
+        if (isSignedIn) {
+            return (
+                <div style={{
+                    padding: "20px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    marginTop: "20px",
+                }}>Please sign out before processing the password reset.</div>
+            );
+        }
+
+        if (resetState instanceof ResetPasswordPasswordRequiredState) {
+            return (
                 <NewPasswordForm
                     onSubmit={handleNewPasswordSubmit}
                     newPassword={newPassword}
                     setNewPassword={setNewPassword}
                     loading={loading}
                 />
-            ) : resetState instanceof ResetPasswordCodeRequiredState ? (
-                <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />
-            ) : (
-                <InitialForm onSubmit={handleInitialSubmit} email={email} setEmail={setEmail} loading={loading} />
-            )}
+            );
+        }
+
+        if (resetState instanceof ResetPasswordCodeRequiredState) {
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+        }
+
+        if (resetState instanceof ResetPasswordCompletedState) {
+            return <ResetPasswordResultPage />;
+        }
+
+        return (
+            <InitialForm
+                onSubmit={handleInitialSubmit}
+                email={email}
+                setEmail={setEmail}
+                loading={loading}
+            />
+        );
+    }
+
+    return (
+        <div style={styles.container}>
+            <h2>Reset Password</h2>
+            {renderForm()}
             {error && <div style={styles.error}>{error}</div>}
         </div>
     );
