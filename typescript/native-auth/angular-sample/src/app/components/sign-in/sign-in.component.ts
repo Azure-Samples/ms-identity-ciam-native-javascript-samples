@@ -1,57 +1,117 @@
-import { Component, OnInit } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from "@angular/forms";
-import { Router } from "@angular/router";
+import { Component } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
-import { SignInState } from "@azure/msal-custom-auth";
+import {
+    SignInPasswordRequiredState,
+    SignInCodeRequiredState,
+    AuthFlowStateBase,
+    CustomAuthAccountData,
+} from "@azure/msal-browser/custom-auth";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
 
 @Component({
     selector: "app-sign-in",
-    standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
     templateUrl: "./sign-in.component.html",
     styleUrls: ["./sign-in.component.scss"],
+    standalone: true,
+    imports: [CommonModule, FormsModule],
 })
-export class SignInComponent implements OnInit {
-    signInForm!: FormGroup;
-    isLoading = false;
-    errorMessage = "";
-    showOtpForm = false;
+export class SignInComponent {
+    username = "";
+    password = "";
+    code = "";
+    error = "";
+    loading = false;
+    showPassword = false;
+    showCode = false;
+    isSignedIn = false;
+    userData: CustomAuthAccountData | undefined = undefined;
+    signInState: AuthFlowStateBase | undefined = undefined;
 
-    constructor(private formBuilder: FormBuilder, private authService: AuthService, private router: Router) {}
+    constructor(private auth: AuthService) {}
 
-    ngOnInit(): void {
-        this.signInForm = this.formBuilder.group({
-            username: ["", [Validators.required, Validators.email]],
-            password: ["", Validators.required],
-        });
-    }
+    async startSignIn() {
+        this.error = "";
+        this.loading = true;
+        this.showPassword = false;
+        this.showCode = false;
+        this.isSignedIn = false;
 
-    onSubmit(): void {
-        if (this.signInForm.invalid) {
-            return;
+        const client = await this.auth.getClient();
+        const result = await client.signIn({ username: this.username });
+        this.signInState = result.state;
+
+        if (result.isFailed()) {
+            if (result.error?.isUserNotFound()) {
+                this.error = "User not found";
+            } else if (result.error?.isInvalidUsername()) {
+                this.error = "Username is invalid";
+            } else if (result.error?.isPasswordIncorrect()) {
+                this.error = "Password is invalid";
+            } else {
+                this.error = result.error?.errorData?.errorDescription || "Sign-in failed";
+            }
         }
 
-        this.isLoading = true;
-        this.errorMessage = "";
+        if (result.isPasswordRequired()) {
+            this.showPassword = true;
+            this.showCode = false;
+        } else if (result.isCodeRequired()) {
+            this.showPassword = false;
+            this.showCode = true;
+        } else if (result.isCompleted()) {
+            this.isSignedIn = true;
+            this.userData = result.data;
+        }
 
-        const { username, password } = this.signInForm.value;
+        this.loading = false;
+    }
 
-        this.authService
-            .signIn(username, password)
-            .then((result) => {
-                this.isLoading = false;
-                if (result.state?.type === SignInState.Completed) {
-                    this.router.navigate(["/profile"]); // Updated to navigate to profile
-                } else if (result.state?.type === SignInState.CodeRequired) {
-                    this.router.navigate(["/otp"]);
+    async submitPassword() {
+        this.error = "";
+        this.loading = true;
+        if (this.signInState instanceof SignInPasswordRequiredState) {
+            const result = await this.signInState.submitPassword(this.password);
+            this.signInState = result.state;
+            if (result.isFailed()) {
+                if (result.error?.isInvalidPassword()) {
+                    this.error = "Incorrect password";
                 } else {
-                    this.errorMessage = "An error occurred during sign-in";
+                    this.error =
+                        result.error?.errorData?.errorDescription || "An error occurred while verifying the password";
                 }
-            })
-            .catch((error) => {
-                this.isLoading = false;
-                this.errorMessage = error.message || "An error occurred during sign-in";
-            });
+            }
+
+            if (result.isCompleted()) {
+                this.isSignedIn = true;
+                this.userData = result.data;
+                this.showPassword = false;
+            }
+        }
+        this.loading = false;
+    }
+
+    async submitCode() {
+        this.error = "";
+        this.loading = true;
+        if (this.signInState instanceof SignInCodeRequiredState) {
+            const result = await this.signInState.submitCode(this.code);
+            this.signInState = result.state;
+            if (result.isFailed()) {
+                if (result.error?.isInvalidCode()) {
+                    this.error = "Invalid code";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription || "An error occurred while verifying the code";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.isSignedIn = true;
+                this.userData = result.data;
+                this.showCode = false;
+            }
+        }
+        this.loading = false;
     }
 }

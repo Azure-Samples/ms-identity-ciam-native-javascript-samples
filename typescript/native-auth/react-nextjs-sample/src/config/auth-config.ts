@@ -6,9 +6,9 @@ export const customAuthConfig: CustomAuthConfiguration = {
         authApiProxyUrl: "http://localhost:3001/api",
     },
     auth: {
-        clientId: "5dc44b40-af8b-4339-9f88-de425832c356",
+        clientId: "b91b095d-1892-43ff-88e0-b07efff0ec89",
         authority: "https://spasamples.ciamlogin.com",
-        redirectUri: "/", // You must register this URI on Azure Portal/App Registration. Defaults to window.location.href e.g. http://localhost:3000/
+        redirectUri: "/",
         postLogoutRedirectUri: "",
         navigateToLoginRequestUrl: false,
     },
