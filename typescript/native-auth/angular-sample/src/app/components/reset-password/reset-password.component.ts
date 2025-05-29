@@ -24,8 +24,22 @@ export class ResetPasswordComponent {
     showNewPassword = false;
     isReset = false;
     resetState: any = null;
+    isSignedIn = false;
+    userData: any = null;
 
     constructor(private auth: AuthService) {}
+
+    async ngOnInit() {
+        const client = await this.auth.getClient();
+        const result = client.getCurrentAccount();
+        if (result.isCompleted()) {
+            this.isSignedIn = true;
+            this.showCode = false;
+            this.showNewPassword = false;
+            this.isReset = false;
+            this.userData = result.data;
+        }
+    }
 
     async startReset() {
         this.error = "";
@@ -37,7 +51,6 @@ export class ResetPasswordComponent {
 
         const client = await this.auth.getClient();
         const result = await client.resetPassword({ username: this.email });
-        this.resetState = result.state;
 
         if (result.isFailed()) {
             this.error = result.error?.errorData?.errorDescription || "Password reset failed";
@@ -51,8 +64,11 @@ export class ResetPasswordComponent {
             }
         }
 
+        this.resetState = result.state;
+
         if (result.isCodeRequired()) {
             this.showCode = true;
+            this.isReset = false;
             this.showNewPassword = false;
         }
 
@@ -64,7 +80,7 @@ export class ResetPasswordComponent {
         this.loading = true;
         if (this.resetState instanceof ResetPasswordCodeRequiredState) {
             const result = await this.resetState.submitCode(this.code);
-            this.resetState = result.state;
+
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
                     this.error = "Invalid verification code";
@@ -73,9 +89,12 @@ export class ResetPasswordComponent {
                         result.error?.errorData.errorDescription || "An error occurred while verifying the code";
                 }
             }
+
             if (result.isPasswordRequired()) {
                 this.showCode = false;
                 this.showNewPassword = true;
+                this.isReset = false;
+                this.resetState = result.state;
             }
         }
         this.loading = false;
@@ -86,7 +105,7 @@ export class ResetPasswordComponent {
         this.loading = true;
         if (this.resetState instanceof ResetPasswordPasswordRequiredState) {
             const result = await this.resetState.submitNewPassword(this.newPassword);
-            this.resetState = result.state;
+
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
                     this.error = "Invalid password";
@@ -98,6 +117,8 @@ export class ResetPasswordComponent {
             if (result.isCompleted()) {
                 this.isReset = true;
                 this.showNewPassword = false;
+                this.showCode = false;
+                this.resetState = result.state;
             }
         }
         this.loading = false;

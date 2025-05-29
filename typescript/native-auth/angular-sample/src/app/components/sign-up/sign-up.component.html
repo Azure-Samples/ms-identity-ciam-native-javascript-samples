@@ -1,24 +1,27 @@
 <div class="auth-container">
   <h2>Sign Up</h2>
-  <form *ngIf="!isSignedUp" (ngSubmit)="startSignUp()" autocomplete="off">
+  <div *ngIf="isSignedIn">
+    <p>An user has signed in, please sign out first.</p>
+  </div>
+  <div *ngIf="isSignedUp">
+    <p>The user has been signed up, please click <a href="/sign-in">here</a> to sign in.</p>
+  </div>
+  <form *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp" (ngSubmit)="startSignUp()" autocomplete="off">
     <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
     <input type="text" [(ngModel)]="lastName" name="lastName" placeholder="Last Name" required />
     <input type="text" [(ngModel)]="jobTitle" name="jobTitle" placeholder="Job Title" required />
     <input type="text" [(ngModel)]="city" name="city" placeholder="City" required />
     <input type="text" [(ngModel)]="country" name="country" placeholder="Country" required />
     <input type="email" [(ngModel)]="email" name="email" placeholder="Email" required />
-    <div *ngIf="showPassword">
-      <input type="password" [(ngModel)]="password" name="password" placeholder="Password" required />
-      <button type="button" (click)="submitPassword()" [disabled]="loading">{{ loading ? 'Submitting...' : 'Submit Password' }}</button>
-    </div>
-    <div *ngIf="showCode">
-      <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
-      <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code' }}</button>
-    </div>
     <button *ngIf="!showPassword && !showCode" type="submit" [disabled]="loading">{{ loading ? 'Signing up...' : 'Sign Up' }}</button>
   </form>
+  <form *ngIf="showPassword" (ngSubmit)="submitPassword()">
+    <input type="password" [(ngModel)]="password" name="password" placeholder="Password" required />
+    <button type="button" (click)="submitPassword()" [disabled]="loading">{{ loading ? 'Submitting...' : 'Submit Password' }}</button>
+  </form>
+  <form *ngIf="showCode" (ngSubmit)="submitCode()">
+    <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
+    <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code' }}</button>
+  </form>
   <div class="error" *ngIf="error">{{ error }}</div>
-  <div *ngIf="isSignedUp">
-    <p>Sign up successful! You can now sign in.</p>
-  </div>
 </div>

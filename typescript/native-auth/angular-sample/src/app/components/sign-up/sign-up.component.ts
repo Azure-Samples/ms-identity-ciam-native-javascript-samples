@@ -29,9 +29,22 @@ export class SignUpComponent {
     showPassword = false;
     showCode = false;
     isSignedUp = false;
+    isSignedIn = false;
+    userData: any = null;
     signUpState: any = null;
 
     constructor(private auth: AuthService) {}
+
+    async ngOnInit() {
+        const client = await this.auth.getClient();
+        const result = client.getCurrentAccount();
+        if (result.isCompleted()) {
+            this.isSignedIn = true;
+            this.showCode = false;
+            this.showPassword = false;
+            this.userData = result.data;
+        }
+    }
 
     async startSignUp() {
         this.error = "";
@@ -54,8 +67,6 @@ export class SignUpComponent {
             attributes,
         });
 
-        this.signUpState = result.state;
-
         if (result.isFailed()) {
             if (result.error?.isUserAlreadyExists()) {
                 this.error = "An account with this email already exists";
@@ -71,6 +82,8 @@ export class SignUpComponent {
                 this.error = result.error?.errorData.errorDescription || "An error occurred while signing up";
             }
         }
+
+        this.signUpState = result.state;
 
         if (result.isPasswordRequired()) {
             this.showPassword = true;
@@ -88,7 +101,7 @@ export class SignUpComponent {
         this.loading = true;
         if (this.signUpState instanceof SignUpPasswordRequiredState) {
             const result = await this.signUpState.submitPassword(this.password);
-            this.signUpState = result.state;
+
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
                     this.error = "Invalid password";
@@ -101,6 +114,7 @@ export class SignUpComponent {
                 this.isSignedUp = true;
                 this.showPassword = false;
                 this.showCode = false;
+                this.signUpState = result.state;
             }
         }
         this.loading = false;
@@ -111,7 +125,7 @@ export class SignUpComponent {
         this.loading = true;
         if (this.signUpState instanceof SignUpCodeRequiredState) {
             const result = await this.signUpState.submitCode(this.code);
-            this.signUpState = result.state;
+
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
                     this.error = "Invalid verification code";
@@ -124,9 +138,11 @@ export class SignUpComponent {
                 this.isSignedUp = true;
                 this.showCode = false;
                 this.showPassword = false;
+                this.signUpState = result.state;
             } else if (result.isPasswordRequired()) {
                 this.showCode = false;
                 this.showPassword = true;
+                this.signUpState = result.state;
             }
         }
         this.loading = false;

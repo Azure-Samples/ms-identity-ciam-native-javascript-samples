@@ -9,9 +9,10 @@ import { ResetPasswordComponent } from './components/reset-password/reset-passwo
 import { AuthService } from './services/auth.service';
 import { RouterModule, Routes } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { WelcomeComponent } from './components/welcome.component';
 
 const routes: Routes = [
-  { path: '', redirectTo: 'sign-in', pathMatch: 'full' },
+  { path: '', component: WelcomeComponent },
   { path: 'sign-in', component: SignInComponent },
   { path: 'sign-up', component: SignUpComponent },
   { path: 'reset-password', component: ResetPasswordComponent }
@@ -28,7 +29,8 @@ const routes: Routes = [
     NavbarComponent,
     SignInComponent,
     SignUpComponent,
-    ResetPasswordComponent
+    ResetPasswordComponent,
+    WelcomeComponent
   ],
   providers: [AuthService],
   bootstrap: [AppComponent]

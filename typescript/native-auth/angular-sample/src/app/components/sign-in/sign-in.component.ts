@@ -1,10 +1,11 @@
-import { Component } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     SignInPasswordRequiredState,
     SignInCodeRequiredState,
     AuthFlowStateBase,
     CustomAuthAccountData,
+    SignInResult,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -16,7 +17,7 @@ import { FormsModule } from "@angular/forms";
     standalone: true,
     imports: [CommonModule, FormsModule],
 })
-export class SignInComponent {
+export class SignInComponent implements OnInit {
     username = "";
     password = "";
     code = "";
@@ -30,6 +31,18 @@ export class SignInComponent {
 
     constructor(private auth: AuthService) {}
 
+    async ngOnInit() {
+        const client = await this.auth.getClient();
+        const result = client.getCurrentAccount();
+
+        if (result.isCompleted()) {
+            this.isSignedIn = true;
+            this.showCode = false;
+            this.showPassword = false;
+            this.userData = result.data;
+        }
+    }
+
     async startSignIn() {
         this.error = "";
         this.loading = true;
@@ -38,8 +51,7 @@ export class SignInComponent {
         this.isSignedIn = false;
 
         const client = await this.auth.getClient();
-        const result = await client.signIn({ username: this.username });
-        this.signInState = result.state;
+        const result: SignInResult = await client.signIn({ username: this.username });
 
         if (result.isFailed()) {
             if (result.error?.isUserNotFound()) {
@@ -64,6 +76,7 @@ export class SignInComponent {
             this.userData = result.data;
         }
 
+        this.signInState = result.state;
         this.loading = false;
     }
 
@@ -72,7 +85,6 @@ export class SignInComponent {
         this.loading = true;
         if (this.signInState instanceof SignInPasswordRequiredState) {
             const result = await this.signInState.submitPassword(this.password);
-            this.signInState = result.state;
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
                     this.error = "Incorrect password";
@@ -86,6 +98,7 @@ export class SignInComponent {
                 this.isSignedIn = true;
                 this.userData = result.data;
                 this.showPassword = false;
+                this.signInState = result.state;
             }
         }
         this.loading = false;
@@ -96,7 +109,7 @@ export class SignInComponent {
         this.loading = true;
         if (this.signInState instanceof SignInCodeRequiredState) {
             const result = await this.signInState.submitCode(this.code);
-            this.signInState = result.state;
+
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
                     this.error = "Invalid code";
@@ -110,6 +123,7 @@ export class SignInComponent {
                 this.isSignedIn = true;
                 this.userData = result.data;
                 this.showCode = false;
+                this.signInState = result.state;
             }
         }
         this.loading = false;

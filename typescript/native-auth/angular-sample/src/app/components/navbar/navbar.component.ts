@@ -19,7 +19,7 @@ export class NavbarComponent {
     const account = client.getCurrentAccount();
     if (account && account.data && account.data.signOut) {
       await account.data.signOut();
-      this.router.navigate(['/sign-in']);
+      this.router.navigate(['/']);
     }
   }
 }
