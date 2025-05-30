@@ -1,46 +1,38 @@
 import { styles } from "../styles/styles";
 
-interface InitialFormWithAttributesProps {
+interface InitialFormWithPasswordProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
     firstName: string;
     setFirstName: (value: string) => void;
     lastName: string;
     setLastName: (value: string) => void;
-    email: string;
-    setEmail: (value: string) => void;
     jobTitle: string;
     setJobTitle: (value: string) => void;
-    streetAddress: string;
-    setStreetAddress: (value: string) => void;
     city: string;
     setCity: (value: string) => void;
-    postalCode: string;
-    setPostalCode: (value: string) => void;
     country: string;
     setCountry: (value: string) => void;
+    email: string;
+    setEmail: (value: string) => void;
     loading: boolean;
 }
 
-export function InitialFormWithAttributes({
+export function InitialFormWithPassword({
     onSubmit,
     firstName,
     setFirstName,
     lastName,
     setLastName,
-    email,
-    setEmail,
     jobTitle,
     setJobTitle,
-    streetAddress,
-    setStreetAddress,
     city,
     setCity,
-    postalCode,
-    setPostalCode,
     country,
     setCountry,
-    loading
-}: InitialFormWithAttributesProps) {
+    email,
+    setEmail,
+    loading,
+}: InitialFormWithPasswordProps) {
     return (
         <form onSubmit={onSubmit} style={styles.form}>
             <input
@@ -60,26 +52,10 @@ export function InitialFormWithAttributes({
                 required
             />
             <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={styles.input}
-                required
-            />
-            <input
                 type="text"
                 placeholder="Job Title"
                 value={jobTitle}
                 onChange={(e) => setJobTitle(e.target.value)}
-                style={styles.input}
-                required
-            />
-            <input
-                type="text"
-                placeholder="Street Address"
-                value={streetAddress}
-                onChange={(e) => setStreetAddress(e.target.value)}
                 style={styles.input}
                 required
             />
@@ -93,17 +69,17 @@ export function InitialFormWithAttributes({
             />
             <input
                 type="text"
-                placeholder="Postal Code"
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value)}
+                placeholder="Country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
                 style={styles.input}
                 required
             />
             <input
-                type="text"
-                placeholder="Country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}
                 required
             />

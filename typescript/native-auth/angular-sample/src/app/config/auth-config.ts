@@ -1,4 +1,4 @@
-import { CustomAuthConfiguration, LogLevel } from "@azure/msal-custom-auth";
+import { CustomAuthConfiguration, LogLevel } from "@azure/msal-browser/custom-auth";
 
 export const customAuthConfig: CustomAuthConfiguration = {
     customAuth: {
@@ -6,10 +6,10 @@ export const customAuthConfig: CustomAuthConfiguration = {
         authApiProxyUrl: "http://localhost:3001/api",
     },
     auth: {
-        clientId: "852e2544-572b-49a4-be67-6a08fef202df",
-        authority: "https://spasamples.ciamlogin.com",
+        clientId: "Enter_the_Application_Id_Here",
+        authority: "https://Enter_the_Tenant_Subdomain_Here.ciamlogin.com",
         redirectUri: "/",
-        postLogoutRedirectUri: "/",
+        postLogoutRedirectUri: "",
         navigateToLoginRequestUrl: false,
     },
     cache: {

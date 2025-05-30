@@ -1,13 +1,13 @@
-import { Component } from "@angular/core";
-import { RouterOutlet, RouterLink, RouterLinkActive } from "@angular/router";
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { NavbarComponent } from './components/navbar/navbar.component';
 
 @Component({
-    selector: "app-root",
-    standalone: true,
-    imports: [RouterOutlet, RouterLink, RouterLinkActive],
-    templateUrl: "./app.component.html",
-    styleUrl: "./app.component.scss",
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.scss'],
+  standalone: true,
+  imports: [CommonModule, RouterModule, NavbarComponent],
 })
-export class AppComponent {
-    title = "Custom Auth Sample in Angular";
-}
+export class AppComponent {}

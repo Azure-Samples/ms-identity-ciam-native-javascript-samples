@@ -1,11 +1,6 @@
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-interface SignUpResultProps {
-    state: any;
-}
-
-export function SignUpResultPage({ state }: SignUpResultProps) {
+export function SignUpResultPage() {
     const router = useRouter();
 
     return (
@@ -17,19 +12,7 @@ export function SignUpResultPage({ state }: SignUpResultProps) {
                 marginTop: "20px",
             }}
         >
-            <h3>Sign Up Successful</h3>
-            {/*
-            <div style={{ marginTop: "15px" }}>
-                <div style={{ marginBottom: "10px" }}>
-                    <strong>Name:</strong> {state.displayName}
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                    <strong>Email:</strong> {state.email}
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                    <strong>Account Created:</strong> {new Date(state.timestamp).toLocaleString()}
-                </div>
-            </div>
+            <div>Sign Up Successful</div>
             <div style={{ marginTop: "20px" }}>
                 <button
                     style={{
@@ -41,26 +24,11 @@ export function SignUpResultPage({ state }: SignUpResultProps) {
                         cursor: "pointer",
                         fontSize: "16px",
                     }}
-                    onClick={() => router.push("/sign-up/complete")}
+                    onClick={() => router.push("/sign-in")}
                 >
-                    View Complete Profile
+                    Go to Sign In
                 </button>
             </div>
-            */}
-            <details style={{ marginTop: "20px" }}>
-                <summary style={{ cursor: "pointer", color: "#666" }}>Technical Details</summary>
-                <pre
-                    style={{
-                        background: "#f5f5f5",
-                        padding: "15px",
-                        borderRadius: "4px",
-                        overflowX: "auto",
-                        marginTop: "10px",
-                    }}
-                >
-                    {JSON.stringify(state, null, 2)}
-                </pre>
-            </details>
         </div>
     );
 }

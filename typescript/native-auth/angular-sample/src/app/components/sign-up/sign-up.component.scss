@@ -1,4 +1,4 @@
-/* Sign-In Component Styles */
+/* Sign-Up Component Styles */
 .auth-container {
   max-width: 400px;
   margin: 2rem auto;
@@ -48,4 +48,11 @@ button:hover {
 .error {
   color: #d13438;
   margin-top: 10px;
+}
+
+.signed-in-msg {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 20px;
 }
