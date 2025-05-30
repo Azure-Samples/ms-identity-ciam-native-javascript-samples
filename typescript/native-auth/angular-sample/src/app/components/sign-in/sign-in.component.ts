@@ -6,9 +6,12 @@ import {
     AuthFlowStateBase,
     CustomAuthAccountData,
     SignInResult,
+    SignInCompletedState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { PopupRequest } from "@azure/msal-browser";
+import { customAuthConfig } from "../../config/auth-config";
 
 @Component({
     selector: "app-sign-in",
@@ -52,6 +55,7 @@ export class SignInComponent implements OnInit {
 
         const client = await this.auth.getClient();
         const result: SignInResult = await client.signIn({ username: this.username });
+        let currentState = result.state;
 
         if (result.isFailed()) {
             if (result.error?.isUserNotFound()) {
@@ -60,6 +64,25 @@ export class SignInComponent implements OnInit {
                 this.error = "Username is invalid";
             } else if (result.error?.isPasswordIncorrect()) {
                 this.error = "Password is invalid";
+            } else if (result.error?.isRedirectRequired()) {
+                // Fallback to the delegated authentication flow.
+                const popUpRequest: PopupRequest = {
+                    authority: customAuthConfig.auth.authority,
+                    scopes: [],
+                    redirectUri: customAuthConfig.auth.redirectUri || "",
+                }
+
+                await client.loginPopup(popUpRequest);
+                const accountResult = client.getCurrentAccount();
+
+                if (accountResult.isFailed()) {
+                    this.error = accountResult.error?.errorData?.errorDescription ?? "An error occurred while getting the account from cache";
+                }
+
+                if (accountResult.isCompleted()) {
+                    currentState = new SignInCompletedState();
+                    result.data = accountResult.data;
+                }
             } else {
                 this.error = result.error?.errorData?.errorDescription || "Sign-in failed";
             }
@@ -76,7 +99,7 @@ export class SignInComponent implements OnInit {
             this.userData = result.data;
         }
 
-        this.signInState = result.state;
+        this.signInState = currentState;
         this.loading = false;
     }
 
