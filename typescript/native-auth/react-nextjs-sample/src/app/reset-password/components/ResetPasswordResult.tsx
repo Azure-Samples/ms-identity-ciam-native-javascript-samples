@@ -1,10 +1,6 @@
 import { useRouter } from "next/navigation";
 
-interface ResetPasswordResultProps {
-    state: any;
-}
-
-export function ResetPasswordResultPage({ state }: ResetPasswordResultProps) {
+export function ResetPasswordResultPage() {
     const router = useRouter();
 
     return (
@@ -16,21 +12,7 @@ export function ResetPasswordResultPage({ state }: ResetPasswordResultProps) {
                 marginTop: "20px",
             }}
         >
-            <h3>Password Reset Successful</h3>
-
-            <div style={{ marginTop: "15px" }}>
-                <div style={{ marginBottom: "10px" }}>
-                    Your password has been successfully reset. You can now sign in with your new password.
-                </div>
-                {/*
-                <div style={{ marginBottom: "10px" }}>
-                    <strong>Email:</strong> {state.email}
-                </div>
-                <div style={{ marginBottom: "10px" }}>
-                    <strong>Reset Completed:</strong> {new Date(state.timestamp).toLocaleString()}
-                </div>
-                */}
-            </div>
+            <div>Password Reset Successful</div>
 
             <div style={{ marginTop: "20px" }}>
                 <button
@@ -48,21 +30,6 @@ export function ResetPasswordResultPage({ state }: ResetPasswordResultProps) {
                     Go to Sign In
                 </button>
             </div>
-
-            <details style={{ marginTop: "20px" }}>
-                <summary style={{ cursor: "pointer", color: "#666" }}>Technical Details</summary>
-                <pre
-                    style={{
-                        background: "#f5f5f5",
-                        padding: "15px",
-                        borderRadius: "4px",
-                        overflowX: "auto",
-                        marginTop: "10px",
-                    }}
-                >
-                    {JSON.stringify(state, null, 2)}
-                </pre>
-            </details>
         </div>
     );
 }
