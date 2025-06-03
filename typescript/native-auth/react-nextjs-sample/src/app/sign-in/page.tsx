@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, ICustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
+import {
+    AuthFlowStateBase,
+    CustomAuthAccountData,
+    CustomAuthPublicClientApplication,
+    ICustomAuthPublicClientApplication,
+    SignInCompletedState,
+} from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
@@ -24,13 +30,13 @@ export default function SignIn() {
     const [isSignedIn, setCurrentSignInStatus] = useState(false);
 
     useEffect(() => {
-            const initializeApp = async () => {
-                const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
-                setAuthClient(appInstance);
-            };
+        const initializeApp = async () => {
+            const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            setAuthClient(appInstance);
+        };
 
-            initializeApp();
-        }, []);
+        initializeApp();
+    }, []);
 
     useEffect(() => {
         const checkAccount = async () => {
@@ -66,12 +72,9 @@ export default function SignIn() {
         // such as Password required state, OTP code rquired state, Failed state and Completed state.
 
         if (result.isFailed()) {
-            console.error(result.error?.isPasswordIncorrect());
-            console.error(result.error?.errorData);
-
             if (result.error?.isUserNotFound()) {
                 setError("User not found");
-            }  else if (result.error?.isInvalidUsername()) {
+            } else if (result.error?.isInvalidUsername()) {
                 setError("Username is invalid");
             } else if (result.error?.isPasswordIncorrect()) {
                 setError("Password is invalid");
@@ -81,19 +84,31 @@ export default function SignIn() {
                     authority: customAuthConfig.auth.authority,
                     scopes: [],
                     redirectUri: customAuthConfig.auth.redirectUri || "",
-                }
+                    prompt: "login", // Forces the user to enter their credentials on that request, negating single-sign on.
+                };
 
-                await authClient.loginPopup(popUpRequest);
+                try {
+                    await authClient.loginPopup(popUpRequest);
 
-                const accountResult = authClient.getCurrentAccount();
+                    const accountResult = authClient.getCurrentAccount();
 
-                if (accountResult.isFailed()) {
-                    setError(accountResult.error?.errorData?.errorDescription ?? "An error occurred while getting the account from cache");
-                }
+                    if (accountResult.isFailed()) {
+                        setError(
+                            accountResult.error?.errorData?.errorDescription ??
+                                "An error occurred while getting the account from cache"
+                        );
+                    }
 
-                if (accountResult.isCompleted()) {
-                    result.state = new SignInCompletedState();
-                    result.data = accountResult.data;
+                    if (accountResult.isCompleted()) {
+                        result.state = new SignInCompletedState();
+                        result.data = accountResult.data;
+                    }
+                } catch (error) {
+                    if (error instanceof Error) {
+                        setError(error.message);
+                    } else {
+                        setError("An unexpected error occurred while logging in with popup");
+                    }
                 }
             } else {
                 setError(`An error occurred: ${result.error?.errorData?.errorDescription}`);
@@ -188,14 +203,7 @@ export default function SignIn() {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
         }
 
-        return (
-            <InitialForm
-                onSubmit={startSignIn}
-                username={username}
-                setUsername={setUsername}
-                loading={loading}
-            />
-        );
+        return <InitialForm onSubmit={startSignIn} username={username} setUsername={setUsername} loading={loading} />;
     };
 
     return (

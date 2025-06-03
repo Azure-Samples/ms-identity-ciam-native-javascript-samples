@@ -7,6 +7,7 @@ import {
     CustomAuthAccountData,
     SignInResult,
     SignInCompletedState,
+    ICustomAuthPublicClientApplication,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -65,23 +66,20 @@ export class SignInComponent implements OnInit {
             } else if (result.error?.isPasswordIncorrect()) {
                 this.error = "Password is invalid";
             } else if (result.error?.isRedirectRequired()) {
-                // Fallback to the delegated authentication flow.
-                const popUpRequest: PopupRequest = {
-                    authority: customAuthConfig.auth.authority,
-                    scopes: [],
-                    redirectUri: customAuthConfig.auth.redirectUri || "",
-                }
+                const fallbackResult = await this.authWithFallback(client);
+                if (fallbackResult) {
+                    const accountResult = client.getCurrentAccount();
 
-                await client.loginPopup(popUpRequest);
-                const accountResult = client.getCurrentAccount();
+                    if (accountResult.isFailed()) {
+                        this.error =
+                            accountResult.error?.errorData?.errorDescription ??
+                            "An error occurred while getting the account from cache";
+                    }
 
-                if (accountResult.isFailed()) {
-                    this.error = accountResult.error?.errorData?.errorDescription ?? "An error occurred while getting the account from cache";
-                }
-
-                if (accountResult.isCompleted()) {
-                    currentState = new SignInCompletedState();
-                    result.data = accountResult.data;
+                    if (accountResult.isCompleted()) {
+                        currentState = new SignInCompletedState();
+                        result.data = accountResult.data;
+                    }
                 }
             } else {
                 this.error = result.error?.errorData?.errorDescription || "Sign-in failed";
@@ -101,6 +99,29 @@ export class SignInComponent implements OnInit {
 
         this.signInState = currentState;
         this.loading = false;
+    }
+
+    async authWithFallback(client: ICustomAuthPublicClientApplication): Promise<boolean> {
+        const popUpRequest: PopupRequest = {
+            authority: customAuthConfig.auth.authority,
+            scopes: [],
+            redirectUri: customAuthConfig.auth.redirectUri || "",
+            prompt: "login", // Forces the user to enter their credentials on that request, negating single-sign on.
+        };
+
+        try {
+            await client.loginPopup(popUpRequest);
+
+            return true;
+        } catch (error) {
+            if (error instanceof Error) {
+                this.error = error.message;
+            } else {
+                this.error = "An unexpected error occurred while logging in with popup";
+            }
+
+            return false;
+        }
     }
 
     async submitPassword() {
