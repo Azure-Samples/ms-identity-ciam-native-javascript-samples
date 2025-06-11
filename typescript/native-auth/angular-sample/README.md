@@ -7,13 +7,6 @@ This folder contains a sample project demonstrating Microsoft Identity CIAM (Cus
 ### Native Authentication with MSAL Custom Auth SDK
 This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement secure, standards-based native authentication flows with Microsoft Identity CIAM. All authentication logic is handled on the client side, and API calls are securely proxied to the backend using a CORS proxy.
 
-#### Sign-in
-- Supports both password-based and passwordless authentication.
-- Users sign in with their email as the username.
-- Password-based: Enter email and password to authenticate.
-- Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
-- Handles authentication errors and displays appropriate messages.
-
 #### Sign-up
 - New users can register using either:
   - Email + password
@@ -21,6 +14,13 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 - During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
 - The sign-up flow may include email verification or additional steps as required by the backend.
 - Handles validation and error feedback for user input.
+
+#### Sign-in
+- Supports both password-based and passwordless authentication.
+- Users sign in with their email as the username.
+- Password-based: Enter email and password to authenticate.
+- Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
+- Handles authentication errors and displays appropriate messages.
 
 #### Self-Service Password Reset (SSPR)
 - Users can initiate a self-serve password reset if they forget their password.
@@ -38,14 +38,14 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 
 1. Clone the repository:
 
-```sh
+```bash
 git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
 cd typescript/native-auth/angular-sample
 ```
 
 2. Install dependencies:
 
-```sh
+```bash
 npm install
 ```
 
@@ -71,13 +71,13 @@ The Native Auth APIs [currently don't support](https://learn.microsoft.com/en-us
 
 1. Start the CORS proxy:
 
-```sh
+```bash
 npm run cors
 ```
 
 2. In a new terminal, start the Angular development server:
 
-```sh
+```bash
 npm run start
 ```
 
