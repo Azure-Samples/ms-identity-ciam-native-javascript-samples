@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { AuthFlowStateBase, CustomAuthAccountData, CustomAuthPublicClientApplication, SignInCompletedState } from "@azure/msal-browser/custom-auth";
+import { useEffect, useState } from "react";
+import {
+    AuthFlowStateBase,
+    CustomAuthAccountData,
+    CustomAuthPublicClientApplication,
+    ICustomAuthPublicClientApplication,
+    SignInCompletedState,
+} from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
-import { handleError } from "./utils";
 import { InitialForm } from "./components/InitialForm";
 import { PasswordForm } from "./components/PasswordForm";
 import { CodeForm } from "./components/CodeForm";
@@ -13,6 +18,7 @@ import { SignInCodeRequiredState, SignInPasswordRequiredState } from "@azure/msa
 import { PopupRequest } from "@azure/msal-browser";
 
 export default function SignIn() {
+    const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [code, setCode] = useState("");
@@ -20,50 +26,102 @@ export default function SignIn() {
     const [loading, setLoading] = useState(false);
     const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
+    const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
+    const [isSignedIn, setCurrentSignInStatus] = useState(false);
 
-    const handleInitialSubmit = async (e: React.FormEvent) => {
+    useEffect(() => {
+        const initializeApp = async () => {
+            const appInstance = await CustomAuthPublicClientApplication.create(customAuthConfig);
+            setAuthClient(appInstance);
+        };
+
+        initializeApp();
+    }, []);
+
+    useEffect(() => {
+        const checkAccount = async () => {
+            if (!authClient) return;
+
+            const accountResult = authClient.getCurrentAccount();
+
+            if (accountResult.isCompleted()) {
+                setCurrentSignInStatus(true);
+            }
+
+            setData(accountResult.data);
+
+            setLoadingAccountStatus(false);
+        };
+
+        checkAccount();
+    }, [authClient]);
+
+    const startSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        try {
-            const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
-            const account = app.getCurrentAccount();
-            account.data?.signOut();
+        if (!authClient) return;
 
-            const result = await app.signIn({
-                username,
-            });
+        // Start the sign-in flow
+        const result = await authClient.signIn({
+            username,
+        });
 
-            if (result.error) {
-                if (result.error.isUserNotFound()) {
-                    setError("User not found");
-                } else if (result.error.isRedirectRequired()) {
-                    const popUpRequest: PopupRequest = {
-                        authority: customAuthConfig.auth.authority,
-                        scopes: [],
-                        redirectUri: customAuthConfig.auth.redirectUri || "",
+        // Thge result may have the different states,
+        // such as Password required state, OTP code rquired state, Failed state and Completed state.
+
+        if (result.isFailed()) {
+            if (result.error?.isUserNotFound()) {
+                setError("User not found");
+            } else if (result.error?.isInvalidUsername()) {
+                setError("Username is invalid");
+            } else if (result.error?.isPasswordIncorrect()) {
+                setError("Password is invalid");
+            } else if (result.error?.isRedirectRequired()) {
+                // Fallback to the delegated authentication flow.
+                const popUpRequest: PopupRequest = {
+                    authority: customAuthConfig.auth.authority,
+                    scopes: [],
+                    redirectUri: customAuthConfig.auth.redirectUri || "",
+                    prompt: "login", // Forces the user to enter their credentials on that request, negating single-sign on.
+                };
+
+                try {
+                    await authClient.loginPopup(popUpRequest);
+
+                    const accountResult = authClient.getCurrentAccount();
+
+                    if (accountResult.isFailed()) {
+                        setError(
+                            accountResult.error?.errorData?.errorDescription ??
+                                "An error occurred while getting the account from cache"
+                        );
                     }
-                    await app.loginPopup(popUpRequest);
-                    result.state = new SignInCompletedState()
-                    const accountData = app.getCurrentAccount();
-                    setData(accountData.data);
-                    setSignInState(result.state);
-                } else {
-                    setError("An error occurred during sign in");
+
+                    if (accountResult.isCompleted()) {
+                        result.state = new SignInCompletedState();
+                        result.data = accountResult.data;
+                    }
+                } catch (error) {
+                    if (error instanceof Error) {
+                        setError(error.message);
+                    } else {
+                        setError("An unexpected error occurred while logging in with popup");
+                    }
                 }
-                return;
+            } else {
+                setError(`An error occurred: ${result.error?.errorData?.errorDescription}`);
             }
-            setData(result.data);
-            setSignInState(result.state);
-            if (result.isCompleted()) {
-                return;
-            }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
         }
+
+        if (result.isCompleted()) {
+            setData(result.data);
+        }
+
+        setSignInState(result.state);
+
+        setLoading(false);
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -71,28 +129,27 @@ export default function SignIn() {
         setError("");
         setLoading(true);
 
-        try {
-            if (signInState instanceof SignInPasswordRequiredState) {
-                const result = await signInState.submitPassword(password);
+        if (signInState instanceof SignInPasswordRequiredState) {
+            const result = await signInState.submitPassword(password);
 
-                if (result.error) {
-                    if (result.error.errorData?.error === "invalid_password") {
-                        setError("Incorrect password");
-                    } else {
-                        setError(
-                            result.error.errorData?.errorDescription || "An error occurred while verifying the password"
-                        );
-                    }
-                    return;
+            if (result.isFailed()) {
+                if (result.error?.isInvalidPassword()) {
+                    setError("Incorrect password");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription || "An error occurred while verifying the password"
+                    );
                 }
+            }
+
+            if (result.isCompleted()) {
                 setData(result.data);
+
                 setSignInState(result.state);
             }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
         }
+
+        setLoading(false);
     };
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -100,29 +157,37 @@ export default function SignIn() {
         setError("");
         setLoading(true);
 
-        try {
-            if (signInState instanceof SignInCodeRequiredState) {
-                const result = await signInState.submitCode(code);
+        if (signInState instanceof SignInCodeRequiredState) {
+            const result = await signInState.submitCode(code);
 
-                if (result.error) {
-                    if (result.error.isInvalidCode()) {
-                        setError("Invalid code");
-                    } else {
-                        setError("An error occurred while verifying the code");
-                    }
-                    return;
+            // the result object may have the different states, such as Failed state and Completed state.
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidCode()) {
+                    setError("Invalid code");
+                } else {
+                    setError(result.error?.errorData?.errorDescription || "An error occurred while verifying the code");
                 }
-                setSignInState(result.state);
-                setData(result.data);
             }
-        } catch (err) {
-            handleError(err, setError);
-        } finally {
-            setLoading(false);
+
+            if (result.isCompleted()) {
+                setData(result.data);
+                setSignInState(result.state);
+            }
         }
+
+        setLoading(false);
     };
 
     const renderForm = () => {
+        if (loadingAccountStatus) {
+            return;
+        }
+
+        if (isSignedIn || signInState instanceof SignInCompletedState) {
+            return <UserInfo userData={data} />;
+        }
+
         if (signInState instanceof SignInPasswordRequiredState) {
             return (
                 <PasswordForm
@@ -133,26 +198,17 @@ export default function SignIn() {
                 />
             );
         }
+
         if (signInState instanceof SignInCodeRequiredState) {
             return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
         }
-        if (signInState instanceof SignInCompletedState) {
-            return <UserInfo signInState={data} />;
-        }
 
-        return (
-            <InitialForm
-                onSubmit={handleInitialSubmit}
-                username={username}
-                setUsername={setUsername}
-                loading={loading}
-            />
-        );
+        return <InitialForm onSubmit={startSignIn} username={username} setUsername={setUsername} loading={loading} />;
     };
 
     return (
         <div style={styles.container}>
-            <h2>Sign In</h2>
+            <h2 style={styles.h2}>Sign In</h2>
             <>
                 {renderForm()}
                 {error && <div style={styles.error}>{error}</div>}

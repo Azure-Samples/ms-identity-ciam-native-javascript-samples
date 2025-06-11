@@ -1,62 +1,46 @@
-# MSAL Custom Auth Angular Sample
+# Angular Native Auth Sample
 
-This sample demonstrates how to implement custom authentication flows in an Angular application using the Microsoft Authentication Library (MSAL) for JavaScript with custom authentication.
+This folder contains a sample project demonstrating Microsoft Identity CIAM (Customer Identity and Access Management) integration using Angular with native authentication and a CORS proxy.
 
-## Overview
+## Features
 
-This sample showcases a complete authentication flow with username/password sign-in and OTP (One-Time Password) challenge handling. It demonstrates how to:
+### Native Authentication with MSAL Custom Auth SDK
+This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement secure, standards-based native authentication flows with Microsoft Identity CIAM. All authentication logic is handled on the client side, and API calls are securely proxied to the backend using a CORS proxy.
 
-1. Implement a sign-in form with username and password
-2. Handle OTP challenges when required by the authentication service
-3. Manage authentication state using Angular services
-4. Use Angular standalone components and reactive forms
+#### Sign-up
+- New users can register using either:
+  - Email + password
+  - Email + OTP (passwordless registration)
+- During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
+- The sign-up flow may include email verification or additional steps as required by the backend.
+- Handles validation and error feedback for user input.
 
-## Project Structure
+#### Sign-in
+- Supports both password-based and passwordless authentication.
+- Users sign in with their email as the username.
+- Password-based: Enter email and password to authenticate.
+- Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
+- Handles authentication errors and displays appropriate messages.
 
-```
-angular-sample/
-├── src/
-│   ├── app/
-│   │   ├── components/
-│   │   │   ├── sign-in/                 # Sign-in component with username/password form
-│   │   │   │   ├── sign-in.component.ts
-│   │   │   │   ├── sign-in.component.html
-│   │   │   │   └── sign-in.component.scss
-│   │   │   └── otp/                     # OTP component for handling verification codes
-│   │   │       ├── otp.component.ts
-│   │   │       ├── otp.component.html
-│   │   │       └── otp.component.scss
-│   │   ├── services/
-│   │   │   └── auth.service.ts          # Authentication service for MSAL integration
-│   │   ├── models/
-│   │   │   └── auth.models.ts           # TypeScript interfaces for auth-related data
-│   │   ├── app.component.ts             # Root component
-│   │   ├── app.component.html
-│   │   ├── app.component.scss
-│   │   ├── app.config.ts                # App configuration
-│   │   └── app.routes.ts                # Angular routing configuration
-│   ├── index.html
-│   ├── main.ts
-│   └── styles.scss
-├── angular.json                         # Angular CLI configuration
-├── package.json                         # Project dependencies
-└── tsconfig.json                        # TypeScript configuration
-```
+#### Self-Service Password Reset (SSPR)
+- Users can initiate a self-serve password reset if they forget their password.
+- The password reset flow uses email OTP for authentication and verification.
+- Guides users through requesting a reset code, verifying their identity, and setting a new password.
+- Handles errors such as invalid or expired reset codes.
 
-## Prerequisites
+## Getting Started
 
-- Node.js and npm
-- Angular CLI
-- A Microsoft Entra ID tenant with custom authentication enabled
-- Client ID and authority URL for your application
+### Prerequisites
+- Node.js 16.x or later
+- npm 7.x or later
 
-## Setup
+### Installation
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/AzureAD/microsoft-authentication-library-for-js.git
-cd microsoft-authentication-library-for-js/samples/msal-custom-auth-samples/angular-sample
+git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
+cd typescript/native-auth/angular-sample
 ```
 
 2. Install dependencies:
@@ -65,96 +49,108 @@ cd microsoft-authentication-library-for-js/samples/msal-custom-auth-samples/angu
 npm install
 ```
 
-3. Configure the authentication settings:
+## Configure the Sample SPA
 
-Open `src/app/services/auth.service.ts` and update the MSAL configuration with your application's details:
+1. Open `src/app/config/auth-config.ts` and replace the following with the values obtained from the Microsoft Entra admin center:
+   - `Enter_the_Application_Id_Here` → Application (client) ID
+   - `Enter_the_Tenant_Subdomain_Here` → Tenant Subdomain
+2. Save the file.
 
-```typescript
-const msalConfig: CustomAuthConfiguration = {
-  auth: {
-    clientId: "your-client-id", // Replace with your client ID
-    authority: "https://your-tenant.ciamlogin.com", // Replace with your CIAM authority
-    redirectUri: window.location.origin,
-  },
-  cache: {
-    cacheLocation: "localStorage",
-  },
-  customAuth: {
-    // Add any custom auth configuration here
-  },
-};
-```
+## Native Auth APIs with Cross-Origin Resource Sharing
+The Native Auth APIs [currently don't support](https://learn.microsoft.com/en-us/entra/identity-platform/reference-native-authentication-api?tabs=emailOtp) Cross-Origin Resource Sharing [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) so a proxy server must be setup between the web app and the APIs.
 
-4. Start the development server:
+## CORS Configuration for Local Development
+- The included CORS proxy server (Node.js, listens on port 3001) forwards requests to the Tenant URL endpoints.
+- Configure `proxy.config.js` in the project root:
+  - `tenantSubdomain`: Your tenant subdomain (e.g., `contoso` for `contoso.onmicrosoft.com`)
+  - `tenantId`: Your Tenant Id
+  - `localApiPath`: The endpoint called from localhost (recommended `/api`)
+  - `port`: Port for the CORS proxy (recommended `3001`)
 
-```bash
-npm start
-```
+## Run Your Project and Sign In
 
-5. Navigate to `http://localhost:4200` in your browser.
-
-## Authentication Flow
-
-This sample implements the following authentication flow:
-
-1. User enters username and password in the sign-in form
-2. The application sends the credentials to the authentication service
-3. If the service requires additional verification, an OTP challenge is presented
-4. User enters the verification code
-5. Upon successful authentication, the user is redirected to the home page
-
-## Key Components
-
-### AuthService
-
-The `AuthService` manages the authentication state and provides methods for:
-
-- Initializing the MSAL instance
-- Handling sign-in with username and password
-- Processing OTP verification
-- Managing authentication state
-- Handling sign-out
-
-### SignInComponent
-
-The `SignInComponent` provides a user interface for:
-
-- Collecting username and password
-- Displaying validation errors
-- Showing loading states during authentication
-- Conditionally displaying the OTP component when required
-
-### OtpComponent
-
-The `OtpComponent` handles:
-
-- Collecting the verification code
-- Validating the code format
-- Submitting the code to complete authentication
-- Displaying error messages
-
-## Development server
-
-To start a local development server, run:
+1. Start the CORS proxy:
 
 ```bash
-ng serve
+npm run cors
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Building
-
-To build the project run:
+2. In a new terminal, start the Angular development server:
 
 ```bash
-ng build
+npm run start
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+The app will be available at http://localhost:4200.
 
-## Additional Resources
+## Project Structure
 
-- [Microsoft Authentication Library (MSAL) for JavaScript](https://github.com/AzureAD/microsoft-authentication-library-for-js)
-- [Angular Documentation](https://angular.dev)
-- [Microsoft Entra ID Documentation](https://learn.microsoft.com/en-us/entra/identity/)
+```
+angular-sample/
+├── cors.js                # Local CORS proxy server for CORS workaround
+├── package.json           # Project dependencies and scripts
+├── proxy.config.js        # Proxy configuration for backend API
+├── angular.json           # Angular CLI configuration
+├── tsconfig.json          # TypeScript configuration
+├── src/
+│   ├── main.ts            # Entry point for the Angular app
+│   ├── styles.scss        # Global styles for the app
+│   └── app/
+│       ├── app.component.ts      # Root Angular component (logic)
+│       ├── app.component.html    # Root Angular component (template)
+│       ├── app.component.scss    # Root Angular component (styles)
+│       ├── app.module.ts         # Main Angular module definition
+│       ├── config/
+│       │   └── auth-config.ts    # MSAL/CIAM authentication configuration
+│       ├── services/
+│       │   └── auth.service.ts   # Authentication service (handles MSAL logic)
+│       └── components/
+│           ├── navbar/
+│           │   ├── navbar.component.ts    # Navbar component logic
+│           │   ├── navbar.component.html  # Navbar component template
+│           │   └── navbar.component.scss  # Navbar component styles
+│           ├── sign-in/
+│           │   ├── sign-in.component.ts   # Sign-in page logic
+│           │   ├── sign-in.component.html # Sign-in page template
+│           │   └── sign-in.component.scss # Sign-in page styles
+│           ├── sign-up/
+│           │   ├── sign-up.component.ts   # Sign-up page logic
+│           │   ├── sign-up.component.html # Sign-up page template
+│           │   └── sign-up.component.scss # Sign-up page styles
+│           ├── reset-password/
+│           │   ├── reset-password.component.ts   # Reset password page logic
+│           │   ├── reset-password.component.html # Reset password page template
+│           │   └── reset-password.component.scss # Reset password page styles
+│           ├── welcome.component.ts        # Welcome/landing page logic
+│           ├── welcome.component.html      # Welcome/landing page template
+│           └── welcome.component.scss      # Welcome/landing page styles
+└── ...other config and support files
+```
+
+- All authentication flows and UI are implemented in the `src/app/components/` directory.
+- Shared UI and logic are in `src/app/components/` and `src/app/services/`.
+- The CORS proxy and configuration files are at the project root.
+
+## Development
+- `src/app/components/welcome.component.ts` - Main landing page
+- `src/app/components/navbar/navbar.component.ts` - Top navigation bar
+- Authentication components:
+  - `src/app/components/sign-in/sign-in.component.ts` - Sign-in page
+  - `src/app/components/sign-up/sign-up.component.ts` - Sign-up page
+  - `src/app/components/reset-password/reset-password.component.ts` - Password reset page
+
+## Notes
+- Ensure the CORS proxy is running if your frontend needs to communicate with a backend API that does not allow cross-origin requests.
+- Update `proxy.config.js` as needed for your environment.
+- See the project `README.md` for more specific details.
+
+## Learn More
+- [Angular Documentation](https://angular.io/docs)
+- [MSAL.js Documentation](https://github.com/AzureAD/microsoft-authentication-library-for-js)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+
+## Contributing
+See the [contributing guide](../../CONTRIBUTING.md) to learn about our development process.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.

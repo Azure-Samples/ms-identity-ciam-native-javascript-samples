@@ -1,17 +1,17 @@
 {
   "name": "angular-sample",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
     "cors": "node cors.js"
   },
   "private": true,
   "dependencies": {
-    "@azure/msal-custom-auth": "^0.0.1",
+    "@azure/msal-common": "file:../azure-msal-common-15.6.0.tgz",
+    "@azure/msal-browser": "file:../azure-msal-browser-4.12.0.tgz",
     "@angular/common": "^19.2.0",
     "@angular/compiler": "^19.2.0",
     "@angular/core": "^19.2.0",

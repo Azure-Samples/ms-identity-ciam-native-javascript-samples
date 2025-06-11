@@ -1,8 +1,10 @@
+import { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+
 interface UserInfoProps {
-    signInState: any;
+    userData: CustomAuthAccountData | undefined | null;
 }
 
-export function UserInfo({ signInState }: UserInfoProps) {
+export function UserInfo({ userData }: UserInfoProps) {
     return (
         <div
             style={{
@@ -12,17 +14,7 @@ export function UserInfo({ signInState }: UserInfoProps) {
                 marginTop: "20px",
             }}
         >
-            <h3>Sign In Successful</h3>
-            <pre
-                style={{
-                    background: "#f5f5f5",
-                    padding: "15px",
-                    borderRadius: "4px",
-                    overflowX: "auto",
-                }}
-            >
-                {JSON.stringify(signInState, null, 2)}
-            </pre>
+            {`The user '${userData?.getAccount().username}' has signed in`}
         </div>
     );
 }
