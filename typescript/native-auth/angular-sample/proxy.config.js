@@ -3,8 +3,8 @@
  * entryPath: The path to the API on the react app ex. /api
  * proxy: The URL to proxy the requests
  */
-const tenantSubdomain = "Enter_the_Tenant_Subdomain_Here";
-const tenantId = "Enter_the_Tenant_Id_Here";
+const tenantSubdomain = "ciamtestlocal";
+const tenantId = "cd97f2df-f1e9-4ee6-8dc0-d036accad626";
 
 const config = {
     localApiPath: "/api",

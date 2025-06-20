@@ -10,8 +10,8 @@
         "cors": "node cors.js"
     },
     "dependencies": {
-        "@azure/msal-common": "file:../azure-msal-common-15.6.0.tgz",
-        "@azure/msal-browser": "file:../azure-msal-browser-4.12.0.tgz",
+        "@azure/msal-common": "file:../azure-msal-common-15.7.0.tgz",
+        "@azure/msal-browser": "file:../azure-msal-browser-4.13.1.tgz",
         "next": "15.2.3",
         "react": "^19.0.0",
         "react-dom": "^19.0.0"

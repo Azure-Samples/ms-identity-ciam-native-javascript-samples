@@ -65,13 +65,14 @@ export default function SignUpPassword() {
 
         if (!authClient) return;
 
-        const attributes = new UserAccountAttributes();
-        attributes.setDisplayName(`${firstName} ${lastName}`);
-        attributes.setSurname(lastName);
-        attributes.setGivenName(firstName);
-        attributes.setJobTitle(jobTitle);
-        attributes.setCity(city);
-        attributes.setCountry(country);
+        const attributes: UserAccountAttributes = {
+            displayName: `${firstName} ${lastName}`,
+            givenName: firstName,
+            surname: lastName,
+            jobTitle: jobTitle,
+            city: city,
+            country: country,
+        };
 
         const result = await authClient.signUp({
             username: email,

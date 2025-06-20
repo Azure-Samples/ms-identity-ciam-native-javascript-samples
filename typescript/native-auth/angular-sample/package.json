@@ -10,8 +10,8 @@
   },
   "private": true,
   "dependencies": {
-    "@azure/msal-common": "file:../azure-msal-common-15.6.0.tgz",
-    "@azure/msal-browser": "file:../azure-msal-browser-4.12.0.tgz",
+    "@azure/msal-common": "file:../azure-msal-common-15.7.0.tgz",
+    "@azure/msal-browser": "file:../azure-msal-browser-4.13.1.tgz",
     "@angular/common": "^19.2.0",
     "@angular/compiler": "^19.2.0",
     "@angular/core": "^19.2.0",
