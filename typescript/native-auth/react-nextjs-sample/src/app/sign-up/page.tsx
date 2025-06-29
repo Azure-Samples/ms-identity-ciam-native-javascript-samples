@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
-import { InitialFormWithPassword } from "./components/InitialFormWithPassword";
+import { InitialForm } from "./components/InitialForm";
 import {
     AuthFlowStateBase,
     CustomAuthPublicClientApplication,
@@ -177,7 +177,7 @@ export default function SignUpPassword() {
             return <SignUpResultPage />;
         } else {
             return (
-                <InitialFormWithPassword
+                <InitialForm
                     onSubmit={handleInitialSubmit}
                     firstName={firstName}
                     setFirstName={setFirstName}

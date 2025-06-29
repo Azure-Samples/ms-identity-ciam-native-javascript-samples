@@ -1,6 +1,6 @@
 import { styles } from "../styles/styles";
 
-interface InitialFormWithPasswordProps {
+interface InitialFormProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
     firstName: string;
     setFirstName: (value: string) => void;
@@ -17,7 +17,7 @@ interface InitialFormWithPasswordProps {
     loading: boolean;
 }
 
-export function InitialFormWithPassword({
+export function InitialForm({
     onSubmit,
     firstName,
     setFirstName,
@@ -32,7 +32,7 @@ export function InitialFormWithPassword({
     email,
     setEmail,
     loading,
-}: InitialFormWithPasswordProps) {
+}: InitialFormProps) {
     return (
         <form onSubmit={onSubmit} style={styles.form}>
             <input
