@@ -26,6 +26,7 @@ export default function ResetPassword() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
+    const [resendCountdown, setResendCountdown] = useState(0);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -80,6 +81,34 @@ export default function ResetPassword() {
         }
 
         setLoading(false);
+    };
+
+    const handleResendCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(false);
+
+        if (resetState instanceof ResetPasswordCodeRequiredState) {
+            const result = await resetState.resendCode();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData.errorDescription || "An error occurred while resending the code");
+            } else {
+                setResetState(state);
+                setResendCountdown(30);
+                
+                const timer = setInterval(() => {
+                    setResendCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
+        }
     };
 
     const handleCodeSubmit = async (e: React.FormEvent) => {
@@ -151,7 +180,7 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof ResetPasswordCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} onResendCode={handleResendCode} resendCountdown={resendCountdown} />;
         }
 
         if (resetState instanceof ResetPasswordCompletedState) {

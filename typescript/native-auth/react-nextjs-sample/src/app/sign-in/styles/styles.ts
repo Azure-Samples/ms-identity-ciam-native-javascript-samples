@@ -26,6 +26,15 @@ export const styles = {
         cursor: "pointer",
         fontSize: "16px",
     },
+    buttonDisabled: {
+        padding: "10px",
+        backgroundColor: "#6b7280",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "not-allowed",
+        fontSize: "16px",
+    },
     error: {
         color: "#d13438",
         marginTop: "10px",

@@ -32,6 +32,7 @@ export default function SignUpPassword() {
     const [signUpState, setSignUpState] = useState<AuthFlowStateBase | null>(null);
     const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
     const [isSignedIn, setSignInState] = useState(false);
+    const [resendCountdown, setResendCountdown] = useState(0);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -146,6 +147,34 @@ export default function SignUpPassword() {
         setLoading(false);
     };
 
+    const handleResendCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(false);
+
+        if (signUpState instanceof SignUpCodeRequiredState) {
+            const result = await signUpState.resendCode();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData.errorDescription || "An error occurred while resending the code");
+            } else {
+                setSignUpState(state);
+                setResendCountdown(30);
+                
+                const timer = setInterval(() => {
+                    setResendCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
+        }
+    };
+
     const renderForm = () => {
         if (loadingAccountStatus) {
             return;
@@ -164,6 +193,8 @@ export default function SignUpPassword() {
                     code={code}
                     setCode={setCode}
                     loading={loading}
+                    onResendCode={handleResendCode}
+                    resendCountdown={resendCountdown}
                 />
             );
         } else if(signUpState instanceof SignUpPasswordRequiredState) {

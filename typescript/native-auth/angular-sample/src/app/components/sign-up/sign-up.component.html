@@ -22,6 +22,12 @@
   <form *ngIf="showCode" (ngSubmit)="submitCode()">
     <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
     <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code' }}</button>
+    <button type="button" 
+            (click)="resendCode()" 
+            [disabled]="resendCountdown > 0"
+            [class.resend-disabled]="resendCountdown > 0">
+      {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
+    </button>
   </form>
   <div class="error" *ngIf="error">{{ error }}</div>
 </div>

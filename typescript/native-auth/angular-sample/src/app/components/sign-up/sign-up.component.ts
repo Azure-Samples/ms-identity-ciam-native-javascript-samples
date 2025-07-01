@@ -32,6 +32,7 @@ export class SignUpComponent {
     isSignedIn = false;
     userData: any = null;
     signUpState: any = null;
+    resendCountdown = 0;
 
     constructor(private auth: AuthService) {}
 
@@ -145,6 +146,31 @@ export class SignUpComponent {
                 this.signUpState = result.state;
             }
         }
+        this.loading = false;
+    }
+
+    async resendCode() {
+        this.error = "";
+        this.loading = true;
+        
+        if (this.signUpState instanceof SignUpCodeRequiredState) {
+            const result = await this.signUpState.resendCode();
+            
+            if (result.isFailed()) {
+                this.error = result.error?.errorData.errorDescription || "An error occurred while resending the code";
+            } else {
+                this.resendCountdown = 30;
+                
+                const timer = setInterval(() => {
+                    this.resendCountdown--;
+                    if (this.resendCountdown <= 0) {
+                        clearInterval(timer);
+                        this.resendCountdown = 0;
+                    }
+                }, 1000);
+            }
+        }
+        
         this.loading = false;
     }
 }
