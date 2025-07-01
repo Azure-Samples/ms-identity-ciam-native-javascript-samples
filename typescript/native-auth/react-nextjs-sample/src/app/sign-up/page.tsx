@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { customAuthConfig } from "../../config/auth-config";
 import { styles } from "./styles/styles";
-import { InitialFormWithPassword } from "./components/InitialFormWithPassword";
+import { InitialForm } from "./components/InitialForm";
 import {
     AuthFlowStateBase,
     CustomAuthPublicClientApplication,
@@ -137,7 +137,9 @@ export default function SignUpPassword() {
                 if (result.error?.isInvalidPassword()) {
                     setError("Invalid password");
                 } else {
-                    setError(result.error?.errorData.errorDescription || "An error occurred while submitting the password");
+                    setError(
+                        result.error?.errorData.errorDescription || "An error occurred while submitting the password"
+                    );
                 }
             } else {
                 setSignUpState(state);
@@ -153,32 +155,25 @@ export default function SignUpPassword() {
         }
 
         if (isSignedIn) {
-            return (
-                <div style={styles.signed_in_msg}>Please sign out before processing the sign up.</div>
-            );
+            return <div style={styles.signed_in_msg}>Please sign out before processing the sign up.</div>;
         }
 
         if (signUpState instanceof SignUpCodeRequiredState) {
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+        } else if (signUpState instanceof SignUpPasswordRequiredState) {
             return (
-                <CodeForm
-                    onSubmit={handleCodeSubmit}
-                    code={code}
-                    setCode={setCode}
+                <PasswordForm
+                    onSubmit={handlePasswordSubmit}
+                    password={password}
+                    setPassword={setPassword}
                     loading={loading}
                 />
             );
-        } else if(signUpState instanceof SignUpPasswordRequiredState) {
-            return <PasswordForm
-                onSubmit={handlePasswordSubmit}
-                password={password}
-                setPassword={setPassword}
-                loading={loading}
-            />;
         } else if (signUpState instanceof SignUpCompletedState) {
             return <SignUpResultPage />;
         } else {
             return (
-                <InitialFormWithPassword
+                <InitialForm
                     onSubmit={handleInitialSubmit}
                     firstName={firstName}
                     setFirstName={setFirstName}
@@ -196,7 +191,7 @@ export default function SignUpPassword() {
                 />
             );
         }
-    }
+    };
 
     return (
         <div style={styles.container}>
