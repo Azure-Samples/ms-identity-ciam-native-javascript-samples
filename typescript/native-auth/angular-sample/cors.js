@@ -39,7 +39,7 @@ http.createServer((req, res) => {
 
         const newHeaders = {};
         for (let [key, value] of Object.entries(req.headers)) {
-            if (key !='origin') {
+            if (key !== 'origin') {
                 newHeaders[key] = value;
             }
         }
