@@ -67,7 +67,6 @@ export default function SignIn() {
         // Start the sign-in flow
         const result = await authClient.signIn({
             username,
-            scopes: ["User.Read"],
         });
 
         // Thge result may have the different states,

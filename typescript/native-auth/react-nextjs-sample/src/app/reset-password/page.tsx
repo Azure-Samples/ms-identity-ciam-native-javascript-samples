@@ -14,7 +14,10 @@ import {
     ResetPasswordPasswordRequiredState,
     ResetPasswordCompletedState,
     AuthFlowStateBase,
+    CustomAuthAccountData,
+    SignInCompletedState,
 } from "@azure/msal-browser/custom-auth";
+import { UserInfo } from "../sign-in/components/UserInfo";
 
 export default function ResetPassword() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -27,6 +30,7 @@ export default function ResetPassword() {
     const [loading, setLoading] = useState(false);
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
     const [resendCountdown, setResendCountdown] = useState(0);
+    const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -52,6 +56,13 @@ export default function ResetPassword() {
 
         checkAccount();
     }, [app]);
+
+
+    useEffect(() => {
+        if (resetState instanceof ResetPasswordCompletedState) {
+            handleAutoSignIn();
+        }
+    }, [resetState]);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         if (!app) return;
@@ -157,6 +168,25 @@ export default function ResetPassword() {
         setLoading(false);
     };
 
+
+    const handleAutoSignIn = async () => {
+        setError("");
+
+        if (resetState instanceof ResetPasswordCompletedState) {
+            const result = await resetState.signIn();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
+            }
+            
+            if (result.isCompleted()) {
+                setData(result.data);
+                setResetState(state);
+            }
+        }
+    };
+
     const renderForm = () => {
         if (loadingAccountStatus) {
             return;
@@ -184,8 +214,11 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof ResetPasswordCompletedState) {
-            return <ResetPasswordResultPage />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
         }
+        if (isSignedIn || resetState instanceof SignInCompletedState) {
+            return <UserInfo userData={data} />;
+        } 
 
         return (
             <InitialForm

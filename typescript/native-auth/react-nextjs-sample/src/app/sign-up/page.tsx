@@ -6,16 +6,18 @@ import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import {
     AuthFlowStateBase,
+    CustomAuthAccountData,
     CustomAuthPublicClientApplication,
     ICustomAuthPublicClientApplication,
+    SignInCompletedState,
     SignUpCodeRequiredState,
     SignUpCompletedState,
     SignUpPasswordRequiredState,
     UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
-import { SignUpResultPage } from "./components/SignUpResult";
 import { CodeForm } from "./components/CodeForm";
 import { PasswordForm } from "./components/PasswordForm";
+import { UserInfo } from "../sign-in/components/UserInfo";
 
 export default function SignUpPassword() {
     const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -33,6 +35,7 @@ export default function SignUpPassword() {
     const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
     const [isSignedIn, setSignInState] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
+    const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -58,6 +61,12 @@ export default function SignUpPassword() {
 
         checkAccount();
     }, [authClient]);
+
+    useEffect(() => {
+        if (signUpState instanceof SignUpCompletedState) {
+            handleAutoSignIn();
+        }
+    }, [signUpState]);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -175,6 +184,24 @@ export default function SignUpPassword() {
         }
     };
 
+    const handleAutoSignIn = async () => {
+        setError("");
+
+        if (signUpState instanceof SignUpCompletedState) {
+            const result = await signUpState.signIn();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
+            }
+            
+            if (result.isCompleted()) {
+                setData(result.data);
+                setSignUpState(state);
+            }
+        }
+    };
+
     const renderForm = () => {
         if (loadingAccountStatus) {
             return;
@@ -205,7 +232,9 @@ export default function SignUpPassword() {
                 loading={loading}
             />;
         } else if (signUpState instanceof SignUpCompletedState) {
-            return <SignUpResultPage />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
+        } else if (isSignedIn || signUpState instanceof SignInCompletedState) {
+            return <UserInfo userData={data} />;
         } else {
             return (
                 <InitialForm

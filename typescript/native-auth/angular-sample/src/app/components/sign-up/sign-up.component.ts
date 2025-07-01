@@ -3,6 +3,7 @@ import { AuthService } from "../../services/auth.service";
 import {
     SignUpPasswordRequiredState,
     SignUpCodeRequiredState,
+    SignUpCompletedState,
     UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from '@angular/common';
@@ -116,6 +117,7 @@ export class SignUpComponent {
                 this.showPassword = false;
                 this.showCode = false;
                 this.signUpState = result.state;
+                this.handleAutoSignIn();
             }
         }
         this.loading = false;
@@ -140,6 +142,7 @@ export class SignUpComponent {
                 this.showCode = false;
                 this.showPassword = false;
                 this.signUpState = result.state;
+                this.handleAutoSignIn();
             } else if (result.isPasswordRequired()) {
                 this.showCode = false;
                 this.showPassword = true;
@@ -151,7 +154,7 @@ export class SignUpComponent {
 
     async resendCode() {
         this.error = "";
-        this.loading = true;
+        this.loading = false;
         
         if (this.signUpState instanceof SignUpCodeRequiredState) {
             const result = await this.signUpState.resendCode();
@@ -171,6 +174,25 @@ export class SignUpComponent {
             }
         }
         
-        this.loading = false;
+    }
+
+    private async handleAutoSignIn() {
+        this.error = "";
+        
+        if (this.signUpState instanceof SignUpCompletedState) {
+            const result = await this.signUpState.signIn();
+            
+            if (result.isFailed()) {
+                this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";
+            }
+
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.signUpState = result.state;
+                this.isSignedUp = true;
+                this.showCode = false;
+                this.showPassword = false;
+            }
+        }
     }
 }

@@ -2,6 +2,7 @@ import { Component } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     ResetPasswordCodeRequiredState,
+    ResetPasswordCompletedState,
     ResetPasswordPasswordRequiredState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
@@ -103,7 +104,7 @@ export class ResetPasswordComponent {
 
     async resendCode() {
         this.error = "";
-        this.loading = true;
+        this.loading = false;
 
         if (this.resetState instanceof ResetPasswordCodeRequiredState) {
             const result = await this.resetState.resendCode();
@@ -122,8 +123,6 @@ export class ResetPasswordComponent {
                 }, 1000);
             }
         }
-
-        this.loading = false;
     }
 
     async submitNewPassword() {
@@ -145,8 +144,29 @@ export class ResetPasswordComponent {
                 this.showNewPassword = false;
                 this.showCode = false;
                 this.resetState = result.state;
+                this.handleAutoSignIn();
             }
         }
         this.loading = false;
+    }
+
+    private async handleAutoSignIn() {
+        this.error = "";
+        
+        if (this.resetState instanceof ResetPasswordCompletedState) {
+            const result = await this.resetState.signIn();
+            
+            if (result.isFailed()) {
+                this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";
+            }
+            
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.resetState = result.state;
+                this.isReset = true;
+                this.showCode = false;
+                this.showNewPassword = false;
+            }
+        }
     }
 }
