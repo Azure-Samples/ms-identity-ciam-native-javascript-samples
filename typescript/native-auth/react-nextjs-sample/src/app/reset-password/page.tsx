@@ -214,7 +214,7 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof ResetPasswordCompletedState) {
-            return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
+            return <div style={styles.signed_in_msg}>Password reset completed! Signing you in automatically...</div>;
         }
         if (isSignedIn || resetState instanceof SignInCompletedState) {
             return <UserInfo userData={data} />;

@@ -185,7 +185,6 @@ export class SignUpComponent {
             if (result.isFailed()) {
                 this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";
             }
-
             if (result.isCompleted()) {
                 this.userData = result.data;
                 this.signUpState = result.state;
