@@ -216,7 +216,16 @@ export default function SignUpPassword() {
         }
 
         if (signUpState instanceof SignUpCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+            return (
+                <CodeForm
+                    onSubmit={handleCodeSubmit}
+                    code={code}
+                    setCode={setCode}
+                    loading={loading}
+                    onResendCode={handleResendCode}
+                    resendCountdown={resendCountdown}
+                />
+            );
         } else if (signUpState instanceof SignUpPasswordRequiredState) {
             return (
                 <PasswordForm
@@ -224,8 +233,6 @@ export default function SignUpPassword() {
                     password={password}
                     setPassword={setPassword}
                     loading={loading}
-                    onResendCode={handleResendCode}
-                    resendCountdown={resendCountdown}
                 />
             );
         } else if (signUpState instanceof SignUpCompletedState) {
