@@ -6,7 +6,6 @@ import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import { CodeForm } from "./components/CodeForm";
 import { NewPasswordForm } from "./components/NewPasswordForm";
-import { ResetPasswordResultPage } from "./components/ResetPasswordResult";
 import {
     CustomAuthPublicClientApplication,
     ICustomAuthPublicClientApplication,
@@ -56,13 +55,6 @@ export default function ResetPassword() {
 
         checkAccount();
     }, [app]);
-
-
-    useEffect(() => {
-        if (resetState instanceof ResetPasswordCompletedState) {
-            handleAutoSignIn();
-        }
-    }, [resetState]);
 
     const handleInitialSubmit = async (e: React.FormEvent) => {
         if (!app) return;
@@ -162,14 +154,17 @@ export default function ResetPassword() {
                 }
             } else {
                 setResetState(state);
+
+                if (state instanceof ResetPasswordCompletedState) {
+                    await handleAutoSignIn(state);
+                }
             }
         }
 
         setLoading(false);
     };
 
-
-    const handleAutoSignIn = async () => {
+    const handleAutoSignIn = async (resetState: ResetPasswordCompletedState) => {
         setError("");
 
         if (resetState instanceof ResetPasswordCompletedState) {
@@ -179,7 +174,6 @@ export default function ResetPassword() {
             if (result.isFailed()) {
                 setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
             }
-            
             if (result.isCompleted()) {
                 setData(result.data);
                 setResetState(state);
@@ -216,9 +210,10 @@ export default function ResetPassword() {
         if (resetState instanceof ResetPasswordCompletedState) {
             return <div style={styles.signed_in_msg}>Password reset completed! Signing you in automatically...</div>;
         }
-        if (isSignedIn || resetState instanceof SignInCompletedState) {
+
+        if (resetState instanceof SignInCompletedState) {
             return <UserInfo userData={data} />;
-        } 
+        }
 
         return (
             <InitialForm

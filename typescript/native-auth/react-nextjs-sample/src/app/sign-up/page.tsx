@@ -62,12 +62,6 @@ export default function SignUpPassword() {
         checkAccount();
     }, [authClient]);
 
-    useEffect(() => {
-        if (signUpState instanceof SignUpCompletedState) {
-            handleAutoSignIn();
-        }
-    }, [signUpState]);
-
     const handleInitialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
@@ -127,6 +121,10 @@ export default function SignUpPassword() {
                 }
             } else {
                 setSignUpState(state);
+
+                if (state instanceof SignUpCompletedState) {
+                    await handleAutoSignIn(state);
+                }
             }
         }
 
@@ -149,7 +147,13 @@ export default function SignUpPassword() {
                     setError(result.error?.errorData.errorDescription || "An error occurred while submitting the password");
                 }
             } else {
-                setSignUpState(state);
+                console.log("Sign up completed, auto signing in...");
+                console.log(state);
+                if (state instanceof SignUpCompletedState) {
+                    await handleAutoSignIn(state);
+                } else {
+                    setSignUpState(state);
+                }
             }
         }
 
@@ -184,7 +188,7 @@ export default function SignUpPassword() {
         }
     };
 
-    const handleAutoSignIn = async () => {
+    const handleAutoSignIn = async (signUpState: SignUpCompletedState) => {
         setError("");
 
         if (signUpState instanceof SignUpCompletedState) {
@@ -194,7 +198,6 @@ export default function SignUpPassword() {
             if (result.isFailed()) {
                 setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
             }
-            
             if (result.isCompleted()) {
                 setData(result.data);
                 setSignUpState(state);
@@ -233,7 +236,7 @@ export default function SignUpPassword() {
             />;
         } else if (signUpState instanceof SignUpCompletedState) {
             return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
-        } else if (isSignedIn || signUpState instanceof SignInCompletedState) {
+        } else if (signUpState instanceof SignInCompletedState) {
             return <UserInfo userData={data} />;
         } else {
             return (
