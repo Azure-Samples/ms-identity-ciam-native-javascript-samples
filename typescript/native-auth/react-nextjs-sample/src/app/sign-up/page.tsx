@@ -147,8 +147,6 @@ export default function SignUpPassword() {
                     setError(result.error?.errorData.errorDescription || "An error occurred while submitting the password");
                 }
             } else {
-                console.log("Sign up completed, auto signing in...");
-                console.log(state);
                 if (state instanceof SignUpCompletedState) {
                     await handleAutoSignIn(state);
                 } else {
