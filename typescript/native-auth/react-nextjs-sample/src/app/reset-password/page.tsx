@@ -16,7 +16,6 @@ import {
     CustomAuthAccountData,
     SignInCompletedState,
 } from "@azure/msal-browser/custom-auth";
-import { UserInfo } from "../sign-in/components/UserInfo";
 
 export default function ResetPassword() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -212,7 +211,7 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof SignInCompletedState) {
-            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
+            return <div style={styles.signed_in_msg}>Sign up completed! Automatically sign in as {data?.getAccount().username}.</div>;
         }
 
         return (

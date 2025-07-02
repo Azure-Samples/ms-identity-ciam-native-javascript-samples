@@ -17,7 +17,6 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { CodeForm } from "./components/CodeForm";
 import { PasswordForm } from "./components/PasswordForm";
-import { UserInfo } from "../sign-in/components/UserInfo";
 
 export default function SignUpPassword() {
     const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -238,7 +237,7 @@ export default function SignUpPassword() {
         } else if (signUpState instanceof SignUpCompletedState) {
             return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
         } else if (signUpState instanceof SignInCompletedState) {
-            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
+            return <div style={styles.signed_in_msg}>Sign up completed! Automatically sign in as {data?.getAccount().username}</div>;
         } else {
             return (
                 <InitialForm

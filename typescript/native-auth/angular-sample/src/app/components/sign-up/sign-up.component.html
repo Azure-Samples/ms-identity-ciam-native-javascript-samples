@@ -4,7 +4,7 @@
     <p>An user has signed in, please sign out first.</p>
   </div>
   <div *ngIf="userData && !isSignedIn">
-    <p>Signed up and signed in as {{ userData?.getAccount()?.username }}</p>
+    <p>Signed up complete, and signed in as {{ userData?.getAccount()?.username }}</p>
   </div>
   <div *ngIf="isSignedUp && !userData">
     <p>Sign up completed! Signing you in automatically...</p>
