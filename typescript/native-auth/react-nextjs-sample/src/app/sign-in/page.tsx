@@ -216,7 +216,7 @@ export default function SignIn() {
         }
 
         if (isSignedIn || signInState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
         }
 
         if (signInState instanceof SignInPasswordRequiredState) {

@@ -238,7 +238,7 @@ export default function SignUpPassword() {
         } else if (signUpState instanceof SignUpCompletedState) {
             return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
         } else if (signUpState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
         } else {
             return (
                 <InitialForm

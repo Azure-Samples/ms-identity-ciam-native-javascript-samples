@@ -42,4 +42,10 @@ export const styles = {
     h2: {
         margin: "0 0 10px 0",
     },
+    signed_in_msg: {
+        padding: "20px",
+        border: "1px solid #ddd",
+        borderRadius: "4px",
+        marginTop: "20px",
+    }
 } as const;

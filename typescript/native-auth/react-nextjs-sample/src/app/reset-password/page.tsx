@@ -212,7 +212,7 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
         }
 
         return (
