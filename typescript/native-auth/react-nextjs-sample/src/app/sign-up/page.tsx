@@ -69,13 +69,14 @@ export default function SignUpPassword() {
 
         if (!authClient) return;
 
-        const attributes = new UserAccountAttributes();
-        attributes.setDisplayName(`${firstName} ${lastName}`);
-        attributes.setSurname(lastName);
-        attributes.setGivenName(firstName);
-        attributes.setJobTitle(jobTitle);
-        attributes.setCity(city);
-        attributes.setCountry(country);
+        const attributes: UserAccountAttributes = {
+            displayName: `${firstName} ${lastName}`,
+            givenName: firstName,
+            surname: lastName,
+            jobTitle: jobTitle,
+            city: city,
+            country: country,
+        };
 
         const result = await authClient.signUp({
             username: email,
@@ -144,7 +145,9 @@ export default function SignUpPassword() {
                 if (result.error?.isInvalidPassword()) {
                     setError("Invalid password");
                 } else {
-                    setError(result.error?.errorData.errorDescription || "An error occurred while submitting the password");
+                    setError(
+                        result.error?.errorData.errorDescription || "An error occurred while submitting the password"
+                    );
                 }
             } else {
                 setSignUpState(state);
@@ -209,29 +212,22 @@ export default function SignUpPassword() {
         }
 
         if (isSignedIn) {
-            return (
-                <div style={styles.signed_in_msg}>Please sign out before processing the sign up.</div>
-            );
+            return <div style={styles.signed_in_msg}>Please sign out before processing the sign up.</div>;
         }
 
         if (signUpState instanceof SignUpCodeRequiredState) {
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+        } else if (signUpState instanceof SignUpPasswordRequiredState) {
             return (
-                <CodeForm
-                    onSubmit={handleCodeSubmit}
-                    code={code}
-                    setCode={setCode}
+                <PasswordForm
+                    onSubmit={handlePasswordSubmit}
+                    password={password}
+                    setPassword={setPassword}
                     loading={loading}
                     onResendCode={handleResendCode}
                     resendCountdown={resendCountdown}
                 />
             );
-        } else if(signUpState instanceof SignUpPasswordRequiredState) {
-            return <PasswordForm
-                onSubmit={handlePasswordSubmit}
-                password={password}
-                setPassword={setPassword}
-                loading={loading}
-            />;
         } else if (signUpState instanceof SignUpCompletedState) {
             return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
         } else if (signUpState instanceof SignInCompletedState) {
@@ -256,7 +252,7 @@ export default function SignUpPassword() {
                 />
             );
         }
-    }
+    };
 
     return (
         <div style={styles.container}>

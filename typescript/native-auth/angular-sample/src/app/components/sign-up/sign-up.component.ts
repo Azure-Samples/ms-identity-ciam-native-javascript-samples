@@ -57,12 +57,13 @@ export class SignUpComponent {
         this.signUpState = null;
 
         const client = await this.auth.getClient();
-        const attributes = new UserAccountAttributes();
-        attributes.setGivenName(this.firstName);
-        attributes.setSurname(this.lastName);
-        attributes.setJobTitle(this.jobTitle);
-        attributes.setCity(this.city);
-        attributes.setCountry(this.country);
+        const attributes: UserAccountAttributes = {
+            givenName: this.firstName,
+            surname: this.lastName,
+            jobTitle: this.jobTitle,
+            city: this.city,
+            country: this.country,
+        };
 
         const result = await client.signUp({
             username: this.email,
