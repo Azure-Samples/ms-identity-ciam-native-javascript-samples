@@ -147,10 +147,10 @@ export default function SignUpPassword() {
                     setError(result.error?.errorData.errorDescription || "An error occurred while submitting the password");
                 }
             } else {
+                setSignUpState(state);
+
                 if (state instanceof SignUpCompletedState) {
                     await handleAutoSignIn(state);
-                } else {
-                    setSignUpState(state);
                 }
             }
         }
