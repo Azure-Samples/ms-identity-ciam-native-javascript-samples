@@ -32,6 +32,7 @@ export class SignInComponent implements OnInit {
     isSignedIn = false;
     userData: CustomAuthAccountData | undefined = undefined;
     signInState: AuthFlowStateBase | undefined = undefined;
+    resendCountdown = 0;
 
     constructor(private auth: AuthService) {}
 
@@ -171,5 +172,27 @@ export class SignInComponent implements OnInit {
             }
         }
         this.loading = false;
+    }
+
+    async resendCode() {
+        this.error = "";
+
+        if (this.signInState instanceof SignInCodeRequiredState) {
+            const result = await this.signInState.resendCode();
+
+            if (result.isFailed()) {
+                this.error = result.error?.errorData?.errorDescription || "An error occurred while resending the code";
+            } else {
+                this.resendCountdown = 30;
+
+                const timer = setInterval(() => {
+                    this.resendCountdown--;
+                    if (this.resendCountdown <= 0) {
+                        clearInterval(timer);
+                        this.resendCountdown = 0;
+                    }
+                }, 1000);
+            }
+        }
     }
 }

@@ -6,7 +6,6 @@ import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import { CodeForm } from "./components/CodeForm";
 import { NewPasswordForm } from "./components/NewPasswordForm";
-import { ResetPasswordResultPage } from "./components/ResetPasswordResult";
 import {
     CustomAuthPublicClientApplication,
     ICustomAuthPublicClientApplication,
@@ -14,6 +13,8 @@ import {
     ResetPasswordPasswordRequiredState,
     ResetPasswordCompletedState,
     AuthFlowStateBase,
+    CustomAuthAccountData,
+    SignInCompletedState,
 } from "@azure/msal-browser/custom-auth";
 
 export default function ResetPassword() {
@@ -26,6 +27,8 @@ export default function ResetPassword() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
+    const [resendCountdown, setResendCountdown] = useState(0);
+    const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -82,6 +85,34 @@ export default function ResetPassword() {
         setLoading(false);
     };
 
+    const handleResendCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(false);
+
+        if (resetState instanceof ResetPasswordCodeRequiredState) {
+            const result = await resetState.resendCode();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData.errorDescription || "An error occurred while resending the code");
+            } else {
+                setResetState(state);
+                setResendCountdown(30);
+                
+                const timer = setInterval(() => {
+                    setResendCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
+        }
+    };
+
     const handleCodeSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
@@ -122,10 +153,31 @@ export default function ResetPassword() {
                 }
             } else {
                 setResetState(state);
+
+                if (state instanceof ResetPasswordCompletedState) {
+                    await handleAutoSignIn(state);
+                }
             }
         }
 
         setLoading(false);
+    };
+
+    const handleAutoSignIn = async (resetState: ResetPasswordCompletedState) => {
+        setError("");
+
+        if (resetState instanceof ResetPasswordCompletedState) {
+            const result = await resetState.signIn();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
+            }
+            if (result.isCompleted()) {
+                setData(result.data);
+                setResetState(state);
+            }
+        }
     };
 
     const renderForm = () => {
@@ -151,11 +203,15 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof ResetPasswordCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} onResendCode={handleResendCode} resendCountdown={resendCountdown} />;
         }
 
         if (resetState instanceof ResetPasswordCompletedState) {
-            return <ResetPasswordResultPage />;
+            return <div style={styles.signed_in_msg}>Password reset completed! Signing you in automatically...</div>;
+        }
+
+        if (resetState instanceof SignInCompletedState) {
+            return <div style={styles.signed_in_msg}>Sign up completed! Automatically sign in as {data?.getAccount().username}.</div>;
         }
 
         return (

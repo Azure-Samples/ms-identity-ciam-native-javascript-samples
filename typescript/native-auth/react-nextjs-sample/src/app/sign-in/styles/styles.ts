@@ -26,6 +26,15 @@ export const styles = {
         cursor: "pointer",
         fontSize: "16px",
     },
+    buttonDisabled: {
+        padding: "10px",
+        backgroundColor: "#6b7280",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "not-allowed",
+        fontSize: "16px",
+    },
     error: {
         color: "#d13438",
         marginTop: "10px",
@@ -33,4 +42,10 @@ export const styles = {
     h2: {
         margin: "0 0 10px 0",
     },
+    signed_in_msg: {
+        padding: "20px",
+        border: "1px solid #ddd",
+        borderRadius: "4px",
+        marginTop: "20px",
+    }
 } as const;

@@ -49,6 +49,17 @@ button:hover {
   background-color: #005a9e;
 }
 
+button:disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+button.resend-disabled {
+  background-color: #6b7280;
+  cursor: not-allowed;
+}
+
 input {
   padding: 8px;
   border: 1px solid #ccc;

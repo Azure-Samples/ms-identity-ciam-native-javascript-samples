@@ -2,6 +2,7 @@ import { Component } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     ResetPasswordCodeRequiredState,
+    ResetPasswordCompletedState,
     ResetPasswordPasswordRequiredState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
@@ -26,6 +27,7 @@ export class ResetPasswordComponent {
     resetState: any = null;
     isSignedIn = false;
     userData: any = null;
+    resendCountdown = 0;
 
     constructor(private auth: AuthService) {}
 
@@ -100,6 +102,29 @@ export class ResetPasswordComponent {
         this.loading = false;
     }
 
+    async resendCode() {
+        this.error = "";
+        this.loading = false;
+
+        if (this.resetState instanceof ResetPasswordCodeRequiredState) {
+            const result = await this.resetState.resendCode();
+
+            if (result.isFailed()) {
+                this.error = result.error?.errorData?.errorDescription || "An error occurred while resending the code";
+            } else {
+                this.resendCountdown = 30;
+
+                const timer = setInterval(() => {
+                    this.resendCountdown--;
+                    if (this.resendCountdown <= 0) {
+                        clearInterval(timer);
+                        this.resendCountdown = 0;
+                    }
+                }, 1000);
+            }
+        }
+    }
+
     async submitNewPassword() {
         this.error = "";
         this.loading = true;
@@ -119,8 +144,29 @@ export class ResetPasswordComponent {
                 this.showNewPassword = false;
                 this.showCode = false;
                 this.resetState = result.state;
+                this.handleAutoSignIn();
             }
         }
         this.loading = false;
+    }
+
+    private async handleAutoSignIn() {
+        this.error = "";
+        
+        if (this.resetState instanceof ResetPasswordCompletedState) {
+            const result = await this.resetState.signIn();
+            
+            if (result.isFailed()) {
+                this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";
+            }
+            
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.resetState = result.state;
+                this.isReset = true;
+                this.showCode = false;
+                this.showNewPassword = false;
+            }
+        }
     }
 }

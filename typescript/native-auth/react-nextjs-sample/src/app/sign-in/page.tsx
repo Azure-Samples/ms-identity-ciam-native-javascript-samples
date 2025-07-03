@@ -28,6 +28,7 @@ export default function SignIn() {
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
     const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
     const [isSignedIn, setCurrentSignInStatus] = useState(false);
+    const [resendCountdown, setResendCountdown] = useState(0);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -179,13 +180,43 @@ export default function SignIn() {
         setLoading(false);
     };
 
+    const handleResendCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(false);
+
+        if (signInState instanceof SignInCodeRequiredState) {
+            const result = await signInState.resendCode();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData?.errorDescription || "An error occurred while resending the code");
+            } else {
+                setSignInState(state);
+                setResendCountdown(30);
+                
+                const timer = setInterval(() => {
+                    setResendCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
+        }
+
+        setLoading(false);
+    };
+
     const renderForm = () => {
         if (loadingAccountStatus) {
             return;
         }
 
         if (isSignedIn || signInState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Sign in automatically complete.</div>;
         }
 
         if (signInState instanceof SignInPasswordRequiredState) {
@@ -200,7 +231,7 @@ export default function SignIn() {
         }
 
         if (signInState instanceof SignInCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} onResendCode={handleResendCode} resendCountdown={resendCountdown} />;
         }
 
         return <InitialForm onSubmit={startSignIn} username={username} setUsername={setUsername} loading={loading} />;

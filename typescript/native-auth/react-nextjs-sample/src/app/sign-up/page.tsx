@@ -6,14 +6,15 @@ import { styles } from "./styles/styles";
 import { InitialForm } from "./components/InitialForm";
 import {
     AuthFlowStateBase,
+    CustomAuthAccountData,
     CustomAuthPublicClientApplication,
     ICustomAuthPublicClientApplication,
+    SignInCompletedState,
     SignUpCodeRequiredState,
     SignUpCompletedState,
     SignUpPasswordRequiredState,
     UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
-import { SignUpResultPage } from "./components/SignUpResult";
 import { CodeForm } from "./components/CodeForm";
 import { PasswordForm } from "./components/PasswordForm";
 
@@ -32,6 +33,8 @@ export default function SignUpPassword() {
     const [signUpState, setSignUpState] = useState<AuthFlowStateBase | null>(null);
     const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
     const [isSignedIn, setSignInState] = useState(false);
+    const [resendCountdown, setResendCountdown] = useState(0);
+    const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -118,6 +121,10 @@ export default function SignUpPassword() {
                 }
             } else {
                 setSignUpState(state);
+
+                if (state instanceof SignUpCompletedState) {
+                    await handleAutoSignIn(state);
+                }
             }
         }
 
@@ -143,10 +150,59 @@ export default function SignUpPassword() {
                 }
             } else {
                 setSignUpState(state);
+
+                if (state instanceof SignUpCompletedState) {
+                    await handleAutoSignIn(state);
+                }
             }
         }
 
         setLoading(false);
+    };
+
+    const handleResendCode = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(false);
+
+        if (signUpState instanceof SignUpCodeRequiredState) {
+            const result = await signUpState.resendCode();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData.errorDescription || "An error occurred while resending the code");
+            } else {
+                setSignUpState(state);
+                setResendCountdown(30);
+                
+                const timer = setInterval(() => {
+                    setResendCountdown((prev) => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
+        }
+    };
+
+    const handleAutoSignIn = async (signUpState: SignUpCompletedState) => {
+        setError("");
+
+        if (signUpState instanceof SignUpCompletedState) {
+            const result = await signUpState.signIn();
+            const state = result.state;
+
+            if (result.isFailed()) {
+                setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
+            }
+            if (result.isCompleted()) {
+                setData(result.data);
+                setSignUpState(state);
+            }
+        }
     };
 
     const renderForm = () => {
@@ -159,7 +215,16 @@ export default function SignUpPassword() {
         }
 
         if (signUpState instanceof SignUpCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} />;
+            return (
+                <CodeForm
+                    onSubmit={handleCodeSubmit}
+                    code={code}
+                    setCode={setCode}
+                    loading={loading}
+                    onResendCode={handleResendCode}
+                    resendCountdown={resendCountdown}
+                />
+            );
         } else if (signUpState instanceof SignUpPasswordRequiredState) {
             return (
                 <PasswordForm
@@ -170,7 +235,9 @@ export default function SignUpPassword() {
                 />
             );
         } else if (signUpState instanceof SignUpCompletedState) {
-            return <SignUpResultPage />;
+            return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
+        } else if (signUpState instanceof SignInCompletedState) {
+            return <div style={styles.signed_in_msg}>Sign up completed! Automatically sign in as {data?.getAccount().username}</div>;
         } else {
             return (
                 <InitialForm

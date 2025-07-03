@@ -3,8 +3,11 @@
   <div *ngIf="isSignedIn">
     <p>An user has signed in, please sign out first.</p>
   </div>
-  <div *ngIf="isSignedUp">
-    <p>The user has been signed up, please click <a href="/sign-in">here</a> to sign in.</p>
+  <div *ngIf="userData && !isSignedIn">
+    <p>Signed up complete, and signed in as {{ userData?.getAccount()?.username }}</p>
+  </div>
+  <div *ngIf="isSignedUp && !userData">
+    <p>Sign up completed! Signing you in automatically...</p>
   </div>
   <form *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp" (ngSubmit)="startSignUp()" autocomplete="off">
     <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
@@ -22,6 +25,12 @@
   <form *ngIf="showCode" (ngSubmit)="submitCode()">
     <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
     <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code' }}</button>
+    <button type="button" 
+            (click)="resendCode()" 
+            [disabled]="resendCountdown > 0"
+            [class.resend-disabled]="resendCountdown > 0">
+      {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
+    </button>
   </form>
   <div class="error" *ngIf="error">{{ error }}</div>
 </div>

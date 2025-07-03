@@ -25,10 +25,15 @@ export const styles = {
         borderRadius: "4px",
         cursor: "pointer",
         fontSize: "16px",
-        ":disabled": {
-            backgroundColor: "#ccc",
-            cursor: "not-allowed",
-        },
+    },
+    buttonDisabled: {
+        padding: "12px",
+        backgroundColor: "#6b7280",
+        color: "white",
+        border: "none",
+        borderRadius: "4px",
+        cursor: "not-allowed",
+        fontSize: "16px",
     },
     error: {
         color: "#d93025",
@@ -44,4 +49,4 @@ export const styles = {
         borderRadius: "4px",
         marginTop: "20px",
     }
-};
+} as const;
