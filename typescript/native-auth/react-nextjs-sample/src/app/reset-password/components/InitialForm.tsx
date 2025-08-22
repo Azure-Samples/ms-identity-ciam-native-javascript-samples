@@ -1,11 +1,5 @@
 import { styles } from "../styles/styles";
-
-interface InitialFormProps {
-    onSubmit: (e: React.FormEvent) => Promise<void>;
-    email: string;
-    setEmail: (value: string) => void;
-    loading: boolean;
-}
+import { InitialFormProps } from "../types";
 
 export function InitialForm({ onSubmit, email, setEmail, loading }: InitialFormProps) {
     return (

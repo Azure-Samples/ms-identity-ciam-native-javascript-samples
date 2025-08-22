@@ -8,6 +8,9 @@ import {
     SignInResult,
     SignInCompletedState,
     ICustomAuthPublicClientApplication,
+    AuthMethodRegistrationRequiredState,
+    AuthenticationMethod,
+    AuthMethodVerificationRequiredState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -29,6 +32,12 @@ export class SignInComponent implements OnInit {
     loading = false;
     showPassword = false;
     showCode = false;
+    showAuthMethods = false;
+    showChallenge = false;
+    authMethods: AuthenticationMethod[] = [];
+    selectedAuthMethod: AuthenticationMethod | undefined = undefined;
+    verificationContact: string | undefined = undefined;
+    challenge: string | undefined = undefined;
     isSignedIn = false;
     userData: CustomAuthAccountData | undefined = undefined;
     signInState: AuthFlowStateBase | undefined = undefined;
@@ -53,7 +62,9 @@ export class SignInComponent implements OnInit {
         this.loading = true;
         this.showPassword = false;
         this.showCode = false;
+        this.showAuthMethods = false;
         this.isSignedIn = false;
+        this.showChallenge = false;
 
         const client = await this.auth.getClient();
         const result: SignInResult = await client.signIn({ username: this.username });
@@ -90,9 +101,21 @@ export class SignInComponent implements OnInit {
         if (result.isPasswordRequired()) {
             this.showPassword = true;
             this.showCode = false;
+            this.showAuthMethods = false;
+            this.showChallenge = false;
         } else if (result.isCodeRequired()) {
             this.showPassword = false;
             this.showCode = true;
+            this.showAuthMethods = false;
+        } else if (result.isAuthMethodRegistrationRequired()) {
+            this.showAuthMethods = true;
+            this.showPassword = false;
+            this.showCode = false;
+            this.showChallenge = false;
+            this.authMethods = result.state.getAuthMethods();
+            // Set default selection to the first auth method
+            this.selectedAuthMethod = this.authMethods.length > 0 ? this.authMethods[0] : undefined;
+            this.signInState = result.state;
         } else if (result.isCompleted()) {
             this.isSignedIn = true;
             this.userData = result.data;
@@ -145,6 +168,17 @@ export class SignInComponent implements OnInit {
                 this.showPassword = false;
                 this.signInState = result.state;
             }
+
+            if (result.isAuthMethodRegistrationRequired()) {
+                this.showAuthMethods = true;
+                this.showPassword = false;
+                this.showCode = false;
+                this.showChallenge = false;
+                this.authMethods = result.state.getAuthMethods();
+                // Set default selection to the first auth method
+                this.selectedAuthMethod = this.authMethods.length > 0 ? this.authMethods[0] : undefined;
+                this.signInState = result.state;
+            }
         }
         this.loading = false;
     }
@@ -174,6 +208,81 @@ export class SignInComponent implements OnInit {
         this.loading = false;
     }
 
+    async submitAuthMethod() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.selectedAuthMethod || !this.verificationContact) {
+            this.error = "Please select an authentication method and enter a verification contact.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.signInState instanceof AuthMethodRegistrationRequiredState) {
+            const result = await this.signInState.challengeAuthMethod({
+                authMethodType: this.selectedAuthMethod,
+                verificationContact: this.verificationContact,
+            });
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectVerificationContact()) {
+                    this.error = "Incorrect verification contact.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the authentication method";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.isSignedIn = true;
+                this.userData = result.data;
+                this.showAuthMethods = false;
+                this.signInState = result.state;
+            }
+
+            if (result.isVerificationRequired()) {
+                this.showAuthMethods = false;
+                this.showChallenge = true;
+                this.signInState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
+    async submitChallenge() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.challenge) {
+            this.error = "Please enter a code.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.signInState instanceof AuthMethodVerificationRequiredState) {
+            const result = await this.signInState.submitChallenge(this.challenge);
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectChallenge()) {
+                    this.error = "Incorrect code.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the challenge response";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.isSignedIn = true;
+                this.userData = result.data;
+                this.showChallenge = false;
+                this.signInState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
     async resendCode() {
         this.error = "";
 
@@ -193,6 +302,21 @@ export class SignInComponent implements OnInit {
                     }
                 }, 1000);
             }
+        }
+    }
+
+    getPlaceholderText(): string {
+        if (!this.selectedAuthMethod) {
+            return "Enter your contact information";
+        }
+
+        const channel = this.selectedAuthMethod.challenge_channel?.toLowerCase();
+        if (channel === "email") {
+            return "Enter your email for verification";
+        } else if (channel === "sms" || channel === "phone") {
+            return "Enter your phone number for verification";
+        } else {
+            return "Enter your contact information for verification";
         }
     }
 }

@@ -1,19 +1,7 @@
 import { CodeFormProps } from "../types";
 import { styles } from "../styles/styles";
 
-interface UpdatedCodeFormProps extends CodeFormProps {
-    onResendCode: (e: React.FormEvent) => Promise<void>;
-    resendCountdown: number;
-}
-
-export const CodeForm = ({
-    onSubmit,
-    code,
-    setCode,
-    loading,
-    onResendCode,
-    resendCountdown,
-}: UpdatedCodeFormProps) => (
+export const CodeForm = ({ onSubmit, code, setCode, loading, onResendCode, resendCountdown }: CodeFormProps) => (
     <form onSubmit={onSubmit} style={styles.form}>
         <input
             type="text"

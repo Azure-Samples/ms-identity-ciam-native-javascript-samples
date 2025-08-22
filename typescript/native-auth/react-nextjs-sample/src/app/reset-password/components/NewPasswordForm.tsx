@@ -1,11 +1,5 @@
 import { styles } from "../styles/styles";
-
-interface NewPasswordFormProps {
-    onSubmit: (e: React.FormEvent) => Promise<void>;
-    newPassword: string;
-    setNewPassword: (value: string) => void;
-    loading: boolean;
-}
+import { NewPasswordFormProps } from "../types";
 
 export function NewPasswordForm({ onSubmit, newPassword, setNewPassword, loading }: NewPasswordFormProps) {
     return (

@@ -1,36 +1,65 @@
 <div class="auth-container">
-  <h2>Sign Up</h2>
-  <div *ngIf="isSignedIn">
-    <p>An user has signed in, please sign out first.</p>
-  </div>
-  <div *ngIf="userData && !isSignedIn">
-    <p>Signed up complete, and signed in as {{ userData?.getAccount()?.username }}</p>
-  </div>
-  <div *ngIf="isSignedUp && !userData">
-    <p>Sign up completed! Signing you in automatically...</p>
-  </div>
-  <form *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp" (ngSubmit)="startSignUp()" autocomplete="off">
-    <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
-    <input type="text" [(ngModel)]="lastName" name="lastName" placeholder="Last Name" required />
-    <input type="text" [(ngModel)]="jobTitle" name="jobTitle" placeholder="Job Title" required />
-    <input type="text" [(ngModel)]="city" name="city" placeholder="City" required />
-    <input type="text" [(ngModel)]="country" name="country" placeholder="Country" required />
-    <input type="email" [(ngModel)]="email" name="email" placeholder="Email" required />
-    <button *ngIf="!showPassword && !showCode" type="submit" [disabled]="loading">{{ loading ? 'Signing up...' : 'Sign Up' }}</button>
-  </form>
-  <form *ngIf="showPassword" (ngSubmit)="submitPassword()">
-    <input type="password" [(ngModel)]="password" name="password" placeholder="Password" required />
-    <button type="button" (click)="submitPassword()" [disabled]="loading">{{ loading ? 'Submitting...' : 'Submit Password' }}</button>
-  </form>
-  <form *ngIf="showCode" (ngSubmit)="submitCode()">
-    <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
-    <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code' }}</button>
-    <button type="button" 
-            (click)="resendCode()" 
-            [disabled]="resendCountdown > 0"
+    <h1>Sign Up</h1>
+    <div *ngIf="isSignedIn">
+        <p>An user has signed in, please sign out first.</p>
+    </div>
+    <div *ngIf="userData && !isSignedIn">
+        <p>Signed up complete, and signed in as {{ userData?.getAccount()?.username }}</p>
+    </div>
+    <div *ngIf="isSignedUp && !userData && !showAuthMethods && !showChallenge">
+        <p>Sign up completed! Signing you in automatically...</p>
+    </div>
+    <form *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp && !showAuthMethods && !showChallenge"
+        (ngSubmit)="startSignUp()" autocomplete="off">
+        <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
+        <input type="text" [(ngModel)]="lastName" name="lastName" placeholder="Last Name" required />
+        <input type="text" [(ngModel)]="jobTitle" name="jobTitle" placeholder="Job Title" required />
+        <input type="text" [(ngModel)]="city" name="city" placeholder="City" required />
+        <input type="text" [(ngModel)]="country" name="country" placeholder="Country" required />
+        <input type="email" [(ngModel)]="email" name="email" placeholder="Email" required />
+        <button *ngIf="!showPassword && !showCode" type="submit" [disabled]="loading">{{ loading ? 'Signing up...' :
+            'Sign Up' }}</button>
+    </form>
+    <form *ngIf="showPassword" (ngSubmit)="submitPassword()">
+        <input type="password" [(ngModel)]="password" name="password" placeholder="Password" required />
+        <button type="button" (click)="submitPassword()" [disabled]="loading">{{ loading ? 'Submitting...' :
+            'Submit Password' }}</button>
+    </form>
+    <form *ngIf="showCode" (ngSubmit)="submitCode()">
+        <input type="text" [(ngModel)]="code" name="code" placeholder="Verification Code" required />
+        <button type="button" (click)="submitCode()" [disabled]="loading">{{ loading ? 'Verifying...' : 'Verify Code'
+            }}</button>
+        <button type="button" (click)="resendCode()" [disabled]="resendCountdown > 0"
             [class.resend-disabled]="resendCountdown > 0">
-      {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
-    </button>
-  </form>
-  <div class="error" *ngIf="error">{{ error }}</div>
+            {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
+        </button>
+    </form>
+
+    <!-- Auth Method Selection Form -->
+    <form *ngIf="showAuthMethods" (ngSubmit)="submitAuthMethod()">
+        <h3>To secure your account, please add an authentication method.</h3>
+        <div class="auth-methods">
+            <select class="auth-method-select" [(ngModel)]="selectedAuthMethod" name="authMethod" required>
+                <option *ngFor="let authMethod of authMethods" [ngValue]="authMethod">
+                    {{ authMethod.challenge_channel }}
+                </option>
+            </select>
+        </div>
+        <input type="email" [(ngModel)]="verificationContact" name="verificationContact"
+            [placeholder]="getPlaceholderText()" required />
+        <button type="submit" [disabled]="loading || !selectedAuthMethod || !verificationContact">
+            {{ loading ? 'Adding...' : 'Add' }}
+        </button>
+    </form>
+
+    <!-- Challenge Verification Form -->
+    <form *ngIf="showChallenge" (ngSubmit)="submitChallenge()">
+        <h3>Enter the code below to verify your method</h3>
+        <input type="text" [(ngModel)]="challenge" name="challenge" placeholder="Enter verification code" required />
+        <button type="submit" [disabled]="loading || !challenge">
+            {{ loading ? 'Verifying...' : 'Verify Code' }}
+        </button>
+    </form>
+
+    <div class="error" *ngIf="error">{{ error }}</div>
 </div>

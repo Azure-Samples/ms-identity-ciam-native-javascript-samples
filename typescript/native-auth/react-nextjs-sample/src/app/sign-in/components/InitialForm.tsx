@@ -1,11 +1,5 @@
 import { styles } from "../styles/styles";
-
-interface InitialFormProps {
-    onSubmit: (e: React.FormEvent) => Promise<void>;
-    username: string;
-    setUsername: (value: string) => void;
-    loading: boolean;
-}
+import { InitialFormProps } from "../types";
 
 export const InitialForm = ({ onSubmit, username, setUsername, loading }: InitialFormProps) => (
     <form onSubmit={onSubmit} style={styles.form}>

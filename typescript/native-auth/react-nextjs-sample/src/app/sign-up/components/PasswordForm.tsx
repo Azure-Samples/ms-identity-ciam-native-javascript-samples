@@ -1,11 +1,5 @@
 import { styles } from "../styles/styles";
-
-interface PasswordFormProps {
-    onSubmit: (e: React.FormEvent) => Promise<void>;
-    password: string;
-    setPassword: (value: string) => void;
-    loading: boolean;
-}
+import { PasswordFormProps } from "../types";
 
 export const PasswordForm = ({ onSubmit, password, setPassword, loading }: PasswordFormProps) => (
     <form onSubmit={onSubmit} style={styles.form}>

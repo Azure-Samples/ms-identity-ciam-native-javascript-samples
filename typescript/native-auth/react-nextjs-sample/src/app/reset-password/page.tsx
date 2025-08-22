@@ -15,7 +15,12 @@ import {
     AuthFlowStateBase,
     CustomAuthAccountData,
     SignInCompletedState,
+    AuthMethodRegistrationRequiredState,
+    AuthMethodVerificationRequiredState,
+    AuthenticationMethod,
 } from "@azure/msal-browser/custom-auth";
+import { AuthMethodForm } from "./components/AuthMethodForm";
+import { ChallengeForm } from "./components/ChallengeForm";
 
 export default function ResetPassword() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -29,6 +34,12 @@ export default function ResetPassword() {
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
+
+    // Auth method registration state
+    const [authMethods, setAuthMethods] = useState<AuthenticationMethod[]>([]);
+    const [selectedAuthMethod, setSelectedAuthMethod] = useState<AuthenticationMethod | undefined>(undefined);
+    const [verificationContact, setVerificationContact] = useState("");
+    const [challenge, setChallenge] = useState("");
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -99,7 +110,7 @@ export default function ResetPassword() {
             } else {
                 setResetState(state);
                 setResendCountdown(30);
-                
+
                 const timer = setInterval(() => {
                     setResendCountdown((prev) => {
                         if (prev <= 1) {
@@ -149,7 +160,9 @@ export default function ResetPassword() {
                 if (result.error?.isInvalidPassword()) {
                     setError("Invalid password");
                 } else {
-                    setError(result.error?.errorData.errorDescription || "An error occurred while setting new password");
+                    setError(
+                        result.error?.errorData.errorDescription || "An error occurred while setting new password"
+                    );
                 }
             } else {
                 setResetState(state);
@@ -173,10 +186,112 @@ export default function ResetPassword() {
             if (result.isFailed()) {
                 setError(result.error?.errorData?.errorDescription || "An error occurred during auto sign-in");
             }
-            if (result.isCompleted()) {
+
+            if (result.isAuthMethodRegistrationRequired()) {
+                // Set default selection to the first auth method
+                const methods = result.state.getAuthMethods();
+                setAuthMethods(methods);
+                setSelectedAuthMethod(methods.length > 0 ? methods[0] : undefined);
+                setResetState(state);
+            } else if (result.isCompleted()) {
                 setData(result.data);
                 setResetState(state);
+                setSignInState(true);
             }
+        }
+    };
+
+    const handleAuthMethodSubmit = async (e: React.FormEvent) => {
+        if (!app) return;
+
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        if (!selectedAuthMethod || !verificationContact) {
+            setError("Please select an authentication method and enter a verification contact.");
+            setLoading(false);
+            return;
+        }
+
+        if (resetState instanceof AuthMethodRegistrationRequiredState) {
+            const result = await resetState.challengeAuthMethod({
+                authMethodType: selectedAuthMethod,
+                verificationContact: verificationContact,
+            });
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectVerificationContact()) {
+                    setError("Incorrect verification contact.");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription ||
+                            "An error occurred while verifying the authentication method"
+                    );
+                }
+            }
+
+            if (result.isCompleted()) {
+                setData(result.data);
+                setResetState(result.state);
+                setSignInState(true);
+            }
+
+            if (result.isVerificationRequired()) {
+                setResetState(result.state);
+            }
+        }
+
+        setLoading(false);
+    };
+
+    const handleChallengeSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        if (!challenge) {
+            setError("Please enter a code.");
+            setLoading(false);
+            return;
+        }
+
+        if (resetState instanceof AuthMethodVerificationRequiredState) {
+            const result = await resetState.submitChallenge(challenge);
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectChallenge()) {
+                    setError("Incorrect code.");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription ||
+                            "An error occurred while verifying the challenge response"
+                    );
+                }
+            }
+
+            if (result.isCompleted()) {
+                setData(result.data);
+                setResetState(result.state);
+                setSignInState(true);
+            }
+        }
+
+        setLoading(false);
+    };
+
+    const getPlaceholderText = (): string => {
+        if (!selectedAuthMethod) {
+            return "Enter your contact information";
+        }
+
+        const channel = selectedAuthMethod.challenge_channel?.toLowerCase();
+        if (channel === "email") {
+            return "Enter your email for verification";
+        } else if (channel === "sms" || channel === "phone") {
+            return "Enter your phone number for verification";
+        } else {
+            return "Enter your contact information for verification";
         }
     };
 
@@ -186,9 +301,7 @@ export default function ResetPassword() {
         }
 
         if (isSignedIn) {
-            return (
-                <div style={styles.signed_in_msg}>Please sign out before processing the password reset.</div>
-            );
+            return <div style={styles.signed_in_msg}>Please sign out before processing the password reset.</div>;
         }
 
         if (resetState instanceof ResetPasswordPasswordRequiredState) {
@@ -203,7 +316,44 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof ResetPasswordCodeRequiredState) {
-            return <CodeForm onSubmit={handleCodeSubmit} code={code} setCode={setCode} loading={loading} onResendCode={handleResendCode} resendCountdown={resendCountdown} />;
+            return (
+                <CodeForm
+                    onSubmit={handleCodeSubmit}
+                    code={code}
+                    setCode={setCode}
+                    loading={loading}
+                    onResendCode={handleResendCode}
+                    resendCountdown={resendCountdown}
+                />
+            );
+        }
+
+        if (resetState instanceof AuthMethodRegistrationRequiredState) {
+            return (
+                <AuthMethodForm
+                    onSubmit={handleAuthMethodSubmit}
+                    authMethods={authMethods}
+                    selectedAuthMethod={selectedAuthMethod}
+                    setSelectedAuthMethod={setSelectedAuthMethod}
+                    verificationContact={verificationContact}
+                    setVerificationContact={setVerificationContact}
+                    loading={loading}
+                    getPlaceholderText={getPlaceholderText}
+                    styles={styles}
+                />
+            );
+        }
+
+        if (resetState instanceof AuthMethodVerificationRequiredState) {
+            return (
+                <ChallengeForm
+                    onSubmit={handleChallengeSubmit}
+                    challenge={challenge}
+                    setChallenge={setChallenge}
+                    loading={loading}
+                    styles={styles}
+                />
+            );
         }
 
         if (resetState instanceof ResetPasswordCompletedState) {
@@ -211,18 +361,15 @@ export default function ResetPassword() {
         }
 
         if (resetState instanceof SignInCompletedState) {
-            return <div style={styles.signed_in_msg}>Sign up completed! Automatically sign in as {data?.getAccount().username}.</div>;
+            return (
+                <div style={styles.signed_in_msg}>
+                    Sign up completed! Automatically sign in as {data?.getAccount().username}.
+                </div>
+            );
         }
 
-        return (
-            <InitialForm
-                onSubmit={handleInitialSubmit}
-                email={email}
-                setEmail={setEmail}
-                loading={loading}
-            />
-        );
-    }
+        return <InitialForm onSubmit={handleInitialSubmit} email={email} setEmail={setEmail} loading={loading} />;
+    };
 
     return (
         <div style={styles.container}>

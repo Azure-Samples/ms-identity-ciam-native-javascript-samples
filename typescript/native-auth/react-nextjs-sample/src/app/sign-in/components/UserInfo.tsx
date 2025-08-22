@@ -1,8 +1,4 @@
-import { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
-
-interface UserInfoProps {
-    userData: CustomAuthAccountData | undefined | null;
-}
+import { UserInfoProps } from "../types";
 
 export function UserInfo({ userData }: UserInfoProps) {
     return (

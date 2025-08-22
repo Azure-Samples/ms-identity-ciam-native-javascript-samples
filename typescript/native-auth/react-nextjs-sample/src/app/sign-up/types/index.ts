@@ -1,4 +1,4 @@
-import { AuthenticationMethod, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import { AuthenticationMethod } from "@azure/msal-browser/custom-auth";
 
 export interface FormProps {
     loading: boolean;
@@ -6,8 +6,18 @@ export interface FormProps {
 
 export interface InitialFormProps extends FormProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
-    username: string;
-    setUsername: (value: string) => void;
+    firstName: string;
+    setFirstName: (value: string) => void;
+    lastName: string;
+    setLastName: (value: string) => void;
+    jobTitle: string;
+    setJobTitle: (value: string) => void;
+    city: string;
+    setCity: (value: string) => void;
+    country: string;
+    setCountry: (value: string) => void;
+    email: string;
+    setEmail: (value: string) => void;
 }
 
 export interface CodeFormProps extends FormProps {
@@ -22,10 +32,6 @@ export interface PasswordFormProps extends FormProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
     password: string;
     setPassword: (value: string) => void;
-}
-
-export interface UserInfoProps {
-    userData: CustomAuthAccountData | undefined | null;
 }
 
 export interface AuthMethodFormProps extends FormProps {

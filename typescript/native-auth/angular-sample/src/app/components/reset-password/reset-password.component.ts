@@ -4,6 +4,9 @@ import {
     ResetPasswordCodeRequiredState,
     ResetPasswordCompletedState,
     ResetPasswordPasswordRequiredState,
+    AuthenticationMethod,
+    AuthMethodRegistrationRequiredState,
+    AuthMethodVerificationRequiredState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -23,6 +26,12 @@ export class ResetPasswordComponent {
     loading = false;
     showCode = false;
     showNewPassword = false;
+    showAuthMethods = false;
+    showChallenge = false;
+    authMethods: AuthenticationMethod[] = [];
+    selectedAuthMethod: AuthenticationMethod | undefined = undefined;
+    verificationContact: string | undefined = undefined;
+    challenge: string | undefined = undefined;
     isReset = false;
     resetState: any = null;
     isSignedIn = false;
@@ -49,6 +58,8 @@ export class ResetPasswordComponent {
         this.isReset = false;
         this.showCode = false;
         this.showNewPassword = false;
+        this.showAuthMethods = false;
+        this.showChallenge = false;
         this.resetState = null;
 
         const client = await this.auth.getClient();
@@ -72,6 +83,8 @@ export class ResetPasswordComponent {
             this.showCode = true;
             this.isReset = false;
             this.showNewPassword = false;
+            this.showAuthMethods = false;
+            this.showChallenge = false;
         }
 
         this.loading = false;
@@ -96,6 +109,8 @@ export class ResetPasswordComponent {
                 this.showCode = false;
                 this.showNewPassword = true;
                 this.isReset = false;
+                this.showAuthMethods = false;
+                this.showChallenge = false;
                 this.resetState = result.state;
             }
         }
@@ -135,7 +150,8 @@ export class ResetPasswordComponent {
                 if (result.error?.isInvalidPassword()) {
                     this.error = "Invalid password";
                 } else {
-                    this.error = result.error?.errorData.errorDescription || "An error occurred while setting new password";
+                    this.error =
+                        result.error?.errorData.errorDescription || "An error occurred while setting new password";
                 }
             }
 
@@ -143,6 +159,8 @@ export class ResetPasswordComponent {
                 this.isReset = true;
                 this.showNewPassword = false;
                 this.showCode = false;
+                this.showAuthMethods = false;
+                this.showChallenge = false;
                 this.resetState = result.state;
                 this.handleAutoSignIn();
             }
@@ -152,21 +170,123 @@ export class ResetPasswordComponent {
 
     private async handleAutoSignIn() {
         this.error = "";
-        
+
         if (this.resetState instanceof ResetPasswordCompletedState) {
             const result = await this.resetState.signIn();
-            
+
             if (result.isFailed()) {
                 this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";
             }
-            
-            if (result.isCompleted()) {
+
+            if (result.isAuthMethodRegistrationRequired()) {
+                this.showAuthMethods = true;
+                this.showCode = false;
+                this.showNewPassword = false;
+                this.showChallenge = false;
+                this.isReset = false;
+                this.authMethods = result.state.getAuthMethods();
+                // Set default selection to the first auth method
+                this.selectedAuthMethod = this.authMethods.length > 0 ? this.authMethods[0] : undefined;
+                this.resetState = result.state;
+            } else if (result.isCompleted()) {
                 this.userData = result.data;
                 this.resetState = result.state;
                 this.isReset = true;
                 this.showCode = false;
                 this.showNewPassword = false;
+                this.showAuthMethods = false;
+                this.showChallenge = false;
             }
+        }
+    }
+
+    async submitAuthMethod() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.selectedAuthMethod || !this.verificationContact) {
+            this.error = "Please select an authentication method and enter a verification contact.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.resetState instanceof AuthMethodRegistrationRequiredState) {
+            const result = await this.resetState.challengeAuthMethod({
+                authMethodType: this.selectedAuthMethod,
+                verificationContact: this.verificationContact,
+            });
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectVerificationContact()) {
+                    this.error = "Incorrect verification contact.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the authentication method";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.showAuthMethods = false;
+                this.isReset = true;
+                this.resetState = result.state;
+            }
+
+            if (result.isVerificationRequired()) {
+                this.showAuthMethods = false;
+                this.showChallenge = true;
+                this.resetState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
+    async submitChallenge() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.challenge) {
+            this.error = "Please enter a code.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.resetState instanceof AuthMethodVerificationRequiredState) {
+            const result = await this.resetState.submitChallenge(this.challenge);
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectChallenge()) {
+                    this.error = "Incorrect code.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the challenge response";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.showChallenge = false;
+                this.isReset = true;
+                this.resetState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
+    getPlaceholderText(): string {
+        if (!this.selectedAuthMethod) {
+            return "Enter your contact information";
+        }
+
+        const channel = this.selectedAuthMethod.challenge_channel?.toLowerCase();
+        if (channel === "email") {
+            return "Enter your email for verification";
+        } else if (channel === "sms" || channel === "phone") {
+            return "Enter your phone number for verification";
+        } else {
+            return "Enter your contact information for verification";
         }
     }
 }
