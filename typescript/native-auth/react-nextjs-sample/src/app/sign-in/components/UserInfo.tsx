@@ -1,4 +1,4 @@
-import { UserInfoProps } from "../types";
+import type { UserInfoProps } from "../types/formProperties";
 
 export function UserInfo({ userData }: UserInfoProps) {
     return (

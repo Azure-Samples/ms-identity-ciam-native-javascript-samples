@@ -1,7 +1,7 @@
 import { styles } from "../styles/styles";
-import { InitialFormProps } from "../types";
+import type { ResetPasswordInitialFormProps } from "../types/formProperties";
 
-export function InitialForm({ onSubmit, email, setEmail, loading }: InitialFormProps) {
+export function InitialForm({ onSubmit, email, setEmail, loading }: ResetPasswordInitialFormProps) {
     return (
         <form onSubmit={onSubmit} style={styles.form}>
             <input

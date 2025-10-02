@@ -1,5 +1,5 @@
 import { styles } from "../styles/styles";
-import { NewPasswordFormProps } from "../types";
+import type { NewPasswordFormProps } from "../types/formProperties";
 
 export function NewPasswordForm({ onSubmit, newPassword, setNewPassword, loading }: NewPasswordFormProps) {
     return (

@@ -1,5 +1,5 @@
 import { styles } from "../styles/styles";
-import { InitialFormProps } from "../types";
+import type { SignUpInitialFormProps } from "../types/formProperties";
 
 export function InitialForm({
     onSubmit,
@@ -16,7 +16,7 @@ export function InitialForm({
     email,
     setEmail,
     loading,
-}: InitialFormProps) {
+}: SignUpInitialFormProps) {
     return (
         <form onSubmit={onSubmit} style={styles.form}>
             <input

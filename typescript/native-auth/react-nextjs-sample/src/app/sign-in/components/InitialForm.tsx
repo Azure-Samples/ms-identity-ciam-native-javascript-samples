@@ -1,7 +1,7 @@
 import { styles } from "../styles/styles";
-import { InitialFormProps } from "../types";
+import type { SignInInitialFormProps } from "../types/formProperties";
 
-export const InitialForm = ({ onSubmit, username, setUsername, loading }: InitialFormProps) => (
+export const InitialForm = ({ onSubmit, username, setUsername, loading }: SignInInitialFormProps) => (
     <form onSubmit={onSubmit} style={styles.form}>
         <input
             type="email"

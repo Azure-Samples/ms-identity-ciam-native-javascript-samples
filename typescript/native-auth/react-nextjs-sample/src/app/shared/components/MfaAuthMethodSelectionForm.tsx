@@ -1,17 +1,14 @@
 import React from "react";
-import { AuthMethodFormProps } from "../types";
-import { AuthenticationMethod } from "@azure/msal-browser/custom-auth";
+import type { MfaAuthMethodSelectionFormProps } from "../types/formProperties";
 
-export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
+export const MfaAuthMethodSelectionForm: React.FC<MfaAuthMethodSelectionFormProps> = ({
     onSubmit,
     authMethods,
     selectedAuthMethod,
     setSelectedAuthMethod,
-    verificationContact,
-    setVerificationContact,
     loading,
-    getPlaceholderText,
     styles,
+    title = "Select a verification method to complete multi-factor (second factor) authentication",
 }) => {
     return (
         <div>
@@ -24,42 +21,30 @@ export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
                     textAlign: "center",
                 }}
             >
-                To secure your account, please add an authentication method.
+                {title}
             </h3>
             <form onSubmit={onSubmit} style={styles.form}>
                 <select
                     value={selectedAuthMethod?.challenge_channel || ""}
                     onChange={(e) => {
-                        const selected = authMethods.find(
-                            (method: AuthenticationMethod) => method.challenge_channel === e.target.value
-                        );
+                        const selected = authMethods.find((method) => method.challenge_channel === e.target.value);
                         setSelectedAuthMethod(selected);
                     }}
                     style={{ ...styles.input, textTransform: "capitalize" as const }}
                     required
                 >
-                    {authMethods.map((method: AuthenticationMethod) => (
+                    {authMethods.map((method) => (
                         <option key={method.challenge_channel} value={method.challenge_channel}>
                             {method.challenge_channel}
                         </option>
                     ))}
                 </select>
-                <input
-                    type="email"
-                    value={verificationContact}
-                    onChange={(e) => setVerificationContact(e.target.value)}
-                    placeholder={getPlaceholderText()}
-                    style={styles.input}
-                    required
-                />
                 <button
                     type="submit"
-                    disabled={loading || !selectedAuthMethod || !verificationContact}
-                    style={
-                        loading || !selectedAuthMethod || !verificationContact ? styles.buttonDisabled : styles.button
-                    }
+                    disabled={loading || !selectedAuthMethod}
+                    style={loading || !selectedAuthMethod ? styles.buttonDisabled : styles.button}
                 >
-                    {loading ? "Adding..." : "Add"}
+                    {loading ? "Loading..." : "Choose"}
                 </button>
             </form>
         </div>

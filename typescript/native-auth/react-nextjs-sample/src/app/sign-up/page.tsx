@@ -17,11 +17,15 @@ import {
     AuthMethodRegistrationRequiredState,
     AuthMethodVerificationRequiredState,
     AuthenticationMethod,
+    MfaAwaitingState,
+    MfaVerificationRequiredState,
 } from "@azure/msal-browser/custom-auth";
-import { CodeForm } from "./components/CodeForm";
-import { PasswordForm } from "./components/PasswordForm";
-import { AuthMethodForm } from "./components/AuthMethodForm";
-import { ChallengeForm } from "./components/ChallengeForm";
+import { CodeForm } from "../shared/components/CodeForm";
+import { PasswordForm } from "../shared/components/PasswordForm";
+import { AuthMethodRegistrationForm } from "../shared/components/AuthMethodRegistrationForm";
+import { AuthMethodRegistrationChallengeForm } from "../shared/components/AuthMethodRegistrationChallengeForm";
+import { MfaAuthMethodSelectionForm } from "../shared/components/MfaAuthMethodSelectionForm";
+import { MfaChallengeForm } from "../shared/components/MfaChallengeForm";
 
 export default function SignUpPassword() {
     const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -42,10 +46,17 @@ export default function SignUpPassword() {
     const [data, setData] = useState<CustomAuthAccountData | undefined>(undefined);
 
     // Auth method registration states
-    const [authMethods, setAuthMethods] = useState<AuthenticationMethod[]>([]);
-    const [selectedAuthMethod, setSelectedAuthMethod] = useState<AuthenticationMethod | undefined>(undefined);
-    const [verificationContact, setVerificationContact] = useState("");
-    const [challenge, setChallenge] = useState("");
+    const [authMethodsForRegistration, setAuthMethodsForRegistration] = useState<AuthenticationMethod[]>([]);
+    const [selectedAuthMethodForRegistration, setSelectedAuthMethodForRegistration] = useState<
+        AuthenticationMethod | undefined
+    >(undefined);
+    const [verificationContactForRegistration, setVerificationContactForRegistration] = useState("");
+    const [challengeForRegistration, setChallengeForRegistration] = useState("");
+
+    // MFA states
+    const [mfaAuthMethods, setMfaAuthMethods] = useState<AuthenticationMethod[]>([]);
+    const [selectedMfaAuthMethod, setSelectedMfaAuthMethod] = useState<AuthenticationMethod | undefined>(undefined);
+    const [mfaChallenge, setMfaChallenge] = useState("");
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -212,11 +223,15 @@ export default function SignUpPassword() {
 
             // Check for auth method registration requirement
             if (result.isAuthMethodRegistrationRequired()) {
-                setAuthMethods(result.state.getAuthMethods());
-                // Set default selection to the first auth method
+                setAuthMethodsForRegistration(result.state.getAuthMethods());
                 const methods = result.state.getAuthMethods();
-                setSelectedAuthMethod(methods.length > 0 ? methods[0] : undefined);
+                setSelectedAuthMethodForRegistration(methods.length > 0 ? methods[0] : undefined);
                 setSignUpState(result.state);
+            } else if (result.isMfaRequired()) {
+                const methods = result.state.getAuthMethods();
+                setMfaAuthMethods(methods);
+                setSelectedMfaAuthMethod(methods.length > 0 ? methods[0] : undefined);
+                setSignUpState(state);
             } else if (result.isCompleted()) {
                 setData(result.data);
                 setSignUpState(state);
@@ -225,12 +240,12 @@ export default function SignUpPassword() {
         }
     };
 
-    const handleAuthMethodSubmit = async (e: React.FormEvent) => {
+    const handleAuthMethodRegistrationSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        if (!selectedAuthMethod || !verificationContact) {
+        if (!selectedAuthMethodForRegistration || !verificationContactForRegistration) {
             setError("Please select an authentication method and enter a verification contact.");
             setLoading(false);
             return;
@@ -238,13 +253,17 @@ export default function SignUpPassword() {
 
         if (signUpState instanceof AuthMethodRegistrationRequiredState) {
             const result = await signUpState.challengeAuthMethod({
-                authMethodType: selectedAuthMethod,
-                verificationContact: verificationContact,
+                authMethodType: selectedAuthMethodForRegistration,
+                verificationContact: verificationContactForRegistration,
             });
 
             if (result.isFailed()) {
-                if (result.error?.isIncorrectVerificationContact && result.error.isIncorrectVerificationContact()) {
+                if (result.error?.isInvalidInput && result.error.isInvalidInput()) {
                     setError("Incorrect verification contact.");
+                } else if (result.error?.isVerificationContactBlocked()) {
+                    setError(
+                        "The verification contact is blocked. Consider using a different contact or a different authentication method"
+                    );
                 } else {
                     setError(
                         result.error?.errorData?.errorDescription ||
@@ -267,19 +286,19 @@ export default function SignUpPassword() {
         setLoading(false);
     };
 
-    const handleChallengeSubmit = async (e: React.FormEvent) => {
+    const handleAuthMethodRegistrationChallengeSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
         setLoading(true);
 
-        if (!challenge) {
+        if (!challengeForRegistration) {
             setError("Please enter a code.");
             setLoading(false);
             return;
         }
 
         if (signUpState instanceof AuthMethodVerificationRequiredState) {
-            const result = await signUpState.submitChallenge(challenge);
+            const result = await signUpState.submitChallenge(challengeForRegistration);
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge && result.error.isIncorrectChallenge()) {
@@ -302,12 +321,80 @@ export default function SignUpPassword() {
         setLoading(false);
     };
 
-    const getPlaceholderText = (): string => {
-        if (!selectedAuthMethod) {
+    const handleMfaAuthMethodSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        if (!selectedMfaAuthMethod) {
+            setError("Please select an authentication method.");
+            setLoading(false);
+            return;
+        }
+
+        if (signUpState instanceof MfaAwaitingState) {
+            const result = await signUpState.requestChallenge(selectedMfaAuthMethod.id);
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidInput()) {
+                    setError("Incorrect verification contact.");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription ||
+                            "An error occurred while verifying the authentication method"
+                    );
+                }
+            }
+
+            if (result.isVerificationRequired()) {
+                setSignUpState(result.state);
+            }
+        }
+
+        setLoading(false);
+    };
+
+    const handleMfaChallengeSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        if (!mfaChallenge) {
+            setError("Please enter a code.");
+            setLoading(false);
+            return;
+        }
+
+        if (signUpState instanceof MfaVerificationRequiredState) {
+            const result = await signUpState.submitChallenge(mfaChallenge);
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectChallenge()) {
+                    setError("Incorrect code.");
+                } else {
+                    setError(
+                        result.error?.errorData?.errorDescription ||
+                            "An error occurred while verifying the challenge response"
+                    );
+                }
+            }
+
+            if (result.isCompleted()) {
+                setData(result.data);
+                setSignInState(true);
+                setSignUpState(result.state);
+            }
+        }
+
+        setLoading(false);
+    };
+
+    const getPlaceholderTextForVerificationContact = (): string => {
+        if (!selectedAuthMethodForRegistration) {
             return "Enter your contact information";
         }
 
-        const channel = selectedAuthMethod.challenge_channel?.toLowerCase();
+        const channel = selectedAuthMethodForRegistration.challenge_channel?.toLowerCase();
         if (channel === "email") {
             return "Enter your email for verification";
         } else if (channel === "sms" || channel === "phone") {
@@ -344,30 +431,53 @@ export default function SignUpPassword() {
                     password={password}
                     setPassword={setPassword}
                     loading={loading}
+                    submitButtonText="Submit Password"
+                    submitButtonLoadingText="Submitting..."
                 />
             );
         } else if (signUpState instanceof SignUpCompletedState) {
             return <div style={styles.signed_in_msg}>Sign up completed! Signing you in automatically...</div>;
         } else if (signUpState instanceof AuthMethodRegistrationRequiredState) {
             return (
-                <AuthMethodForm
-                    onSubmit={handleAuthMethodSubmit}
-                    authMethods={authMethods}
-                    selectedAuthMethod={selectedAuthMethod}
-                    setSelectedAuthMethod={setSelectedAuthMethod}
-                    verificationContact={verificationContact}
-                    setVerificationContact={setVerificationContact}
+                <AuthMethodRegistrationForm
+                    onSubmit={handleAuthMethodRegistrationSubmit}
+                    authMethods={authMethodsForRegistration}
+                    selectedAuthMethod={selectedAuthMethodForRegistration}
+                    setSelectedAuthMethod={setSelectedAuthMethodForRegistration}
+                    verificationContact={verificationContactForRegistration}
+                    setVerificationContact={setVerificationContactForRegistration}
                     loading={loading}
-                    getPlaceholderText={getPlaceholderText}
+                    getPlaceholderText={getPlaceholderTextForVerificationContact}
                     styles={styles}
                 />
             );
         } else if (signUpState instanceof AuthMethodVerificationRequiredState) {
             return (
-                <ChallengeForm
-                    onSubmit={handleChallengeSubmit}
-                    challenge={challenge}
-                    setChallenge={setChallenge}
+                <AuthMethodRegistrationChallengeForm
+                    onSubmit={handleAuthMethodRegistrationChallengeSubmit}
+                    challenge={challengeForRegistration}
+                    setChallenge={setChallengeForRegistration}
+                    loading={loading}
+                    styles={styles}
+                />
+            );
+        } else if (signUpState instanceof MfaAwaitingState) {
+            return (
+                <MfaAuthMethodSelectionForm
+                    onSubmit={handleMfaAuthMethodSubmit}
+                    authMethods={mfaAuthMethods}
+                    selectedAuthMethod={selectedMfaAuthMethod}
+                    setSelectedAuthMethod={setSelectedMfaAuthMethod}
+                    loading={loading}
+                    styles={styles}
+                />
+            );
+        } else if (signUpState instanceof MfaVerificationRequiredState) {
+            return (
+                <MfaChallengeForm
+                    onSubmit={handleMfaChallengeSubmit}
+                    challenge={mfaChallenge}
+                    setChallenge={setMfaChallenge}
                     loading={loading}
                     styles={styles}
                 />

@@ -1,8 +1,8 @@
 import React from "react";
-import { AuthMethodFormProps } from "../types";
+import type { AuthMethodRegistrationFormProps } from "../types/formProperties";
 import { AuthenticationMethod } from "@azure/msal-browser/custom-auth";
 
-export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
+export const AuthMethodRegistrationForm: React.FC<AuthMethodRegistrationFormProps> = ({
     onSubmit,
     authMethods,
     selectedAuthMethod,
@@ -12,6 +12,7 @@ export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
     loading,
     getPlaceholderText,
     styles,
+    title = "To secure your account, please add an authentication method.",
 }) => {
     return (
         <div>
@@ -24,7 +25,7 @@ export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
                     textAlign: "center",
                 }}
             >
-                To secure your account, please add an authentication method.
+                {title}
             </h3>
             <form onSubmit={onSubmit} style={styles.form}>
                 <select
@@ -45,7 +46,13 @@ export const AuthMethodForm: React.FC<AuthMethodFormProps> = ({
                     ))}
                 </select>
                 <input
-                    type="email"
+                    type={
+                        selectedAuthMethod?.challenge_channel === "email"
+                            ? "email"
+                            : selectedAuthMethod?.challenge_channel === "sms"
+                            ? "tel"
+                            : "text"
+                    }
                     value={verificationContact}
                     onChange={(e) => setVerificationContact(e.target.value)}
                     placeholder={getPlaceholderText()}

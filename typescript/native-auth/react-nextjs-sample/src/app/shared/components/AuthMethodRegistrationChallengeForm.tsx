@@ -1,7 +1,14 @@
 import React from "react";
-import { ChallengeFormProps } from "../types";
+import type { AuthMethodRegistrationChallengeFormProps } from "../types/formProperties";
 
-export const ChallengeForm: React.FC<ChallengeFormProps> = ({ onSubmit, challenge, setChallenge, loading, styles }) => {
+export const AuthMethodRegistrationChallengeForm: React.FC<AuthMethodRegistrationChallengeFormProps> = ({
+    onSubmit,
+    challenge,
+    setChallenge,
+    loading,
+    styles,
+    title = "Enter the code below to verify your method",
+}) => {
     return (
         <div>
             <h3
@@ -13,7 +20,7 @@ export const ChallengeForm: React.FC<ChallengeFormProps> = ({ onSubmit, challeng
                     textAlign: "center",
                 }}
             >
-                Enter the code below to verify your method
+                {title}
             </h3>
             <form onSubmit={onSubmit} style={styles.form}>
                 <input
