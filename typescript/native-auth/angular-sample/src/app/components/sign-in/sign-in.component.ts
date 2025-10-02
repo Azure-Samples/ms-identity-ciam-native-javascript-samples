@@ -16,13 +16,24 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { PopupRequest } from "@azure/msal-browser";
 import { customAuthConfig } from "../../config/auth-config";
+import { CodeFormComponent } from "../shared/code-form/code-form.component";
+import { PasswordFormComponent } from "../shared/password-form/password-form.component";
+import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selection-form/auth-method-selection-form.component";
+import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
 
 @Component({
     selector: "app-sign-in",
     templateUrl: "./sign-in.component.html",
     styleUrls: ["./sign-in.component.scss"],
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [
+        CommonModule,
+        FormsModule,
+        CodeFormComponent,
+        PasswordFormComponent,
+        AuthMethodSelectionFormComponent,
+        AuthMethodChallengeFormComponent,
+    ],
 })
 export class SignInComponent implements OnInit {
     username = "";
@@ -225,7 +236,7 @@ export class SignInComponent implements OnInit {
             });
 
             if (result.isFailed()) {
-                if (result.error?.isIncorrectVerificationContact()) {
+                if (result.error?.isInvalidInput()) {
                     this.error = "Incorrect verification contact.";
                 } else {
                     this.error =

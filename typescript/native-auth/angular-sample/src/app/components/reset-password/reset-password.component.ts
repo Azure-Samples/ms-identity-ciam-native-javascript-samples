@@ -10,13 +10,22 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { CodeFormComponent } from "../shared/code-form/code-form.component";
+import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selection-form/auth-method-selection-form.component";
+import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
 
 @Component({
     selector: "app-reset-password",
     templateUrl: "./reset-password.component.html",
     styleUrls: ["./reset-password.component.scss"],
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [
+        CommonModule,
+        FormsModule,
+        CodeFormComponent,
+        AuthMethodSelectionFormComponent,
+        AuthMethodChallengeFormComponent,
+    ],
 })
 export class ResetPasswordComponent {
     email = "";
@@ -217,7 +226,7 @@ export class ResetPasswordComponent {
             });
 
             if (result.isFailed()) {
-                if (result.error?.isIncorrectVerificationContact()) {
+                if (result.error?.isInvalidInput()) {
                     this.error = "Incorrect verification contact.";
                 } else {
                     this.error =
