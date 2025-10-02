@@ -8,7 +8,7 @@
             </option>
         </select>
     </div>
-    <input type="email" [ngModel]="verificationContact" (ngModelChange)="onContactChange($event)"
+    <input [type]="getInputType()" [ngModel]="verificationContact" (ngModelChange)="onContactChange($event)"
         name="verificationContact" [placeholder]="getPlaceholderText()" required />
     <button type="submit" [disabled]="loading || !selectedAuthMethod || !verificationContact">
         {{ loading ? submitButtonLoadingText : submitButtonText }}

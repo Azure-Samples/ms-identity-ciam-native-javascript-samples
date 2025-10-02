@@ -34,4 +34,19 @@ export class AuthMethodSelectionFormComponent {
     onSubmit() {
         this.submitForm.emit();
     }
+
+    getInputType(): string {
+        if (!this.selectedAuthMethod) {
+            return "text";
+        }
+
+        const channel = this.selectedAuthMethod.challenge_channel?.toLowerCase();
+        if (channel === "email") {
+            return "email";
+        } else if (channel === "sms" || channel === "phone") {
+            return "tel";
+        } else {
+            return "text";
+        }
+    }
 }

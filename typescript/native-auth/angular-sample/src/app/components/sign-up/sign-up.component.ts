@@ -218,6 +218,9 @@ export class SignUpComponent {
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
                     this.error = "Incorrect verification contact.";
+                } else if (result.error?.isVerificationContactBlocked()) {
+                    this.error =
+                        "The verification contact is blocked. Consider using a different contact or a different authentication method";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
