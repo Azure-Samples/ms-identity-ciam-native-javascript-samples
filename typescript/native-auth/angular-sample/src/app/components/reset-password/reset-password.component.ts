@@ -7,17 +7,20 @@ import {
     AuthenticationMethod,
     AuthMethodRegistrationRequiredState,
     AuthMethodVerificationRequiredState,
+    MfaAwaitingState,
+    MfaVerificationRequiredState,
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { CodeFormComponent } from "../shared/code-form/code-form.component";
 import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selection-form/auth-method-selection-form.component";
 import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
+import { MfaAuthMethodSelectionFormComponent } from "../shared/mfa-auth-method-selection-form/mfa-auth-method-selection-form.component";
+import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-challenge-form.component";
 
 @Component({
     selector: "app-reset-password",
     templateUrl: "./reset-password.component.html",
-    styleUrls: ["./reset-password.component.scss"],
     standalone: true,
     imports: [
         CommonModule,
@@ -25,6 +28,8 @@ import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challeng
         CodeFormComponent,
         AuthMethodSelectionFormComponent,
         AuthMethodChallengeFormComponent,
+        MfaAuthMethodSelectionFormComponent,
+        MfaChallengeFormComponent,
     ],
 })
 export class ResetPasswordComponent {
@@ -35,12 +40,17 @@ export class ResetPasswordComponent {
     loading = false;
     showCode = false;
     showNewPassword = false;
-    showAuthMethods = false;
-    showChallenge = false;
-    authMethods: AuthenticationMethod[] = [];
-    selectedAuthMethod: AuthenticationMethod | undefined = undefined;
-    verificationContact: string | undefined = undefined;
-    challenge: string | undefined = undefined;
+    showAuthMethodsForRegistration = false;
+    showChallengeForRegistration = false;
+    showMfaAuthMethods = false;
+    showMfaChallenge = false;
+    authMethodsForRegistration: AuthenticationMethod[] = [];
+    selectedAuthMethodForRegistration: AuthenticationMethod | undefined = undefined;
+    verificationContactForRegistration: string | undefined = undefined;
+    challengeForRegistration: string | undefined = undefined;
+    mfaAuthMethods: AuthenticationMethod[] = [];
+    selectedMfaAuthMethod: AuthenticationMethod | undefined = undefined;
+    mfaChallenge: string | undefined = undefined;
     isReset = false;
     resetState: any = null;
     isSignedIn = false;
@@ -67,8 +77,8 @@ export class ResetPasswordComponent {
         this.isReset = false;
         this.showCode = false;
         this.showNewPassword = false;
-        this.showAuthMethods = false;
-        this.showChallenge = false;
+        this.showAuthMethodsForRegistration = false;
+        this.showChallengeForRegistration = false;
         this.resetState = null;
 
         const client = await this.auth.getClient();
@@ -92,8 +102,8 @@ export class ResetPasswordComponent {
             this.showCode = true;
             this.isReset = false;
             this.showNewPassword = false;
-            this.showAuthMethods = false;
-            this.showChallenge = false;
+            this.showAuthMethodsForRegistration = false;
+            this.showChallengeForRegistration = false;
         }
 
         this.loading = false;
@@ -118,8 +128,8 @@ export class ResetPasswordComponent {
                 this.showCode = false;
                 this.showNewPassword = true;
                 this.isReset = false;
-                this.showAuthMethods = false;
-                this.showChallenge = false;
+                this.showAuthMethodsForRegistration = false;
+                this.showChallengeForRegistration = false;
                 this.resetState = result.state;
             }
         }
@@ -168,8 +178,8 @@ export class ResetPasswordComponent {
                 this.isReset = true;
                 this.showNewPassword = false;
                 this.showCode = false;
-                this.showAuthMethods = false;
-                this.showChallenge = false;
+                this.showAuthMethodsForRegistration = false;
+                this.showChallengeForRegistration = false;
                 this.resetState = result.state;
                 this.handleAutoSignIn();
             }
@@ -188,14 +198,29 @@ export class ResetPasswordComponent {
             }
 
             if (result.isAuthMethodRegistrationRequired()) {
-                this.showAuthMethods = true;
+                this.showAuthMethodsForRegistration = true;
                 this.showCode = false;
                 this.showNewPassword = false;
-                this.showChallenge = false;
+                this.showChallengeForRegistration = false;
+                this.showMfaAuthMethods = false;
+                this.showMfaChallenge = false;
                 this.isReset = false;
-                this.authMethods = result.state.getAuthMethods();
+                this.authMethodsForRegistration = result.state.getAuthMethods();
                 // Set default selection to the first auth method
-                this.selectedAuthMethod = this.authMethods.length > 0 ? this.authMethods[0] : undefined;
+                this.selectedAuthMethodForRegistration =
+                    this.authMethodsForRegistration.length > 0 ? this.authMethodsForRegistration[0] : undefined;
+                this.resetState = result.state;
+            } else if (result.isMfaRequired()) {
+                this.showMfaAuthMethods = true;
+                this.showCode = false;
+                this.showNewPassword = false;
+                this.showAuthMethodsForRegistration = false;
+                this.showChallengeForRegistration = false;
+                this.showMfaChallenge = false;
+                this.isReset = false;
+                this.mfaAuthMethods = result.state.getAuthMethods();
+                // Set default selection to the first MFA auth method
+                this.selectedMfaAuthMethod = this.mfaAuthMethods.length > 0 ? this.mfaAuthMethods[0] : undefined;
                 this.resetState = result.state;
             } else if (result.isCompleted()) {
                 this.userData = result.data;
@@ -203,17 +228,19 @@ export class ResetPasswordComponent {
                 this.isReset = true;
                 this.showCode = false;
                 this.showNewPassword = false;
-                this.showAuthMethods = false;
-                this.showChallenge = false;
+                this.showAuthMethodsForRegistration = false;
+                this.showChallengeForRegistration = false;
+                this.showMfaAuthMethods = false;
+                this.showMfaChallenge = false;
             }
         }
     }
 
-    async submitAuthMethod() {
+    async submitAuthMethodForRegistration() {
         this.error = "";
         this.loading = true;
 
-        if (!this.selectedAuthMethod || !this.verificationContact) {
+        if (!this.selectedAuthMethodForRegistration || !this.verificationContactForRegistration) {
             this.error = "Please select an authentication method and enter a verification contact.";
             this.loading = false;
             return;
@@ -221,8 +248,8 @@ export class ResetPasswordComponent {
 
         if (this.resetState instanceof AuthMethodRegistrationRequiredState) {
             const result = await this.resetState.challengeAuthMethod({
-                authMethodType: this.selectedAuthMethod,
-                verificationContact: this.verificationContact,
+                authMethodType: this.selectedAuthMethodForRegistration,
+                verificationContact: this.verificationContactForRegistration,
             });
 
             if (result.isFailed()) {
@@ -240,32 +267,32 @@ export class ResetPasswordComponent {
 
             if (result.isCompleted()) {
                 this.userData = result.data;
-                this.showAuthMethods = false;
+                this.showAuthMethodsForRegistration = false;
                 this.isReset = true;
                 this.resetState = result.state;
             }
 
             if (result.isVerificationRequired()) {
-                this.showAuthMethods = false;
-                this.showChallenge = true;
+                this.showAuthMethodsForRegistration = false;
+                this.showChallengeForRegistration = true;
                 this.resetState = result.state;
             }
         }
         this.loading = false;
     }
 
-    async submitChallenge() {
+    async submitChallengeForRegistration() {
         this.error = "";
         this.loading = true;
 
-        if (!this.challenge) {
+        if (!this.challengeForRegistration) {
             this.error = "Please enter a code.";
             this.loading = false;
             return;
         }
 
         if (this.resetState instanceof AuthMethodVerificationRequiredState) {
-            const result = await this.resetState.submitChallenge(this.challenge);
+            const result = await this.resetState.submitChallenge(this.challengeForRegistration);
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
@@ -279,7 +306,7 @@ export class ResetPasswordComponent {
 
             if (result.isCompleted()) {
                 this.userData = result.data;
-                this.showChallenge = false;
+                this.showChallengeForRegistration = false;
                 this.isReset = true;
                 this.resetState = result.state;
             }
@@ -287,12 +314,77 @@ export class ResetPasswordComponent {
         this.loading = false;
     }
 
-    getPlaceholderText(): string {
-        if (!this.selectedAuthMethod) {
+    async submitMfaAuthMethod() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.selectedMfaAuthMethod) {
+            this.error = "Please select an authentication method.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.resetState instanceof MfaAwaitingState) {
+            const result = await this.resetState.requestChallenge(this.selectedMfaAuthMethod.id);
+
+            if (result.isFailed()) {
+                if (result.error?.isInvalidInput()) {
+                    this.error = "Incorrect verification contact.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the authentication method";
+                }
+            }
+
+            if (result.isVerificationRequired()) {
+                this.showMfaAuthMethods = false;
+                this.showMfaChallenge = true;
+                this.resetState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
+    async submitMfaChallenge() {
+        this.error = "";
+        this.loading = true;
+
+        if (!this.mfaChallenge) {
+            this.error = "Please enter a code.";
+            this.loading = false;
+            return;
+        }
+
+        if (this.resetState instanceof MfaVerificationRequiredState) {
+            const result = await this.resetState.submitChallenge(this.mfaChallenge);
+
+            if (result.isFailed()) {
+                if (result.error?.isIncorrectChallenge()) {
+                    this.error = "Incorrect code.";
+                } else {
+                    this.error =
+                        result.error?.errorData?.errorDescription ||
+                        "An error occurred while verifying the challenge response";
+                }
+            }
+
+            if (result.isCompleted()) {
+                this.userData = result.data;
+                this.showMfaChallenge = false;
+                this.isReset = true;
+                this.resetState = result.state;
+            }
+        }
+        this.loading = false;
+    }
+
+    getPlaceholderTextForVerificationContact(): string {
+        if (!this.selectedAuthMethodForRegistration) {
             return "Enter your contact information";
         }
 
-        const channel = this.selectedAuthMethod.challenge_channel?.toLowerCase();
+        const channel = this.selectedAuthMethodForRegistration.challenge_channel?.toLowerCase();
         if (channel === "email") {
             return "Enter your email for verification";
         } else if (channel === "sms" || channel === "phone") {

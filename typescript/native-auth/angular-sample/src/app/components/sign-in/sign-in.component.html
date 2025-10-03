@@ -3,7 +3,8 @@
     <div *ngIf="isSignedIn">
         <p>Signed in as {{ userData?.getAccount()?.username }}</p>
     </div>
-    <form *ngIf="!showPassword && !showCode && !isSignedIn && !showAuthMethods && !showChallenge"
+    <form
+        *ngIf="!showPassword && !showCode && !isSignedIn && !showAuthMethodsForRegistration && !showChallengeForRegistration && !showMfaAuthMethods && !showMfaChallenge"
         (ngSubmit)="startSignIn()">
         <input type="email" [(ngModel)]="username" name="username" placeholder="Email" required />
         <button type="submit" [disabled]="loading">{{ loading ? 'Signing in...' : 'Sign In' }}</button>
@@ -21,16 +22,31 @@
     </app-code-form>
 
     <!-- Use shared auth method selection form -->
-    <app-auth-method-selection-form *ngIf="showAuthMethods" [authMethods]="authMethods"
-        [selectedAuthMethod]="selectedAuthMethod" [verificationContact]="verificationContact" [loading]="loading"
-        [getPlaceholderText]="getPlaceholderText.bind(this)" (selectedAuthMethodChange)="selectedAuthMethod = $event"
-        (verificationContactChange)="verificationContact = $event" (submitForm)="submitAuthMethod()">
+    <app-auth-method-selection-form *ngIf="showAuthMethodsForRegistration" [authMethods]="authMethodsForRegistration"
+        [selectedAuthMethod]="selectedAuthMethodForRegistration"
+        [verificationContact]="verificationContactForRegistration" [loading]="loading"
+        [getPlaceholderText]="getPlaceholderTextForVerificationContact.bind(this)"
+        (selectedAuthMethodChange)="selectedAuthMethodForRegistration = $event"
+        (verificationContactChange)="verificationContactForRegistration = $event"
+        (submitForm)="submitAuthMethodForRegistration()">
     </app-auth-method-selection-form>
 
     <!-- Use shared challenge form -->
-    <app-auth-method-challenge-form *ngIf="showChallenge" [challenge]="challenge" [loading]="loading"
-        (challengeChange)="challenge = $event" (submitForm)="submitChallenge()">
+    <app-auth-method-challenge-form *ngIf="showChallengeForRegistration" [challenge]="challengeForRegistration"
+        [loading]="loading" (challengeChange)="challengeForRegistration = $event"
+        (submitForm)="submitChallengeForRegistration()">
     </app-auth-method-challenge-form>
+
+    <!-- Use shared MFA auth method selection form -->
+    <app-mfa-auth-method-selection-form *ngIf="showMfaAuthMethods" [authMethods]="mfaAuthMethods"
+        [selectedAuthMethod]="selectedMfaAuthMethod" [loading]="loading"
+        (selectedAuthMethodChange)="selectedMfaAuthMethod = $event" (submitForm)="submitMfaAuthMethod()">
+    </app-mfa-auth-method-selection-form>
+
+    <!-- Use shared MFA challenge form -->
+    <app-mfa-challenge-form *ngIf="showMfaChallenge" [challenge]="mfaChallenge" [loading]="loading"
+        (challengeChange)="mfaChallenge = $event" (submitForm)="submitMfaChallenge()">
+    </app-mfa-challenge-form>
 
     <div class="error" *ngIf="error">{{ error }}</div>
 </div>
