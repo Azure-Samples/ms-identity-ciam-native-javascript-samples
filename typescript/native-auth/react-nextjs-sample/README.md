@@ -12,6 +12,8 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 - Users sign in with their email as the username.
 - Password-based: Enter email and password to authenticate.
 - Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
+- **Multi-Factor Authentication (MFA)**: If MFA is required, users select a verification method and complete a second factor challenge.
+- **Just-In-Time (JIT) Authentication Method Registration**: If no authentication method is registered, users can add one during sign-in.
 - Handles authentication errors and displays appropriate messages.
 
 #### Sign-up
@@ -20,12 +22,17 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
   - Email + OTP (passwordless registration)
 - During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
 - The sign-up flow may include email verification or additional steps as required by the backend.
+- After successful registration, the app automatically continues to sign in the user.
+- During the automatic sign-in after registration, users can add authentication methods (email or SMS) if no strong auth method is registered.
 - Handles validation and error feedback for user input.
 
 #### Self-Service Password Reset (SSPR)
 - Users can initiate a self-serve password reset if they forget their password.
 - The password reset flow uses email OTP for authentication and verification.
 - Guides users through requesting a reset code, verifying their identity, and setting a new password.
+- After successful password reset, the app automatically continues to sign in the user.
+- During the automatic sign-in after password reset, users can add authentication methods if no strong auth method is registered.
+- Also, during the automatic sign-in after password reset, users may be requried to complete additional verification if MFA is enabled.
 - Handles errors such as invalid or expired reset codes.
 
 For more details on the SDK, see the official Microsoft documentation.
@@ -96,28 +103,50 @@ react-nextjs-sample/
 ├── tsconfig.json          # TypeScript configuration
 ├── src/
 │   ├── app/               # Next.js App Router directory
+│   │   ├── shared/        # Shared components and types
+│   │   │   ├── components/
+│   │   │   │   ├── AuthMethodRegistrationForm.tsx           # JIT auth method registration
+│   │   │   │   ├── AuthMethodRegistrationChallengeForm.tsx  # JIT challenge verification
+│   │   │   │   ├── MfaAuthMethodSelectionForm.tsx           # MFA method selection
+│   │   │   │   ├── MfaChallengeForm.tsx                     # MFA challenge verification
+│   │   │   │   ├── CodeForm.tsx                             # Reusable OTP code input
+│   │   │   │   └── PasswordForm.tsx                         # Reusable password input
+│   │   │   └── types/
+│   │   │       └── formProperties.ts  # Shared TypeScript interfaces
 │   │   ├── sign-in/       # Sign-in route and logic
+│   │   │   ├── page.tsx               # Sign-in page with MFA and JIT support
+│   │   │   ├── components/            # Sign-in specific components
+│   │   │   └── types/                 # Sign-in specific types
 │   │   ├── sign-up/       # Sign-up route and logic
+│   │   │   ├── page.tsx               # Sign-up page with MFA and JIT support
+│   │   │   ├── components/            # Sign-up specific components
+│   │   │   └── types/                 # Sign-up specific types
 │   │   ├── reset-password/# Password reset route and logic
+│   │   │   ├── page.tsx               # Reset password page with JIT support
+│   │   │   ├── components/            # Reset password specific components
+│   │   │   └── types/                 # Reset password specific types
 │   │   ├── layout.tsx     # Root layout with navigation
 │   │   ├── page.tsx       # Home page
 │   │   └── globals.css    # Global styles
-│   └── components/        # Shared React components (e.g., Navbar)
+│   └── components/        # Additional shared React components (e.g., Navbar)
 │       └── ...
 └── ...other config and support files
 ```
 
 - All authentication flows and UI are implemented in the `src/app/` directory.
-- Shared UI and logic are in `src/components/`.
+- Shared components for JIT and MFA are consolidated in `src/app/shared/components/` to promote code reuse.
+- Flow-specific logic is organized in dedicated route directories (`sign-in/`, `sign-up/`, `reset-password/`).
 - The CORS proxy and configuration files are at the project root.
 
 ## Development
 - `src/app/page.tsx` - Main landing page
 - `src/app/layout.tsx` - Root layout with navigation
 - Authentication routes:
-  - `src/app/sign-in/page.tsx` - Sign-in page
-  - `src/app/sign-up/page.tsx` - Sign-up page
-  - `src/app/reset-password/page.tsx` - Password reset page
+  - `src/app/sign-in/page.tsx` - Sign-in page with MFA and JIT support
+  - `src/app/sign-up/page.tsx` - Sign-up page with MFA and JIT support
+  - `src/app/reset-password/page.tsx` - Password reset page with JIT support
+- Shared components:
+  - `src/app/shared/components/` - Reusable form components for JIT and MFA flows
 
 ## Notes
 - Ensure the CORS proxy is running if your frontend needs to communicate with a backend API that does not allow cross-origin requests.
