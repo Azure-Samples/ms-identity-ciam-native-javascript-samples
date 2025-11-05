@@ -26,6 +26,7 @@ import { AuthMethodRegistrationForm } from "../shared/components/AuthMethodRegis
 import { AuthMethodRegistrationChallengeForm } from "../shared/components/AuthMethodRegistrationChallengeForm";
 import { MfaAuthMethodSelectionForm } from "../shared/components/MfaAuthMethodSelectionForm";
 import { MfaChallengeForm } from "../shared/components/MfaChallengeForm";
+import { PopupRequest } from "@azure/msal-browser";
 
 export default function SignUpPassword() {
     const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -389,6 +390,45 @@ export default function SignUpPassword() {
         setLoading(false);
     };
 
+    const startSignUpWithSocial = async (domainHint: string) => {
+        setError("");
+        setLoading(false);
+
+        if (!authClient) return;
+
+        const popUpRequest: PopupRequest = {
+            authority: customAuthConfig.auth.authority,
+            scopes: [],
+            redirectUri: customAuthConfig.auth.redirectUri || "",
+            prompt: "login",
+            domainHint: domainHint,
+        };
+
+        try {
+            await authClient.loginPopup(popUpRequest);
+
+            const accountResult = authClient.getCurrentAccount();
+
+            if (accountResult.isFailed()) {
+                setError(
+                    accountResult.error?.errorData?.errorDescription ??
+                        "An error occurred while getting the account from cache"
+                );
+            }
+
+            if (accountResult.isCompleted()) {
+                setData(accountResult.data);
+                setSignInState(true);
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError("An unexpected error occurred while logging in with popup");
+            }
+        }
+    };
+
     const getPlaceholderTextForVerificationContact = (): string => {
         if (!selectedAuthMethodForRegistration) {
             return "Enter your contact information";
@@ -505,6 +545,7 @@ export default function SignUpPassword() {
                     email={email}
                     setEmail={setEmail}
                     loading={loading}
+                    onSignUpWithSocial={startSignUpWithSocial}
                 />
             );
         }

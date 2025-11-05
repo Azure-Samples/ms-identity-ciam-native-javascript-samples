@@ -21,6 +21,20 @@
         <input type="email" [(ngModel)]="email" name="email" placeholder="Email" required />
         <button *ngIf="!showPassword && !showCode" type="submit" [disabled]="loading">{{ loading ? 'Signing up...' :
             'Sign Up' }}</button>
+
+        <!-- Separator -->
+        <div class="separator">
+            <div class="separator-line"></div>
+            <span class="separator-text">OR</span>
+            <div class="separator-line"></div>
+        </div>
+
+        <!-- Social Provider Buttons -->
+        <button *ngFor="let provider of socialProviders" type="button" class="social-button"
+            (click)="startSignUpWithSocial(provider.domainHint)">
+            <img [src]="provider.logo" [alt]="provider.name + ' logo'" class="provider-logo" />
+            <span>Sign Up with {{ provider.name }}</span>
+        </button>
     </form>
 
     <!-- Use shared password form -->

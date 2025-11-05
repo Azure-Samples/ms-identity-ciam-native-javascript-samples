@@ -13,6 +13,8 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import { PopupRequest } from "@azure/msal-browser";
+import { customAuthConfig } from "../../config/auth-config";
 import { CodeFormComponent } from "../shared/code-form/code-form.component";
 import { PasswordFormComponent } from "../shared/password-form/password-form.component";
 import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selection-form/auth-method-selection-form.component";
@@ -64,6 +66,13 @@ export class SignUpComponent {
     userData: any = null;
     signUpState: any = null;
     resendCountdown = 0;
+
+    socialProviders = [
+        { name: "Google", domainHint: "Google", logo: "/logos/google.svg" },
+        { name: "Facebook", domainHint: "Facebook", logo: "/logos/facebook.svg" },
+        { name: "Apple", domainHint: "Apple", logo: "/logos/apple.svg" },
+        { name: "LinkedIn", domainHint: "www.linkedin.com", logo: "/logos/linkedin.svg" },
+    ];
 
     constructor(private auth: AuthService) {}
 
@@ -410,6 +419,44 @@ export class SignUpComponent {
                 this.showChallengeForRegistration = false;
                 this.showMfaAuthMethods = false;
                 this.showMfaChallenge = false;
+            }
+        }
+    }
+
+    async startSignUpWithSocial(domainHint: string) {
+        this.error = "";
+        this.loading = false;
+
+        const popUpRequest: PopupRequest = {
+            authority: customAuthConfig.auth.authority,
+            scopes: [],
+            redirectUri: customAuthConfig.auth.redirectUri || "",
+            prompt: "login",
+            domainHint: domainHint,
+        };
+
+        try {
+            const client = await this.auth.getClient();
+
+            await client.loginPopup(popUpRequest);
+
+            const accountResult = client.getCurrentAccount();
+
+            if (accountResult.isFailed()) {
+                this.error =
+                    accountResult.error?.errorData?.errorDescription ??
+                    "An error occurred while getting the account from cache";
+            }
+
+            if (accountResult.isCompleted()) {
+                this.userData = accountResult.data;
+                this.isSignedIn = true;
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                this.error = error.message;
+            } else {
+                this.error = "An unexpected error occurred while logging in with popup";
             }
         }
     }

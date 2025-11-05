@@ -8,6 +8,18 @@
         (ngSubmit)="startSignIn()">
         <input type="email" [(ngModel)]="username" name="username" placeholder="Email" required />
         <button type="submit" [disabled]="loading">{{ loading ? 'Signing in...' : 'Sign In' }}</button>
+
+        <div class="separator">
+            <div class="separator-line"></div>
+            <span class="separator-text">OR</span>
+            <div class="separator-line"></div>
+        </div>
+
+        <button *ngFor="let provider of socialProviders" type="button" class="social-button"
+            (click)="startSignInWithSocial(provider.domainHint)">
+            <img [src]="provider.logo" [alt]="provider.name + ' logo'" class="provider-logo" />
+            <span>Sign In with {{ provider.name }}</span>
+        </button>
     </form>
 
     <!-- Use shared password form -->
