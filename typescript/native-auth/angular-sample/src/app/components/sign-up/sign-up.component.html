@@ -13,6 +13,7 @@
     <form
         *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp && !showAuthMethodsForRegistration && !showChallengeForRegistration && !showMfaAuthMethods && !showMfaChallenge"
         (ngSubmit)="startSignUp()" autocomplete="off">
+        <input type="text" [(ngModel)]="flatUsername" name="flatUsername" placeholder="Username (alias)" />
         <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
         <input type="text" [(ngModel)]="lastName" name="lastName" placeholder="Last Name" required />
         <input type="text" [(ngModel)]="jobTitle" name="jobTitle" placeholder="Job Title" required />

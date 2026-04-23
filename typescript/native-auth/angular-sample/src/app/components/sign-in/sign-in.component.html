@@ -6,7 +6,7 @@
     <form
         *ngIf="!showPassword && !showCode && !isSignedIn && !showAuthMethodsForRegistration && !showChallengeForRegistration && !showMfaAuthMethods && !showMfaChallenge"
         (ngSubmit)="startSignIn()">
-        <input type="email" [(ngModel)]="username" name="username" placeholder="Email" required />
+        <input type="text" [(ngModel)]="username" name="username" placeholder="Email or Username" required />
         <button type="submit" [disabled]="loading">{{ loading ? 'Signing in...' : 'Sign In' }}</button>
 
         <div class="separator">

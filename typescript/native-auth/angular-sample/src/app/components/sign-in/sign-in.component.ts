@@ -104,7 +104,7 @@ export class SignInComponent implements OnInit {
             if (result.error?.isUserNotFound()) {
                 this.error = "User not found";
             } else if (result.error?.isInvalidUsername()) {
-                this.error = "Username is invalid";
+                this.error = "Invalid email or username";
             } else if (result.error?.isPasswordIncorrect()) {
                 this.error = "Password is invalid";
             } else if (result.error?.isRedirectRequired()) {

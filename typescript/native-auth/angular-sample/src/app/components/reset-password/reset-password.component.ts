@@ -87,7 +87,7 @@ export class ResetPasswordComponent {
         if (result.isFailed()) {
             this.error = result.error?.errorData?.errorDescription || "Password reset failed";
             if (result.error?.isInvalidUsername()) {
-                this.error = "Invalid email address";
+                this.error = "Invalid email or username";
             } else if (result.error?.isUserNotFound()) {
                 this.error = "User not found";
             } else {

@@ -14,5 +14,7 @@ export interface SignUpInitialFormProps extends FormProps {
     setCountry: (value: string) => void;
     email: string;
     setEmail: (value: string) => void;
+    flatUsername: string;
+    setFlatUsername: (value: string) => void;
     onSignUpWithSocial: (domainHint: string) => Promise<void>;
 }

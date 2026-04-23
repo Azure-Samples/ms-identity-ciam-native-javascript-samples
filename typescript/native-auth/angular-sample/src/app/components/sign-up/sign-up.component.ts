@@ -44,6 +44,7 @@ export class SignUpComponent {
     city = "";
     country = "";
     email = "";
+    flatUsername = "";
     password = "";
     code = "";
     error = "";
@@ -103,6 +104,7 @@ export class SignUpComponent {
             jobTitle: this.jobTitle,
             city: this.city,
             country: this.country,
+            flatusername: this.flatUsername,
         };
 
         const result = await client.signUp({
@@ -114,7 +116,7 @@ export class SignUpComponent {
             if (result.error?.isUserAlreadyExists()) {
                 this.error = "An account with this email already exists";
             } else if (result.error?.isInvalidUsername()) {
-                this.error = "Invalid uername";
+                this.error = "Invalid email or username";
             } else if (result.error?.isInvalidPassword()) {
                 this.error = "Invalid password";
             } else if (result.error?.isAttributesValidationFailed()) {

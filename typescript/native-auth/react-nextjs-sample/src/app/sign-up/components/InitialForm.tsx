@@ -39,11 +39,20 @@ export function InitialForm({
     setCountry,
     email,
     setEmail,
+    flatUsername,
+    setFlatUsername,
     loading,
     onSignUpWithSocial,
 }: SignUpInitialFormProps) {
     return (
         <form onSubmit={onSubmit} style={styles.form}>
+            <input
+                type="text"
+                placeholder="Username (alias)"
+                value={flatUsername}
+                onChange={(e) => setFlatUsername(e.target.value)}
+                style={styles.input}
+            />
             <input
                 type="text"
                 placeholder="First Name"

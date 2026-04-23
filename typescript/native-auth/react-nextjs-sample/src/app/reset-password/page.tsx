@@ -92,7 +92,7 @@ export default function ResetPassword() {
 
         if (result.isFailed()) {
             if (result.error?.isInvalidUsername()) {
-                setError("Invalid email address");
+                setError("Invalid email or username");
             } else if (result.error?.isUserNotFound()) {
                 setError("User not found");
             } else {

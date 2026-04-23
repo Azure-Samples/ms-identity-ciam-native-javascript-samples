@@ -5,8 +5,8 @@ export function InitialForm({ onSubmit, email, setEmail, loading }: ResetPasswor
     return (
         <form onSubmit={onSubmit} style={styles.form}>
             <input
-                type="email"
-                placeholder="Email"
+                type="text"
+                placeholder="Email or Username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={styles.input}

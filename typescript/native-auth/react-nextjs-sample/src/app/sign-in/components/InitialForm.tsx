@@ -34,8 +34,8 @@ export const InitialForm = ({
 }: SignInInitialFormProps) => (
     <form onSubmit={onSubmit} style={styles.form}>
         <input
-            type="email"
-            placeholder="Email"
+            type="text"
+            placeholder="Email or Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             style={styles.input}
