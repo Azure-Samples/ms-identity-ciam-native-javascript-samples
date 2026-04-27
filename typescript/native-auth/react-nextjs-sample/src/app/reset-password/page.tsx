@@ -30,7 +30,7 @@ export default function ResetPassword() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplication | null>(null);
     const [loadingAccountStatus, setLoadingAccountStatus] = useState(true);
     const [isSignedIn, setSignInState] = useState(false);
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [code, setCode] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [error, setError] = useState("");
@@ -85,7 +85,7 @@ export default function ResetPassword() {
         setLoading(true);
 
         const result = await app.resetPassword({
-            username: email,
+            username,
         });
 
         const state = result.state;
@@ -480,7 +480,7 @@ export default function ResetPassword() {
             );
         }
 
-        return <InitialForm onSubmit={handleInitialSubmit} email={email} setEmail={setEmail} loading={loading} />;
+        return <InitialForm onSubmit={handleInitialSubmit} username={username} setUsername={setUsername} loading={loading} />;
     };
 
     return (

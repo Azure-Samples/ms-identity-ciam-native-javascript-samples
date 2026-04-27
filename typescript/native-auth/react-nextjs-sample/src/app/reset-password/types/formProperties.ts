@@ -2,8 +2,8 @@ import { FormProps } from "@/app/shared/types/formProperties";
 
 export interface ResetPasswordInitialFormProps extends FormProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
-    email: string;
-    setEmail: (value: string) => void;
+    username: string;
+    setUsername: (value: string) => void;
 }
 
 export interface NewPasswordFormProps extends FormProps {

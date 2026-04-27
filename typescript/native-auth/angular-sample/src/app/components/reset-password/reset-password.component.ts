@@ -33,7 +33,7 @@ import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-chal
     ],
 })
 export class ResetPasswordComponent {
-    email = "";
+    username = "";
     code = "";
     newPassword = "";
     error = "";
@@ -82,7 +82,7 @@ export class ResetPasswordComponent {
         this.resetState = null;
 
         const client = await this.auth.getClient();
-        const result = await client.resetPassword({ username: this.email });
+        const result = await client.resetPassword({ username: this.username });
 
         if (result.isFailed()) {
             this.error = result.error?.errorData?.errorDescription || "Password reset failed";
