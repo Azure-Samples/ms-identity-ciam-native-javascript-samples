@@ -110,7 +110,7 @@ export default function SignUpPassword() {
 
         if (result.isFailed()) {
             if (result.error?.isUserAlreadyExists()) {
-                setError("An account with this email already exists");
+                setError("An account with this email or username already exists");
             } else if (result.error?.isInvalidUsername()) {
                 setError("Invalid email or username");
             } else if (result.error?.isInvalidPassword()) {

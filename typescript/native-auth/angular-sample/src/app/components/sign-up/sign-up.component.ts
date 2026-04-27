@@ -114,7 +114,7 @@ export class SignUpComponent {
 
         if (result.isFailed()) {
             if (result.error?.isUserAlreadyExists()) {
-                this.error = "An account with this email already exists";
+                this.error = "An account with this email or username already exists";
             } else if (result.error?.isInvalidUsername()) {
                 this.error = "Invalid email or username";
             } else if (result.error?.isInvalidPassword()) {
