@@ -98,7 +98,7 @@ export default function SignIn() {
             if (result.error?.isUserNotFound()) {
                 setError("User not found");
             } else if (result.error?.isInvalidUsername()) {
-                setError("Invalid username");
+                setError("Username is invalid");
             } else if (result.error?.isPasswordIncorrect()) {
                 setError("Password is invalid");
             } else if (result.error?.isRedirectRequired()) {
