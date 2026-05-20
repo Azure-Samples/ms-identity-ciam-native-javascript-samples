@@ -173,21 +173,25 @@ VITE_PORT=3000
 # SSL certificate filenames at the project root
 VITE_SSL_CERT=auth-cert.pem
 VITE_SSL_KEY=auth-key.pem
+
+# Client secret from your Entra app registration (do NOT commit your real .env)
+VITE_APP_SECRET=your-client-secret
 ```
 
 #### Step 3: Application Configuration (authConfig.js)
 
-The React app authentication configuration is now centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
+The React app authentication configuration is centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
 
 ```javascript
 export const appConfig = {
     proxyDomain: 'http://localhost:3001/api',
     appId: 'your-client-id',
-    appSecret: 'your-client-secret',
     tenantId: 'your-tenant-id',
     customDomain: '<custom-domain>' // your valid custom domain, if not specify, use tenant subdomain by default
 };
 ```
+
+The client secret is **not** stored here. It is read from `VITE_APP_SECRET` in your local `.env` file (see **Step 2** above) and consumed directly by the SPA at runtime. `.env` is gitignored, so your secret stays on your machine.
 
 **SECURITY WARNING**: This configuration is for local development only. Never expose the **appSecret** in production environments. Store secrets securely using:
 

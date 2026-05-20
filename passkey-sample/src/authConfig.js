@@ -83,11 +83,11 @@ export const loginRequest = {
 
 
 /**
- * Application configuration for backend services
+ * Application configuration consumed by the SPA at runtime.
  */
 export const appConfig = {
     proxyDomain: 'http://localhost:3001/api',
     appId: 'your-client-id',
-    appSecret: 'your-client-secret',
     tenantId: 'your-tenant-id',
+    customDomain: '', // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
 };

@@ -52,7 +52,7 @@ export const SecurityPage = () => {
                     instance, 
                     appConfig.proxyDomain, 
                     appConfig.appId, 
-                    appConfig.appSecret
+                    import.meta.env.VITE_APP_SECRET
                 );
                 
                 if (token) {
