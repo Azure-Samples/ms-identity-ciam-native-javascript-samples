@@ -2,7 +2,7 @@
 
 This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform and passkey management using Microsoft Graph API.
 
-**⚠️ This sample app is currently under private preview for testing purpose. Please do not deploy to production environment.**
+**⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
 ## 🚀 Quick Start
 
