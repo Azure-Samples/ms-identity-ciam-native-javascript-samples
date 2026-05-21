@@ -16,11 +16,17 @@ http.createServer((req, res) => {
     const reqUrl = url.parse(req.url);
     const domain = url.parse(proxyConfig.proxy).hostname;
 
+    // Echo the headers the browser asks about during preflight so custom headers
+    // added by a CustomAuthRequestInterceptor are accepted without having to be
+    // listed here. Fall back to the static list when the request header is absent.
+    const requestedHeaders = req.headers["access-control-request-headers"];
+    const allowedHeaders = requestedHeaders || ("Content-Type, Authorization, " + extraHeaders.join(", "));
+
     // Set CORS headers for all responses including OPTIONS
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, " + extraHeaders.join(", "),
+        "Access-Control-Allow-Headers": allowedHeaders,
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Max-Age": "86400", // 24 hours
     };

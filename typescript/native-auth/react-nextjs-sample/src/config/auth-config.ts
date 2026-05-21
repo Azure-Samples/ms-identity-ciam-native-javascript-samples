@@ -26,11 +26,9 @@ export const customAuthConfig: CustomAuthConfiguration = {
         authority: "https://Enter_the_Tenant_Subdomain_Here.ciamlogin.com",
         redirectUri: "/",
         postLogoutRedirectUri: "",
-        navigateToLoginRequestUrl: false,
     },
     cache: {
         cacheLocation: "sessionStorage",
-        storeAuthStateInCookie: false,
     },
     system: {
         loggerOptions: {
