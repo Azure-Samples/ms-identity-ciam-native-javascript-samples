@@ -104,7 +104,14 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 ### 2. Tenant Configuration
 
-#### Step 1: Register Redirect URI in Entra Portal
+#### Step 1: Use a Test Tenant and Single-Tenant App Registration
+
+**⚠️ Critical**:
+
+- Register and run this sample **only against a test tenant**. Do not register it in a production tenant — the sample uses high-privilege admin APIs and is intended for demo/testing only.
+- Configure the app registration as **Single tenant**. In **App registrations** → your app → **Authentication** → **Supported account types**, select **Accounts in this organizational directory only**.
+
+#### Step 2: Register Redirect URI in Entra Portal
 
 **⚠️ Critical Step**: You must register your redirect URI in the Entra portal for authentication to work.
 
@@ -124,7 +131,7 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
    Replace the host with your own subdomain (the one you set as `VITE_HOST` in `.env`).
 5. Click **Configure** to save
 
-#### Step 2: Verify Required Permissions
+#### Step 3: Verify Required Permissions
 
 Ensure your app registration has the following Microsoft Graph API permissions:
 
