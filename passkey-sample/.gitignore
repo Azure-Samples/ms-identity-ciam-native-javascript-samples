@@ -1,0 +1,9 @@
+# Build files
+build/
+
+node_modules/
+
+*.pem
+*.pfx
+
+.env

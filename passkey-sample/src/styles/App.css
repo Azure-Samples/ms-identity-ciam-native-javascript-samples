@@ -1,0 +1,110 @@
+footer {
+    position: fixed;
+    bottom: 0%;
+    width: 100%;
+}
+
+.App {
+    text-align: center;
+}
+
+.iconText {
+    margin: 0 0.5rem;
+}
+
+.navbarStyle {
+    padding: 0.5rem 1rem !important;
+}
+
+.navbarButton {
+    color: #fff !important;
+    padding: 0.5rem 1rem !important;
+}
+
+.iconText {
+    margin: 0 0.5rem;
+}
+
+.navbarStyle {
+    padding: 0.5rem 1rem;
+}
+
+.navbarButton {
+    color: #fff !important;
+}
+
+.data-area-div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+}
+
+.todo-form {
+    width: 60%;
+}
+
+.todo-list {
+    width: 60%;
+}
+
+.todo-label {
+    font-size: large;
+    margin-right: 22%;
+    margin-left: 3%;
+}
+
+.todo-view-btn {
+    float: right;
+}
+
+td {
+    word-break: break-word;
+    max-width: 34rem;
+}
+
+.warningMessage {
+    color: red;
+}
+
+.card-title {
+    text-align: center;
+}
+
+.signInButton {
+    margin: 1rem;
+}
+
+.security-alert {
+    background-color: #e7f3ff;
+    border: 1px solid #b3d7ff;
+    border-radius: 6px;
+    padding: 12px 16px;
+    color: #1a365d;
+}
+
+.security-alert-icon {
+    color: #3182ce;
+    font-size: 16px;
+}
+
+.security-alert-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* User Profile Header Styles */
+.user-profile-header {
+    padding: 20px 0;
+}
+
+.security-icon {
+    flex-shrink: 0;
+}
+
+.user-email {
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
