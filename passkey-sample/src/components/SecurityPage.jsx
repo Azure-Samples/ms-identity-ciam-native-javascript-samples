@@ -4,6 +4,7 @@ import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest, appConfig } from '../authConfig';
 import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
+import { BEARER_TOKEN } from '../constants';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
@@ -47,6 +48,15 @@ export const SecurityPage = () => {
 
     useEffect(() => {
         const fetchAppToken = async () => {
+            // For testing, a bearer token pasted into src/constants.js is used
+            // directly as the My Account API token, skipping the runtime
+            // (client-credentials) acquisition — no client secret/CORS proxy needed.
+            if (BEARER_TOKEN) {
+                setAppTokenError(null);
+                setAppToken(BEARER_TOKEN);
+                return;
+            }
+
             try {
                 const token = await getCachedAppToken(
                     instance, 

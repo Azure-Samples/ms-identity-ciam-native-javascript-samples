@@ -36,6 +36,27 @@ function buildUrl(path) {
 }
 
 /**
+ * Build the common request headers, attaching the Bearer token when provided.
+ * @param {string} method - HTTP verb advertised via the Allow header
+ * @param {string} token - Bearer token for authentication
+ * @param {Object} extra - Additional headers to merge in
+ * @returns {Object} Request headers
+ */
+function buildHeaders(method, token, extra = {}) {
+    const requestHeaders = {
+        'Content-Type': 'application/hal+json',
+        'Allow': method,
+        ...extra,
+    };
+
+    if (token) {
+        requestHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    return requestHeaders;
+}
+
+/**
  * Make a GET request to the My Account passkey API.
  * @param {string} path - API path beginning with '/' (e.g. '/me/methods')
  * @param {string} token - Bearer token for authentication (provided at runtime)
@@ -44,19 +65,9 @@ function buildUrl(path) {
  * @throws {Error} Formatted error if the request fails
  */
 export async function myAccountGet(path, token, headers = {}) {
-    const requestHeaders = {
-        'Content-Type': 'application/hal+json',
-        'Allow': 'GET',
-        ...headers,
-    };
-
-    if (token) {
-        requestHeaders.Authorization = `Bearer ${token}`;
-    }
-
     const response = await fetch(buildUrl(path), {
         method: 'GET',
-        headers: requestHeaders,
+        headers: buildHeaders('GET', token, headers),
     });
 
     if (!response.ok) {
@@ -76,19 +87,9 @@ export async function myAccountGet(path, token, headers = {}) {
  * @throws {Error} Formatted error if the request fails
  */
 export async function myAccountPost(path, body, token, headers = {}) {
-    const requestHeaders = {
-        'Content-Type': 'application/hal+json',
-        'Allow': 'POST',
-        ...headers,
-    };
-
-    if (token) {
-        requestHeaders.Authorization = `Bearer ${token}`;
-    }
-
     const response = await fetch(buildUrl(path), {
         method: 'POST',
-        headers: requestHeaders,
+        headers: buildHeaders('POST', token, headers),
         body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
@@ -108,19 +109,9 @@ export async function myAccountPost(path, body, token, headers = {}) {
  * @throws {Error} Formatted error if the request fails
  */
 export async function myAccountDelete(path, token, headers = {}) {
-    const requestHeaders = {
-        'Content-Type': 'application/hal+json',
-        'Allow': 'DELETE',
-        ...headers,
-    };
-
-    if (token) {
-        requestHeaders.Authorization = `Bearer ${token}`;
-    }
-
     const response = await fetch(buildUrl(path), {
         method: 'DELETE',
-        headers: requestHeaders,
+        headers: buildHeaders('DELETE', token, headers),
     });
 
     if (!response.ok) {

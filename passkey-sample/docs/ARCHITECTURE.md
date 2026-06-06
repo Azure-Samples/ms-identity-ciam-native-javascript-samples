@@ -45,6 +45,7 @@ passkey-sample/
     ├── index.jsx               App bootstrap: create MSAL, handle redirect, render <App>
     ├── App.jsx                 Root component (MsalProvider → PageLayout → MainContent)
     ├── authConfig.js           msalConfig, loginRequest (ngcmfa claims), appConfig
+    ├── constants.js            Test-only BEARER_TOKEN (paste an externally-acquired API token)
     │
     ├── components/             ── PRESENTATION LAYER (React UI) ──
     │   ├── PageLayout.jsx          Shell: NavigationBar + auth‑gated children
@@ -175,12 +176,16 @@ design, so it is worth calling out explicitly:
 | Token | Acquired by | Flow | Used for |
 | ----- | ----------- | ---- | -------- |
 | **User access token** | `tokenUtils.getAccessToken` via MSAL `acquireTokenSilent` | Delegated, in‑browser, with `ngcmfa` claim | Identifying the user (`oid` → `userId`) and computing the **NGCMFA expiry** that gates passkey changes. |
-| **App token** | `tokenUtils.getCachedAppToken` → `cors.js` proxy | Client‑credentials (app permission `UserAuthMethod-Passkey.ReadWrite.All`) | The **Bearer token on every Microsoft Graph call** in `GraphApiClient`. |
+| **App / API token** | `tokenUtils.getCachedAppToken` → `cors.js` proxy | Client‑credentials (app permission `UserAuthMethod-Passkey.ReadWrite.All`) | The **Bearer token on every My Account API call** in `MyAccountApiClient`. |
 
 * The browser cannot hit the Entra token endpoint directly (CORS), so the
   client‑credentials request is proxied through **`cors.js`** (`/api` →
-  `login.microsoftonline.com/{tenantId}`). Graph calls go **directly** from the
-  browser and are not proxied.
+  `login.microsoftonline.com/{tenantId}`). My Account API calls go **directly**
+  from the browser and are not proxied.
+* **Testing override:** paste a token into `src/constants.js` (`BEARER_TOKEN`).
+  When set, `SecurityPage` uses it directly as the API token and **skips** the
+  client‑credentials acquisition (no client secret / CORS proxy required). This is
+  the intended way to supply an externally‑acquired `/me` user token for testing.
 * **NGCMFA gate:** `loginRequest` requests an `ngcmfa` amr claim. `SecurityPage`
   computes an expiry (`iat + 15 min`). Before an add/delete, the operation hooks
   check `isTokenExpired`; if expired they **cache the intended operation** in
