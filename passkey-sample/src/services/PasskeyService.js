@@ -1,87 +1,102 @@
 /**
- * Microsoft Graph API service for passkey (FIDO2) operations
- * Handles passkey registration, retrieval, and deletion
+ * Service for passkey (FIDO2) operations.
+ * List and registration (start enrollment + activate) use the My Account API;
+ * deletion still uses Microsoft Graph (pending migration).
  */
 
 import { 
     base64urlToBuffer, 
     bufferToBase64url, 
     transformFido2Methods,
-    generateUniquePasskeyName,
-    decodeGraphCredentialId
+    generateUniquePasskeyName
 } from '../utils/graphServiceUtils.js';
-import { graphGet, graphPost, graphDelete } from './GraphApiClient.js';
-import { myAccountGet } from './MyAccountApiClient.js';
+import { graphDelete } from './GraphApiClient.js';
+import { myAccountGet, myAccountPost } from './MyAccountApiClient.js';
 import { appConfig } from '../authConfig';
 
 /**
- * Create WebAuthn credential using browser's Credential Management API
- * @param {Object} creationOptions - WebAuthn creation options
+ * Create a WebAuthn credential using the browser's Credential Management API.
+ * @param {Object} creationOptions - WebAuthn public key creation options
+ *                 (base64url-encoded challenge, user.id and excludeCredentials ids)
  * @returns {Promise<PublicKeyCredential>} - Created credential
  */
 async function createCredential(creationOptions) {
-    creationOptions.excludeCredentials = creationOptions.excludeCredentials.map(c => ({
+    const excludeCredentials = (creationOptions.excludeCredentials || []).map((c) => ({
         ...c,
-        id: decodeGraphCredentialId(c.id)
+        id: base64urlToBuffer(c.id),
     }));
+
     const publicKey = {
+        ...creationOptions,
         challenge: base64urlToBuffer(creationOptions.challenge),
-        rp: {
-            id: appConfig.customDomain || creationOptions.rp.id,
-            name: creationOptions.rp.name,
-        },
         user: {
+            ...creationOptions.user,
             id: base64urlToBuffer(creationOptions.user.id),
-            name: creationOptions.user.name,
-            displayName: creationOptions.user.displayName,
         },
-        pubKeyCredParams: creationOptions.pubKeyCredParams,
-        excludeCredentials: creationOptions.excludeCredentials,
-        timeout: creationOptions.timeout,
-        authenticatorSelection: creationOptions.authenticatorSelection,
-        attestation: creationOptions.attestation,
+        excludeCredentials,
     };
+
+    // For local development the rp.id must match the host serving the app;
+    // allow overriding it with a configured custom domain.
+    if (appConfig.customDomain) {
+        publicKey.rp = { ...creationOptions.rp, id: appConfig.customDomain };
+    }
 
     console.log("Passkey creation options configured");
-    try {
-        const credential = await navigator.credentials.create({ publicKey });
-        console.log("Passkey credential created successfully");
-        return credential;
-
-    } catch (error) {
-        throw error;
-    };
+    const credential = await navigator.credentials.create({ publicKey });
+    console.log("Passkey credential created successfully");
+    return credential;
 }
 
 /**
- * Register created credential with Microsoft Graph API
- * @param {PublicKeyCredential} creationCredential - WebAuthn credential
- * @param {string} userId - User ID
- * @param {string} appToken - Application access token
+ * Resolve the activation URL for an enrollment. Prefers the HAL `activate`
+ * link, falling back to the documented URL template
+ * `/me/methods/{type}/{id}/activate`.
+ * @param {Object} enrollment - Start-enrollment response
+ * @returns {string} Activation path or HAL href
  */
-async function createPasskey(creationCredential, userId, appToken) {
-    const body = {
-        publicKeyCredential: {
-            id: creationCredential.id,
-            response: {
-                attestationObject: bufferToBase64url(
-                    creationCredential.response.attestationObject
-                ),
-                clientDataJSON: bufferToBase64url(
-                    creationCredential.response.clientDataJSON
-                ),
-            },
-        },
-        displayName: generateUniquePasskeyName(),
+function getActivateHref(enrollment) {
+    const halHref = enrollment._links?.activate?.href;
+    if (halHref) {
+        return halHref;
+    }
+    if (enrollment.id) {
+        return `/me/methods/${enrollment.type || 'fido'}/${enrollment.id}/activate`;
+    }
+    throw new Error("Cannot resolve activation link from enrollment response");
+}
+
+/**
+ * Complete passkey registration by posting the created credential to the
+ * activation endpoint (POST /me/methods/fido/{id}/activate).
+ * @param {Object} enrollment - Start-enrollment response (continuationToken, id, _links.activate)
+ * @param {PublicKeyCredential} credential - WebAuthn credential from createCredential
+ * @param {string} token - Bearer token for authentication
+ * @returns {Promise<Object>} - The newly registered method
+ */
+async function activatePasskey(enrollment, credential, token) {
+    const activateHref = getActivateHref(enrollment);
+
+    const publicKeyCredential = {
+        id: credential.id,
+        attestationObject: bufferToBase64url(credential.response.attestationObject),
+        clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
     };
 
-    console.log("Preparing passkey registration request");
+    // clientExtensionResults is OPTIONAL per the design; include when available.
+    if (typeof credential.getClientExtensionResults === 'function') {
+        publicKeyCredential.clientExtensionResults = credential.getClientExtensionResults();
+    }
 
-    await graphPost(
-        `/users/${userId}/authentication/fido2Methods`,
-        body,
-        appToken
-    );
+    const body = {
+        continuationToken: enrollment.continuationToken,
+        displayName: generateUniquePasskeyName(),
+        publicKeyCredential,
+    };
+
+    console.log("Activating passkey registration");
+    const response = await myAccountPost(activateHref, body, token);
+    return response.json();
 }
 
 /**
@@ -99,31 +114,33 @@ async function getUserPasskeys(token) {
 }
 
 /**
- * Get passkey creation options from Microsoft Graph API
- * @param {string} appToken - Application access token
- * @param {string} userId - User ID
- * @returns {Promise<Object>} - WebAuthn creation options
+ * Start enrollment of a new passkey (POST /me/methods/fido).
+ * Returns the provisioning session containing the WebAuthn creation options
+ * (`publicKey`), the `continuationToken`, and the `_links.activate` link used
+ * to complete registration.
+ * @param {string} token - Bearer token for authentication
+ * @returns {Promise<Object>} - Start-enrollment response
  */
-export async function getPasskeyCreationOptions(appToken, userId) {
-    const response = await graphGet(
-        `/users/${userId}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)`,
-        appToken
-    );
-    
-    const data = await response.json();
-    return data.publicKey;
+export async function startPasskeyEnrollment(token) {
+    const response = await myAccountPost('/me/methods/fido', undefined, token);
+    return response.json();
 }
 
 /**
- * Register a new passkey for a user using Microsoft Graph API
- * @param {string} appToken - Application access token for Graph API authentication
- * @param {string} userId - The user ID to register the passkey for
- * @returns {Promise<void>} Promise that resolves when passkey registration is complete
- * @throws {Error} Throws error if passkey registration fails
+ * Register a new passkey: run the WebAuthn ceremony using the enrollment's
+ * creation options, then activate the credential.
+ * @param {Object} enrollment - Start-enrollment response from startPasskeyEnrollment
+ * @param {string} token - Bearer token for authentication
+ * @returns {Promise<void>} Resolves when passkey registration is complete
+ * @throws {Error} Throws if passkey registration fails
  */
-export async function registerUserPasskey(creationOptions, appToken, userId) {
+export async function registerUserPasskey(enrollment, token) {
+    const creationOptions = typeof enrollment.publicKey === 'string'
+        ? JSON.parse(enrollment.publicKey)
+        : enrollment.publicKey;
+
     const credential = await createCredential(creationOptions);
-    await createPasskey(credential, userId, appToken);
+    await activatePasskey(enrollment, credential, token);
 }
 
 /**

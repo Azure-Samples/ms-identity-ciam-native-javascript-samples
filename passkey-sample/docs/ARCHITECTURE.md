@@ -229,7 +229,7 @@ and their role.
 | ---- | ------- | ---- |
 | `useAuthentication` | `handleSignIn`, `handleReAuthentication`, `isTokenExpired`, `cacheOperation`, `getCachedOperation`, `clearCachedOperation` | Sign‑in/re‑auth redirects, NGCMFA expiry check, and persisting/restoring the pending operation across the re‑auth redirect (`sessionStorage` `postLoginAction`). |
 | `usePasskeyFetcher` | `passkeys`, `isLoading`, `error`, `fetchPasskeys`, `refetch` | Fetches and transforms passkeys with **retry + expected‑change validation** (e.g. wait until count increases after an add, or the id disappears after a delete). |
-| `usePasskeyAddOperation` | `handleAddPasskey`, `performAddPasskey` | Add flow: MFA gate → `getPasskeyCreationOptions` → `registerUserPasskey` (WebAuthn) → re‑fetch; handles `NotAllowedError`. |
+| `usePasskeyAddOperation` | `handleAddPasskey`, `performAddPasskey` | Add flow: MFA gate → `startPasskeyEnrollment` (POST `/me/methods/fido`) → `registerUserPasskey` (WebAuthn → POST `activate`) → re‑fetch; handles `NotAllowedError`. |
 | `usePasskeyDeleteOperation` | `initiate`, `performDelete`, `showConfirmationModal`, `modalProps` | Delete flow: MFA gate → confirm modal → `deleteUserPasskey` → re‑fetch; owns modal visibility state. |
 | `index.js` | re‑exports | Barrel for all four hooks. |
 
@@ -237,18 +237,18 @@ and their role.
 
 | Module | Exports | Role |
 | ------ | ------- | ---- |
-| `PasskeyService.js` | `getPasskeyCreationOptions`, `registerUserPasskey`, `fetchUserPasskey`, `deleteUserPasskey` | High‑level FIDO2 operations. Internally `createCredential` runs the WebAuthn ceremony (`navigator.credentials.create`) and `createPasskey` POSTs the attestation. **The list/GET (`fetchUserPasskey`) now uses the My Account API; add/delete still use Graph (migration in progress).** |
-| `GraphApiClient.js` | `makeGraphRequest`, `graphGet`, `graphPost`, `graphDelete`, `parseGraphApiError` | HTTP boundary to `graph.microsoft.com/beta`. Adds auth/JSON headers and normalises nested Graph/OData error messages. Still used by the add/delete flows. |
-| `MyAccountApiClient.js` | `myAccountGet` | HTTP boundary to the **My Account API** (`https://login.microsoftonline.com/{tenantId}/api/v1.0`). Sends `Content-Type: application/hal+json` + `Allow: GET`, the Bearer token, and the hardcoded test query params (`dc`, `myaccessgrpccanary`). Migration target replacing the Graph fido2Methods endpoints (currently only GET is wired). |
+| `PasskeyService.js` | `startPasskeyEnrollment`, `registerUserPasskey`, `fetchUserPasskey`, `deleteUserPasskey` | High‑level FIDO2 operations. `createCredential` runs the WebAuthn ceremony (`navigator.credentials.create`) and `activatePasskey` POSTs the attestation to the activation link. **List + registration (start enrollment → WebAuthn → activate) use the My Account API; delete still uses Graph (migration in progress).** |
+| `GraphApiClient.js` | `makeGraphRequest`, `graphGet`, `graphPost`, `graphDelete`, `parseGraphApiError` | HTTP boundary to `graph.microsoft.com/beta`. Adds auth/JSON headers and normalises nested Graph/OData error messages. Still used by the delete flow. |
+| `MyAccountApiClient.js` | `myAccountGet`, `myAccountPost` | HTTP boundary to the **My Account API** (`https://login.microsoftonline.com/{tenantId}/api/v1.0`). Sends `Content-Type: application/hal+json` + `Allow`, the Bearer token, and the hardcoded test query params (`dc`, `myaccessgrpccanary`). `buildUrl` accepts either a path or a full HAL `href` (it strips a duplicate `/api/v1.0`). Migration target replacing the Graph fido2Methods endpoints. |
 
 **Endpoints used:**
 
 | Operation | Method & path | API |
 | --------- | ------------- | --- |
 | List passkeys | `GET /me/methods?dc=…&myaccessgrpccanary=true` | **My Account** (`login.microsoftonline.com/{tenantId}/api/v1.0`) |
-| Creation options | `GET /users/{id}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)` | Graph (`graph.microsoft.com/beta`) |
-| Register passkey | `POST /users/{id}/authentication/fido2Methods` | Graph |
-| Delete passkey | `DELETE /users/{id}/authentication/fido2Methods/{passkeyId}` | Graph |
+| Start enrollment | `POST /me/methods/fido?dc=…&myaccessgrpccanary=true` | **My Account** |
+| Activate (complete) | `POST {_links.activate.href}?dc=…&myaccessgrpccanary=true` | **My Account** |
+| Delete passkey | `DELETE /users/{id}/authentication/fido2Methods/{passkeyId}` | Graph (`graph.microsoft.com/beta`) |
 
 ### 5.5 Pure helpers — `utils/`
 

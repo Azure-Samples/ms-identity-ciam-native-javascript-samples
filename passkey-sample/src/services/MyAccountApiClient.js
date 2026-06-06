@@ -4,7 +4,8 @@
  *
  * This is the migration target that is replacing the Microsoft Graph
  * fido2Methods endpoints. Endpoints are migrated here one at a time.
- * Currently wired up: GET /me/methods (list authentication methods).
+ * Currently wired up: GET /me/methods (list), POST /me/methods/fido (start
+ * enrollment) and POST .../activate (complete enrollment).
  */
 
 import { appConfig } from '../authConfig';
@@ -20,11 +21,17 @@ const TEST_QUERY_STRING = 'dc=ESTS-PUB-SCUS-FD000-TEST1-100&myaccessgrpccanary=t
 /**
  * Build a full My Account API URL for the given path, appending the required
  * hardcoded test query parameters. The tenant comes from appConfig.tenantId.
- * @param {string} path - API path beginning with '/' (e.g. '/me/methods')
+ *
+ * Accepts either a path relative to the `/api/v1.0` base (e.g. `/me/methods`)
+ * or a full HAL href that already includes the base (e.g.
+ * `/api/v1.0/me/methods/fido/{id}/activate`).
+ * @param {string} path - API path or HAL href
  * @returns {string} Fully-qualified request URL
  */
 function buildUrl(path) {
-    return `https://login.microsoftonline.com/${appConfig.tenantId}/api/v1.0${path}?${TEST_QUERY_STRING}`;
+    const apiBase = '/api/v1.0';
+    const relativePath = path.startsWith(apiBase) ? path.slice(apiBase.length) : path;
+    return `https://login.microsoftonline.com/${appConfig.tenantId}${apiBase}${relativePath}?${TEST_QUERY_STRING}`;
 }
 
 /**
@@ -49,6 +56,39 @@ export async function myAccountGet(path, token, headers = {}) {
     const response = await fetch(buildUrl(path), {
         method: 'GET',
         headers: requestHeaders,
+    });
+
+    if (!response.ok) {
+        await parseGraphApiError(response);
+    }
+
+    return response;
+}
+
+/**
+ * Make a POST request to the My Account passkey API.
+ * @param {string} path - API path or HAL href (e.g. '/me/methods/fido')
+ * @param {Object} [body] - Request body object; omitted when undefined
+ * @param {string} token - Bearer token for authentication (provided at runtime)
+ * @param {Object} headers - Additional headers to merge in
+ * @returns {Promise<Response>} Fetch response object
+ * @throws {Error} Formatted error if the request fails
+ */
+export async function myAccountPost(path, body, token, headers = {}) {
+    const requestHeaders = {
+        'Content-Type': 'application/hal+json',
+        'Allow': 'POST',
+        ...headers,
+    };
+
+    if (token) {
+        requestHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(buildUrl(path), {
+        method: 'POST',
+        headers: requestHeaders,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
     if (!response.ok) {

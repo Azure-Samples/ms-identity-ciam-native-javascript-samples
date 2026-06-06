@@ -140,8 +140,8 @@ sequenceDiagram
     participant Auth as useAuthentication
     participant Svc as PasskeyService
     participant WA as WebAuthn
-    participant GC as GraphApiClient
-    participant Graph
+    participant MA as MyAccountApiClient
+    participant MyAcct as My Account API
     participant Fetch as usePasskeyFetcher
 
     Hdr->>Add: handleAddPasskey()
@@ -151,25 +151,29 @@ sequenceDiagram
         Add->>Auth: handleReAuthentication() → toast "Next"
         Note right of Auth: user clicks → loginRedirect → returns to step 2 flow,<br/>then resumes via cached operation (see §6)
     else MFA valid
-        Add->>Svc: getPasskeyCreationOptions(appToken, userId)
-        Svc->>GC: graphGet(.../creationOptions(challengeTimeoutInMinutes=60))
-        GC->>Graph: GET creationOptions
-        Graph-->>Svc: publicKey creation options
-        Add->>Svc: registerUserPasskey(creationOptions, appToken, userId)
+        Add->>Svc: startPasskeyEnrollment(token)
+        Svc->>MA: myAccountPost('/me/methods/fido')
+        MA->>MyAcct: POST /me/methods/fido
+        MyAcct-->>Svc: { publicKey, continuationToken, _links.activate }
+        Add->>Svc: registerUserPasskey(enrollment, token)
+        Note over Svc: parse publicKey (JSON string → options)
         Svc->>WA: navigator.credentials.create({ publicKey })
         WA-->>Svc: PublicKeyCredential (attestation)
-        Svc->>GC: graphPost(.../fido2Methods, { publicKeyCredential, displayName })
-        GC->>Graph: POST fido2Methods
-        Graph-->>Svc: 201 Created
+        Svc->>MA: myAccountPost(_links.activate.href, { continuationToken, displayName, publicKeyCredential })
+        MA->>MyAcct: POST .../activate
+        MyAcct-->>Svc: 201 Created (registered method)
         Add->>Fetch: fetchPasskeys({type:'add', expectedCount+1})
         Fetch-->>Hdr: updated list + success toast
     end
 ```
 
 Notes:
-* `createCredential` decodes `excludeCredentials` ids and base64url‑encodes the
-  challenge/user id before calling WebAuthn; the attestation is re‑encoded to
-  base64url for Graph.
+* Registration is **two POSTs**: start enrollment (`/me/methods/fido`) returns the
+  WebAuthn `publicKey` options + `continuationToken` + an `activate` link; after the
+  ceremony the credential is POSTed to that `activate` link to complete enrollment.
+* `createCredential` base64url‑decodes the `challenge`, `user.id`, and
+  `excludeCredentials` ids before calling WebAuthn; the attestation
+  (`attestationObject`/`clientDataJSON`) is re‑encoded to base64url for activation.
 * A user‑cancelled / timed‑out ceremony throws `NotAllowedError`, surfaced as a
   friendly "operation cancelled" toast.
 

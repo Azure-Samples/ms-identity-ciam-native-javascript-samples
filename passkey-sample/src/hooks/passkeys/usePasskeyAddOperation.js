@@ -1,8 +1,8 @@
-import { getPasskeyCreationOptions, registerUserPasskey } from '../../services/PasskeyService';
+import { startPasskeyEnrollment, registerUserPasskey } from '../../services/PasskeyService';
 import { createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
-const GRAPH_API_PROPAGATION_DELAY = 2000;
+const API_PROPAGATION_DELAY = 2000;
 
 export const usePasskeyAddOperation = ({ 
     appToken, 
@@ -22,14 +22,14 @@ export const usePasskeyAddOperation = ({
                 throw new Error('Missing appToken or userId');
             }
 
-            const creationOptions = await getPasskeyCreationOptions(appToken, userId);
-            await registerUserPasskey(creationOptions, appToken, userId);
+            const enrollment = await startPasskeyEnrollment(appToken);
+            await registerUserPasskey(enrollment, appToken);
             
             if (onShowToast) {
                 onShowToast(createToastMessages.passkeyAdded());
             }
             
-            await new Promise(resolve => setTimeout(resolve, GRAPH_API_PROPAGATION_DELAY));
+            await new Promise(resolve => setTimeout(resolve, API_PROPAGATION_DELAY));
             
             await fetchPasskeys({
                 type: 'add',
