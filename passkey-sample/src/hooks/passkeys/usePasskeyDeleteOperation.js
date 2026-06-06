@@ -26,7 +26,7 @@ export const usePasskeyDeleteOperation = ({
         const passkeyDisplayName = targetPasskey?.name || cachedPasskeyName;
         
         try {
-            await deleteUserPasskey(appToken, userId, passkeyId);
+            await deleteUserPasskey(appToken, passkeyId, targetPasskey?.links?.delete?.href);
             
             const updatedPasskeys = await fetchPasskeys({
                 type: 'delete',

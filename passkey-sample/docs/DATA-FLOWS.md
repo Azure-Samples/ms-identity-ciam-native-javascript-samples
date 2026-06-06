@@ -188,8 +188,8 @@ sequenceDiagram
     participant Auth as useAuthentication
     participant Modal as DeleteModal
     participant Svc as PasskeyService
-    participant GC as GraphApiClient
-    participant Graph
+    participant MA as MyAccountApiClient
+    participant MyAcct as My Account API
     participant Fetch as usePasskeyFetcher
 
     Item->>Del: initiate(passkey)
@@ -200,10 +200,10 @@ sequenceDiagram
     else MFA valid
         Del->>Modal: show confirmation (modalProps)
         Modal->>Del: onConfirm()
-        Del->>Svc: deleteUserPasskey(appToken, userId, passkeyId)
-        Svc->>GC: graphDelete(.../fido2Methods/{passkeyId})
-        GC->>Graph: DELETE fido2Methods/{id}
-        Graph-->>Svc: 204 No Content
+        Del->>Svc: deleteUserPasskey(token, passkeyId, links.delete.href)
+        Svc->>MA: myAccountDelete(_links.delete.href ?? '/me/methods/fido/{id}')
+        MA->>MyAcct: DELETE /me/methods/fido/{id}
+        MyAcct-->>Svc: 204 No Content
         Del->>Fetch: fetchPasskeys({type:'delete', passkeyId})
         Fetch-->>Item: updated list + success toast
     end

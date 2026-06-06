@@ -10,8 +10,7 @@ import {
     transformFido2Methods,
     generateUniquePasskeyName
 } from '../utils/graphServiceUtils.js';
-import { graphDelete } from './GraphApiClient.js';
-import { myAccountGet, myAccountPost } from './MyAccountApiClient.js';
+import { myAccountGet, myAccountPost, myAccountDelete } from './MyAccountApiClient.js';
 import { appConfig } from '../authConfig';
 
 /**
@@ -157,18 +156,17 @@ export async function fetchUserPasskey(appToken, userId) {
 }
 
 /**
- * Delete a specific passkey for a user using Microsoft Graph API
- * @param {string} appToken - Application access token for Graph API authentication
- * @param {string} userId - The user ID that owns the passkey
+ * Delete a registered passkey (DELETE /me/methods/fido/{id}).
+ * @param {string} token - Bearer token for authentication
  * @param {string} passkeyId - The ID of the passkey to delete
- * @returns {Promise<void>} Promise that resolves when passkey deletion is complete
- * @throws {Error} Throws error if passkey deletion fails
+ * @param {string} [deleteHref] - Optional HAL delete link; preferred when present,
+ *                                otherwise the path is built from the id
+ * @returns {Promise<void>} Resolves when passkey deletion is complete
+ * @throws {Error} Throws if passkey deletion fails
  */
-export async function deleteUserPasskey(appToken, userId, passkeyId) {
-    await graphDelete(
-        `/users/${userId}/authentication/fido2Methods/${passkeyId}`,
-        appToken
-    );
-    
+export async function deleteUserPasskey(token, passkeyId, deleteHref) {
+    const path = deleteHref || `/me/methods/fido/${passkeyId}`;
+    await myAccountDelete(path, token);
+
     console.log(`Passkey deleted successfully!`);
 }

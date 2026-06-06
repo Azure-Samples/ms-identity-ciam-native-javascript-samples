@@ -5,7 +5,8 @@
  * This is the migration target that is replacing the Microsoft Graph
  * fido2Methods endpoints. Endpoints are migrated here one at a time.
  * Currently wired up: GET /me/methods (list), POST /me/methods/fido (start
- * enrollment) and POST .../activate (complete enrollment).
+ * enrollment), POST .../activate (complete enrollment) and DELETE
+ * /me/methods/fido/{id} (remove a passkey).
  */
 
 import { appConfig } from '../authConfig';
@@ -89,6 +90,37 @@ export async function myAccountPost(path, body, token, headers = {}) {
         method: 'POST',
         headers: requestHeaders,
         body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+        await parseGraphApiError(response);
+    }
+
+    return response;
+}
+
+/**
+ * Make a DELETE request to the My Account passkey API.
+ * @param {string} path - API path or HAL href (e.g. '/me/methods/fido/{id}')
+ * @param {string} token - Bearer token for authentication (provided at runtime)
+ * @param {Object} headers - Additional headers to merge in
+ * @returns {Promise<Response>} Fetch response object
+ * @throws {Error} Formatted error if the request fails
+ */
+export async function myAccountDelete(path, token, headers = {}) {
+    const requestHeaders = {
+        'Content-Type': 'application/hal+json',
+        'Allow': 'DELETE',
+        ...headers,
+    };
+
+    if (token) {
+        requestHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(buildUrl(path), {
+        method: 'DELETE',
+        headers: requestHeaders,
     });
 
     if (!response.ok) {
