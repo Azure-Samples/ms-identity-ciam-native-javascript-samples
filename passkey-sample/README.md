@@ -152,11 +152,13 @@ Before running the application, you need to configure your Microsoft Entra ID ap
 Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
 
 ```javascript
+const tenantId = "<your-tenant-id>"; // Entra ID tenant ID (GUID) or verified domain
+
 export const msalConfig = {
     auth: {
-        clientId: "<your-client-id-here>",            // Application (client) ID from app registration
-        authority: "https://passkeytest.ciamlogin.com/", // Replace passkeytest with your tenant subdomain
-        redirectUri: "/",                                // Resolved at runtime to the registered redirect URI
+        clientId: "<your-client-id-here>",                       // Application (client) ID from app registration
+        authority: `https://login.microsoftonline.com/${tenantId}`, // Microsoft Entra ID (workforce) tenant authority
+        redirectUri: "/",                                       // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
 };
@@ -165,7 +167,7 @@ export const msalConfig = {
 **How to get these values:**
 
 1. **Client ID**: Found in your app registration overview page
-2. **Authority**: Your CIAM tenant authority URL in the format `https://passkeytest.ciamlogin.com/` (replace `passkeytest` with your tenant subdomain)
+2. **Authority**: Your Microsoft Entra ID tenant authority URL in the format `https://login.microsoftonline.com/<your-tenant-id>` (replace `<your-tenant-id>` with your tenant ID (GUID) or a verified domain name)
 3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
 
 #### Step 2: Environment Configuration (.env file)
@@ -193,7 +195,7 @@ The React app authentication configuration is centralized in `src/authConfig.js`
 export const appConfig = {
     proxyDomain: 'http://localhost:3001/api',
     appId: 'your-client-id',
-    tenantId: 'your-tenant-id',
+    tenantId: tenantId, // reuses the same tenantId used to build the MSAL authority above
     customDomain: '<custom-domain>' // your valid custom domain, if not specify, use tenant subdomain by default
 };
 ```
@@ -349,6 +351,10 @@ sample/
 ```
 
 ### Architecture Overview
+
+> 📐 **New to this codebase?** See the [design docs](./docs/README.md) for a full
+> folder/file map, the layered architecture, a per‑module reference, and sequence
+> diagrams of the sign‑in, token, and passkey add/delete flows.
 
 #### **Component Architecture**
 - **Modular Design**: Components are organized by feature (passkeys, common UI)
