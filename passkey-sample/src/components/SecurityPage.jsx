@@ -25,6 +25,21 @@ export const SecurityPage = () => {
 
 
     useEffect(() => {
+        // Test bypass: when a token is pasted into src/constants.js, skip MSAL
+        // sign-in entirely and synthesize a minimal user context. The My Account
+        // API resolves the actual user from the pasted token (/me).
+        if (BEARER_TOKEN) {
+            setAccessTokenError(null);
+            setAccessToken({
+                oid: 'me',
+                iat: Math.floor(Date.now() / 1000),
+                name: 'Test user',
+                email: 'pasted-token@local',
+            });
+            setLoading(false);
+            return;
+        }
+
         const fetchAccessToken = async () => {
             try {
                 const result = await getAccessToken(instance, accounts, loginRequest);
@@ -83,6 +98,13 @@ export const SecurityPage = () => {
     }, [instance, accessToken]);
 
     useEffect(() => {
+        // In bypass mode there is no MSAL/MFA session, so disable the NGCMFA gate
+        // (otherwise add/delete would try to redirect to sign-in).
+        if (BEARER_TOKEN) {
+            setNgcmfaExpiration(Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60);
+            return;
+        }
+
         if (accessToken) {
             const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
             setNgcmfaExpiration(expiration);

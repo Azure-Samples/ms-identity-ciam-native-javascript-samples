@@ -2,6 +2,7 @@ import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/
 import { Navbar, Button } from 'react-bootstrap';
 import { loginRequest } from '../authConfig';
 import { clearAppTokenCache } from '../utils/tokenUtils';
+import { BEARER_TOKEN } from '../constants';
 
 export const NavigationBar = () => {
     const { instance } = useMsal();
@@ -47,18 +48,26 @@ export const NavigationBar = () => {
                 <a className="navbar-brand" href="/">
                     Microsoft identity platform
                 </a>
-                <AuthenticatedTemplate>
+                {BEARER_TOKEN ? (
                     <div className="collapse navbar-collapse justify-content-end">
-                        <Button variant="warning" onClick={handleLogoutRedirect}>
-                            Sign out
-                        </Button>
+                        <span className="navbar-text text-light">Test mode (token from constants.js)</span>
                     </div>
-                </AuthenticatedTemplate>
-                <UnauthenticatedTemplate>
-                    <div className="collapse navbar-collapse justify-content-end">
-                        <Button onClick={handleLoginRedirect}>Sign in</Button>
-                    </div>
-                </UnauthenticatedTemplate>
+                ) : (
+                    <>
+                        <AuthenticatedTemplate>
+                            <div className="collapse navbar-collapse justify-content-end">
+                                <Button variant="warning" onClick={handleLogoutRedirect}>
+                                    Sign out
+                                </Button>
+                            </div>
+                        </AuthenticatedTemplate>
+                        <UnauthenticatedTemplate>
+                            <div className="collapse navbar-collapse justify-content-end">
+                                <Button onClick={handleLoginRedirect}>Sign in</Button>
+                            </div>
+                        </UnauthenticatedTemplate>
+                    </>
+                )}
             </Navbar>
         </>
     );

@@ -2,6 +2,7 @@ import { MsalProvider, AuthenticatedTemplate, useMsal } from '@azure/msal-react'
 import { Container } from 'react-bootstrap';
 import { PageLayout } from './components/PageLayout';
 import { SecurityPage } from './components/SecurityPage';
+import { BEARER_TOKEN } from './constants';
 
 import './styles/App.css';
 
@@ -19,6 +20,18 @@ const MainContent = () => {
      */
     const { instance } = useMsal();
     const activeAccount = instance.getActiveAccount();
+
+    // Test bypass: render the passkey UI directly using the pasted token,
+    // without requiring an MSAL sign-in.
+    if (BEARER_TOKEN) {
+        return (
+            <div className="App">
+                <Container>
+                    <SecurityPage />
+                </Container>
+            </div>
+        );
+    }
 
     return (
         <div className="App">

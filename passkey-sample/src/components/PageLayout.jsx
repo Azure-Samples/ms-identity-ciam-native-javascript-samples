@@ -1,5 +1,6 @@
 import { UnauthenticatedTemplate } from '@azure/msal-react';
 import { NavigationBar } from './NavigationBar.jsx';
+import { BEARER_TOKEN } from '../constants';
 
 export const PageLayout = (props) => {
     /**
@@ -11,12 +12,14 @@ export const PageLayout = (props) => {
         <>
             <NavigationBar />
             <br />
-            <UnauthenticatedTemplate>
-                <h5>
-                    <center>Welcome to the Microsoft Authentication Library For React Passkey Tutorial</center>
-                </h5>
-                <br />
-            </UnauthenticatedTemplate>
+            {!BEARER_TOKEN && (
+                <UnauthenticatedTemplate>
+                    <h5>
+                        <center>Welcome to the Microsoft Authentication Library For React Passkey Tutorial</center>
+                    </h5>
+                    <br />
+                </UnauthenticatedTemplate>
+            )}
             {props.children}
             <br />
         </>
