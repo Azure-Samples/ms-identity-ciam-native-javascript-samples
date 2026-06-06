@@ -74,6 +74,7 @@ passkey-sample/
     │
     ├── services/              ── SERVICE LAYER (Graph + WebAuthn) ──
     │   ├── PasskeyService.js            FIDO2 operations (creationOptions/register/fetch/delete)
+    │   ├── MyAccountApiClient.js        My Account API client (GET /me/methods) — migration target
     │   └── GraphApiClient.js            Generic Graph HTTP client + error parsing
     │
     ├── utils/                 ── PURE HELPERS ──
@@ -236,17 +237,18 @@ and their role.
 
 | Module | Exports | Role |
 | ------ | ------- | ---- |
-| `PasskeyService.js` | `getPasskeyCreationOptions`, `registerUserPasskey`, `fetchUserPasskey`, `deleteUserPasskey` | High‑level FIDO2 operations. Internally `createCredential` runs the WebAuthn ceremony (`navigator.credentials.create`) and `createPasskey` POSTs the attestation to Graph. |
-| `GraphApiClient.js` | `makeGraphRequest`, `graphGet`, `graphPost`, `graphDelete`, `parseGraphApiError` | The **single HTTP boundary** to `graph.microsoft.com/beta`. Adds auth/JSON headers and normalises nested Graph/OData error messages. |
+| `PasskeyService.js` | `getPasskeyCreationOptions`, `registerUserPasskey`, `fetchUserPasskey`, `deleteUserPasskey` | High‑level FIDO2 operations. Internally `createCredential` runs the WebAuthn ceremony (`navigator.credentials.create`) and `createPasskey` POSTs the attestation. **The list/GET (`fetchUserPasskey`) now uses the My Account API; add/delete still use Graph (migration in progress).** |
+| `GraphApiClient.js` | `makeGraphRequest`, `graphGet`, `graphPost`, `graphDelete`, `parseGraphApiError` | HTTP boundary to `graph.microsoft.com/beta`. Adds auth/JSON headers and normalises nested Graph/OData error messages. Still used by the add/delete flows. |
+| `MyAccountApiClient.js` | `myAccountGet` | HTTP boundary to the **My Account API** (`https://login.microsoftonline.com/{tenantId}/api/v1.0`). Sends `Content-Type: application/hal+json` + `Allow: GET`, the Bearer token, and the hardcoded test query params (`dc`, `myaccessgrpccanary`). Migration target replacing the Graph fido2Methods endpoints (currently only GET is wired). |
 
-**Graph endpoints used** (base `https://graph.microsoft.com/beta`):
+**Endpoints used:**
 
-| Operation | Method & path |
-| --------- | ------------- |
-| List passkeys | `GET /users/{id}/authentication/fido2Methods` |
-| Creation options | `GET /users/{id}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)` |
-| Register passkey | `POST /users/{id}/authentication/fido2Methods` |
-| Delete passkey | `DELETE /users/{id}/authentication/fido2Methods/{passkeyId}` |
+| Operation | Method & path | API |
+| --------- | ------------- | --- |
+| List passkeys | `GET /me/methods?dc=…&myaccessgrpccanary=true` | **My Account** (`login.microsoftonline.com/{tenantId}/api/v1.0`) |
+| Creation options | `GET /users/{id}/authentication/fido2Methods/creationOptions(challengeTimeoutInMinutes=60)` | Graph (`graph.microsoft.com/beta`) |
+| Register passkey | `POST /users/{id}/authentication/fido2Methods` | Graph |
+| Delete passkey | `DELETE /users/{id}/authentication/fido2Methods/{passkeyId}` | Graph |
 
 ### 5.5 Pure helpers — `utils/`
 
@@ -254,7 +256,7 @@ and their role.
 | ------ | ------- | ---- |
 | `tokenUtils.js` | `parseJwt`, `calculateNgcmfaExpiration`, `getAccessToken`, `getAppToken`, `getCachedAppToken`, `clearAppTokenCache` | JWT decoding, user‑token acquisition (with MFA‑expiry redirect handling), client‑credentials app token + caching in MSAL storage. |
 | `passkeyUtils.js` | `PASSKEY_CONSTANTS`, `createRetryDelay`, `createFetchDelay`, `validateExpectedChange`, `checkNgcmfaExpiration`, `createToastMessages` | Operation constants (max passkeys, retries, delays), retry/backoff helpers, MFA‑expiry check, and the **toast message factory**. |
-| `graphServiceUtils.js` | `base64urlToBuffer`, `bufferToBase64url`, `formatLastUsed`, `formatDetailedDate`, `formatPasskeyType`, `generateUniquePasskeyName`, `transformFido2Methods`, `decodeGraphCredentialId` | WebAuthn base64url encoding, display formatting, and mapping the raw Graph `fido2Methods` response into the UI model. |
+| `graphServiceUtils.js` | `base64urlToBuffer`, `bufferToBase64url`, `formatLastUsed`, `formatDetailedDate`, `formatPasskeyType`, `generateUniquePasskeyName`, `transformFido2Methods`, `decodeGraphCredentialId` | WebAuthn base64url encoding, display formatting, and `transformFido2Methods` maps the My Account `/me/methods` HAL response (registered methods in `_embedded.methods`, filtered to `type: "fido"`) into the UI model (`id`, `name`, `type`, `attestationLevel`, `attestationCertificates`, `aaGuid`, `links`). |
 
 ---
 

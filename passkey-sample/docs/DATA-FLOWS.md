@@ -101,26 +101,33 @@ sequenceDiagram
     participant PSec as PasskeysSection
     participant Fetch as usePasskeyFetcher
     participant Svc as PasskeyService
-    participant GC as GraphApiClient
-    participant Graph
+    participant MA as MyAccountApiClient
+    participant MyAcct as My Account API
     participant GSU as graphServiceUtils
 
     PSec->>Fetch: fetchPasskeys()  (on appToken+userId ready)
-    Fetch->>Svc: fetchUserPasskey(appToken, userId)
-    Svc->>GC: graphGet(/users/{id}/authentication/fido2Methods, appToken)
-    GC->>Graph: GET fido2Methods (Bearer appToken)
-    Graph-->>GC: { value: [...] }
-    GC-->>Svc: response
+    Fetch->>Svc: fetchUserPasskey(token, userId)
+    Svc->>MA: myAccountGet('/me/methods', token)
+    Note over MA: adds Content-Type: application/hal+json,<br/>Allow: GET, Bearer token,<br/>hardcoded dc + myaccessgrpccanary params
+    MA->>MyAcct: GET /{tenantId}/api/v1.0/me/methods?dc=…&myaccessgrpccanary=true
+    MyAcct-->>MA: HAL+JSON { _embedded.methods: [...] }
+    MA-->>Svc: response
     Svc->>GSU: transformFido2Methods(response)
+    Note over GSU: reads _embedded.methods, keeps type==="fido",<br/>maps id/name/type/attestationLevel/aaGuid/links
     GSU-->>Svc: UI passkey models
     Svc-->>Fetch: passkeys[]
     Fetch->>Fetch: setPasskeys / setIsLoading(false)
     Fetch-->>PSec: state → PasskeysList renders
 ```
 
+> **Migration note:** the list/GET now targets the **My Account API**
+> (`login.microsoftonline.com/{tenantId}/api/v1.0/me/methods`) via
+> `MyAccountApiClient`. The add/delete flows below still use Microsoft Graph and
+> will be migrated in later steps.
+
 `usePasskeyFetcher` also supports an **expected‑change** mode used after add/delete:
 it retries (`MAX_RETRIES`, backoff) until the list reflects the change, smoothing
-over Graph propagation delay.
+over API propagation delay.
 
 ---
 

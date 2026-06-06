@@ -106,29 +106,30 @@ export function generateUniquePasskeyName() {
 }
 
 /**
- * Transform Microsoft Graph FIDO2 methods response to UI-friendly format
- * @param {Object} graphResponse - Raw response from Graph API
+ * Transform a My Account API "list methods" HAL response into a UI-friendly
+ * passkey list. Registered methods live in `_embedded.methods`; only FIDO
+ * (passkey) methods are surfaced here.
+ * @param {Object} response - Raw HAL+JSON response from GET /me/methods
  * @returns {Array<Object>} - Array of transformed passkey objects
  */
-export function transformFido2Methods(graphResponse) {
-    if (!graphResponse || !graphResponse.value) {
+export function transformFido2Methods(response) {
+    const methods = response?._embedded?.methods;
+    if (!Array.isArray(methods)) {
         return [];
     }
-    return graphResponse.value.map((method) => ({
-        id: method.id,
-        name: method.displayName || "Unnamed Passkey",
-        lastUsed: method.lastUsedDateTime
-            ? formatLastUsed(method.lastUsedDateTime)
-            : "Never",
-        created: method.createdDateTime
-            ? formatDetailedDate(method.createdDateTime)
-            : "Unknown",
-        model: method.model || "Unknown Model",
-        attestationLevel: method.attestationLevel || "Unknown",
-        aaGuid: method.aaGuid,
-        passkeyType: formatPasskeyType(method.passkeyType),
-        _graphData: method,
-    }));
+
+    return methods
+        .filter((method) => method.type?.toLowerCase() === "fido")
+        .map((method) => ({
+            id: method.id,
+            name: method.displayName || "Unnamed Passkey",
+            type: method.type,
+            attestationLevel: method.attestationLevel || "Unknown",
+            attestationCertificates: method.attestationCertificates || [],
+            aaGuid: method.aaGuid,
+            links: method._links || {},
+            _raw: method,
+        }));
 }
 
 export function decodeGraphCredentialId(id) {

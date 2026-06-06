@@ -14,8 +14,8 @@ const PasskeyDetails = ({ passkey }) => {
                 <Row className="g-3 mb-2">
                     <Col xs={4} className="text-start">
                         <div>
-                            <small className="text-muted d-block">Date Registered</small>
-                            <span className="small">{passkey.created || 'N/A'}</span>
+                            <small className="text-muted d-block">Attestation Level</small>
+                            <span className="small">{passkey.attestationLevel || 'N/A'}</span>
                         </div>
                     </Col>
                     <Col xs={8} className="text-start ps-3">

@@ -11,6 +11,7 @@ import {
     decodeGraphCredentialId
 } from '../utils/graphServiceUtils.js';
 import { graphGet, graphPost, graphDelete } from './GraphApiClient.js';
+import { myAccountGet } from './MyAccountApiClient.js';
 import { appConfig } from '../authConfig';
 
 /**
@@ -84,19 +85,16 @@ async function createPasskey(creationCredential, userId, appToken) {
 }
 
 /**
- * Get user's passkeys from Microsoft Graph API
- * @param {string} appToken - Application access token
- * @param {string} userId - User ID
- * @returns {Promise<Object>} - Raw Graph API response
+ * Get user's passkeys from the My Account API (GET /me/methods).
+ * The user is resolved from the bearer token, so no user ID is required.
+ * @param {string} token - Bearer token for authentication
+ * @returns {Promise<Object>} - Raw API response
  */
-async function getUserPasskeys(appToken, userId) {
-    const response = await graphGet(
-        `/users/${userId}/authentication/fido2Methods`,
-        appToken
-    );
-    
+async function getUserPasskeys(token) {
+    const response = await myAccountGet('/me/methods', token);
+
     const passkeys = await response.json();
-    console.log(`Retrieved ${passkeys?.value?.length || 0} user passkeys`);
+    console.log(`Retrieved ${passkeys?._embedded?.methods?.length || 0} authentication methods`);
     return passkeys;
 }
 
@@ -129,14 +127,15 @@ export async function registerUserPasskey(creationOptions, appToken, userId) {
 }
 
 /**
- * Fetch and transform user passkeys from Microsoft Graph API
- * @param {string} appToken - Application access token for Graph API authentication
- * @param {string} userId - The user ID to fetch passkeys for
+ * Fetch and transform user passkeys from the My Account API
+ * @param {string} appToken - Bearer token for authentication
+ * @param {string} userId - Retained for signature compatibility; the My Account
+ *                          API resolves the user from the token (/me), so it is unused here
  * @returns {Promise<Array<Object>>} Promise that resolves to array of transformed passkey objects
  * @throws {Error} Throws error if fetching passkeys fails
  */
 export async function fetchUserPasskey(appToken, userId) {
-    const passkeys = await getUserPasskeys(appToken, userId);
+    const passkeys = await getUserPasskeys(appToken);
     return transformFido2Methods(passkeys);
 }
 
