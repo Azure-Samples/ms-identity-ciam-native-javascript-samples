@@ -126,7 +126,15 @@ async function activatePasskey(enrollment, credential, token) {
 
     console.log("Activating passkey registration");
     const response = await myAccountPost(activateHref, body, token);
-    return response.json();
+
+    // Activation may legitimately return 204 No Content (or an empty body), in
+    // which case there is nothing to parse. Guard so a successful activation is
+    // not misreported as an error by response.json() throwing on an empty body.
+    if (response.status === 204) {
+        return null;
+    }
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
 }
 
 /**

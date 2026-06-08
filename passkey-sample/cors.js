@@ -33,6 +33,9 @@ http.createServer((req, res) => {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, Allow, " + extraHeaders.join(", "),
+        // Expose upstream telemetry/correlation headers so the SPA can read them
+        // (custom response headers are hidden from JS by default under CORS).
+        "Access-Control-Expose-Headers": "x-ms-request-id, request-id, client-request-id, x-ms-ests-server, date",
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Max-Age": "86400", // 24 hours
     };
