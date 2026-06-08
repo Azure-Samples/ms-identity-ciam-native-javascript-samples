@@ -107,10 +107,17 @@ function getActivateHref(enrollment) {
 async function activatePasskey(enrollment, credential, token) {
     const activateHref = getActivateHref(enrollment);
 
+    // Shape must match the webauthnPublicKeyCredential resource: the attestation
+    // data (attestationObject/clientDataJSON) is nested under `response`
+    // (webauthnAuthenticatorAttestationResponse), NOT flattened onto the
+    // credential. Sending it flat causes the orchestrator to reject the body
+    // ("Failed to parse request body").
     const publicKeyCredential = {
         id: credential.id,
-        attestationObject: bufferToBase64url(credential.response.attestationObject),
-        clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+        response: {
+            attestationObject: bufferToBase64url(credential.response.attestationObject),
+            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
+        },
     };
 
     // clientExtensionResults is OPTIONAL per the design; include when available.
@@ -124,7 +131,7 @@ async function activatePasskey(enrollment, credential, token) {
         publicKeyCredential,
     };
 
-    console.log("Activating passkey registration");
+    console.log('Activation request body:', JSON.stringify(body, null, 2));
     const response = await myAccountPost(activateHref, body, token);
 
     // Activation may legitimately return 204 No Content (or an empty body), in
