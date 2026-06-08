@@ -94,7 +94,12 @@ export const loginRequest = {
  */
 export const appConfig = {
     proxyDomain: 'http://localhost:3001/api',
+    // Local CORS proxy base for the My Account API (see cors.js). The browser
+    // cannot call login.microsoftonline.com/me/methods directly (no CORS), so in
+    // local dev requests are routed through this proxy. Set to '' to call the API
+    // directly (e.g. when hosting behind a real reverse proxy).
+    myAccountProxy: 'http://localhost:3001/myaccount',
     appId: 'your-client-id',
     tenantId: tenantId,
-    customDomain: '', // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
+    customDomain: 'localhost', // Local testing: override the server rp.id (login.microsoft.com) so the browser WebAuthn ceremony accepts http://localhost. See note below.
 };

@@ -178,10 +178,12 @@ design, so it is worth calling out explicitly:
 | **User access token** | `tokenUtils.getAccessToken` via MSAL `acquireTokenSilent` | Delegated, in‑browser, with `ngcmfa` claim | Identifying the user (`oid` → `userId`) and computing the **NGCMFA expiry** that gates passkey changes. |
 | **App / API token** | `tokenUtils.getCachedAppToken` → `cors.js` proxy | Client‑credentials (app permission `UserAuthMethod-Passkey.ReadWrite.All`) | The **Bearer token on every My Account API call** in `MyAccountApiClient`. |
 
-* The browser cannot hit the Entra token endpoint directly (CORS), so the
-  client‑credentials request is proxied through **`cors.js`** (`/api` →
-  `login.microsoftonline.com/{tenantId}`). My Account API calls go **directly**
-  from the browser and are not proxied.
+* The browser cannot hit the Entra token endpoint **or the My Account API**
+  directly (CORS), so both are routed through **`cors.js`**: `/api` →
+  `login.microsoftonline.com/{tenantId}` (token endpoint) and `/myaccount` →
+  `login.microsoftonline.com` (My Account API, full path preserved). The client
+  base is `appConfig.myAccountProxy`; set it to `''` to call the API directly
+  (e.g. behind a real reverse proxy). **`npm run cors` must be running.**
 * **Testing override:** paste a token into `src/constants.js` (`BEARER_TOKEN`).
   When set, `SecurityPage` uses it directly as the API token and **skips** the
   client‑credentials acquisition (no client secret / CORS proxy required). This is

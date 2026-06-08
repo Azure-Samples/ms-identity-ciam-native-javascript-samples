@@ -1,11 +1,20 @@
 import http from "http";
 import https from "https";
 import { appConfig } from "./src/authConfig.js";
-const proxyConfig = {
-    localApiPath: "/api",
-    port: 3001,
-    proxy: `https://login.microsoftonline.com/${appConfig.tenantId}`,
-};
+
+const port = 3001;
+
+/**
+ * Proxy routes. Each incoming request whose path starts with `prefix` is
+ * forwarded to `target` + (path without the prefix) + query string.
+ * - /api        → token endpoint (client-credentials flow, used when BEARER_TOKEN is empty)
+ * - /myaccount  → My Account passkey API; the tenant + /api/v1.0/... path is preserved,
+ *                 so target is the bare host.
+ */
+const routes = [
+    { prefix: "/myaccount", target: "https://login.microsoftonline.com" },
+    { prefix: "/api", target: `https://login.microsoftonline.com/${appConfig.tenantId}` },
+];
 
 const extraHeaders = [
     "x-client-SKU",
@@ -17,14 +26,13 @@ const extraHeaders = [
     "client-request-id",
 ];
 http.createServer((req, res) => {
-    const reqUrl = new URL(req.url, `http://localhost:${proxyConfig.port}`);
-    const domain = new URL(proxyConfig.proxy).hostname;
+    const reqUrl = new URL(req.url, `http://localhost:${port}`);
 
     // Set CORS headers for all responses including OPTIONS
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, " + extraHeaders.join(", "),
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, Allow, " + extraHeaders.join(", "),
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Max-Age": "86400", // 24 hours
     };
@@ -36,10 +44,13 @@ http.createServer((req, res) => {
         return;
     }
 
-    if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-        const targetUrl = proxyConfig.proxy + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
+    const route = routes.find((r) => reqUrl.pathname.startsWith(r.prefix));
 
-        console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
+    if (route) {
+        const domain = new URL(route.target).hostname;
+        const targetUrl = route.target + reqUrl.pathname.slice(route.prefix.length) + (reqUrl.search || "");
+
+        console.log("Incoming request -> " + req.url + " ===> " + targetUrl);
 
         const newHeaders = {};
         for (let [key, value] of Object.entries(req.headers)) {
@@ -78,7 +89,7 @@ http.createServer((req, res) => {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
     }
-}).listen(proxyConfig.port, () => {
-    console.log("CORS proxy running on http://localhost:3001");
-    console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.proxy);
+}).listen(port, () => {
+    console.log("CORS proxy running on http://localhost:" + port);
+    routes.forEach((r) => console.log("Proxying " + r.prefix + " ===> " + r.target));
 });

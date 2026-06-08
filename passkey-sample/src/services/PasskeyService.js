@@ -41,10 +41,41 @@ async function createCredential(creationOptions) {
         publicKey.rp = { ...creationOptions.rp, id: appConfig.customDomain };
     }
 
-    console.log("Passkey creation options configured");
-    const credential = await navigator.credentials.create({ publicKey });
-    console.log("Passkey credential created successfully");
-    return credential;
+    // Local-testing workaround: the test environment returns a credProtect
+    // policy ("userVerificationOptional") that is inconsistent with
+    // requireResidentKey + userVerification:"required" and can cause the browser
+    // ("protection policy is inconsistent...") or the authenticator
+    // (NotAllowedError) to reject the request. Strip the credProtect policy for
+    // local testing (keep other extensions such as hmac-secret).
+    if (publicKey.extensions) {
+        const { credentialProtectionPolicy, enforceCredentialProtectionPolicy, ...restExtensions } = publicKey.extensions;
+        if (credentialProtectionPolicy || enforceCredentialProtectionPolicy) {
+            publicKey.extensions = restExtensions;
+            console.warn('Stripped credProtect extension for local testing');
+        }
+    }
+
+    // The test environment can return timeout:0, which some browsers treat as an
+    // immediate expiry. Use a sane default so the user has time to complete UV.
+    if (!publicKey.timeout) {
+        publicKey.timeout = 120000;
+    }
+
+    console.log(
+        `Passkey creation options configured. Server rp.id="${creationOptions.rp?.id}", ` +
+        `using rp.id="${publicKey.rp?.id}" against origin "${window.location.origin}"`
+    );
+    try {
+        const credential = await navigator.credentials.create({ publicKey });
+        console.log("Passkey credential created successfully");
+        return credential;
+    } catch (error) {
+        console.error(
+            `navigator.credentials.create failed: ${error.name}: ${error.message}`,
+            error
+        );
+        throw error;
+    }
 }
 
 /**
@@ -137,6 +168,8 @@ export async function registerUserPasskey(enrollment, token) {
     const creationOptions = typeof enrollment.publicKey === 'string'
         ? JSON.parse(enrollment.publicKey)
         : enrollment.publicKey;
+
+    console.log('Raw WebAuthn creation options from server:', JSON.stringify(creationOptions, null, 2));
 
     const credential = await createCredential(creationOptions);
     await activatePasskey(enrollment, credential, token);

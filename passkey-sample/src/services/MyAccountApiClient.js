@@ -20,6 +20,13 @@ import { parseGraphApiError } from './GraphApiClient.js';
 const TEST_QUERY_STRING = 'dc=ESTS-PUB-SCUS-FD000-TEST1-100&myaccessgrpccanary=true';
 
 /**
+ * Base origin for My Account API requests. In local dev this points at the
+ * cors.js proxy (`/myaccount`) to work around browser CORS; when empty the API
+ * is called directly.
+ */
+const API_BASE = appConfig.myAccountProxy || 'https://login.microsoftonline.com';
+
+/**
  * Build a full My Account API URL for the given path, appending the required
  * hardcoded test query parameters. The tenant comes from appConfig.tenantId.
  *
@@ -32,7 +39,7 @@ const TEST_QUERY_STRING = 'dc=ESTS-PUB-SCUS-FD000-TEST1-100&myaccessgrpccanary=t
 function buildUrl(path) {
     const apiBase = '/api/v1.0';
     const relativePath = path.startsWith(apiBase) ? path.slice(apiBase.length) : path;
-    return `https://login.microsoftonline.com/${appConfig.tenantId}${apiBase}${relativePath}?${TEST_QUERY_STRING}`;
+    return `${API_BASE}/${appConfig.tenantId}${apiBase}${relativePath}?${TEST_QUERY_STRING}`;
 }
 
 /**
