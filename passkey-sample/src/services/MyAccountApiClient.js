@@ -109,8 +109,8 @@ async function logErrorDiagnostics(response, method, url) {
  * @param {string} token - Bearer token for authentication
  * @param {Object} extra - Additional headers to merge in (override the defaults)
  * @param {string} [contentType] - Content-Type for the request. Defaults to
- *        'application/hal+json' (HAL reads); use 'application/json' when sending
- *        a JSON request body, which the API requires.
+ *        'application/hal+json' (HAL reads); a POST body is sent as
+ *        'application/x-www-form-urlencoded'.
  * @returns {Object} Request headers
  */
 function buildHeaders(method, token, extra = {}, contentType = 'application/hal+json') {
@@ -161,10 +161,11 @@ export async function myAccountGet(path, token, headers = {}) {
  */
 export async function myAccountPost(path, body, token, headers = {}) {
     const url = buildUrl(path);
-    // A JSON request body must be declared as application/json; the API rejects
-    // application/hal+json for the body. Requests without a body keep the
-    // default hal+json. Callers can still override via the headers argument.
-    const contentType = body !== undefined ? 'application/json' : undefined;
+    // The activate endpoint expects the body declared as
+    // application/x-www-form-urlencoded; the JSON payload itself is sent
+    // unchanged. Requests without a body keep the default hal+json. Callers can
+    // still override the Content-Type via the headers argument.
+    const contentType = body !== undefined ? 'application/x-www-form-urlencoded' : undefined;
     const response = await fetch(url, {
         method: 'POST',
         headers: buildHeaders('POST', token, headers, contentType),
