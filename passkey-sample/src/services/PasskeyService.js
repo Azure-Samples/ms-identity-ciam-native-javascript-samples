@@ -116,11 +116,6 @@ async function activatePasskey(enrollment, credential, token) {
         clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
     };
 
-    // clientExtensionResults is OPTIONAL; include only when available.
-    if (typeof credential.getClientExtensionResults === 'function') {
-        publicKeyCredential.clientExtensionResults = credential.getClientExtensionResults();
-    }
-
     const body = {
         continuationToken: enrollment.continuationToken,
         displayName: generateUniquePasskeyName(),
