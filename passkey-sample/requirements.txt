@@ -1,3 +1,4 @@
-# Dependencies for ceremony_ctap.py (headless Windows Hello passkey ceremony).
-# python-fido2 provides WindowsClient, which wraps the native Windows WebAuthn API.
+# Dependencies for ceremony_ctap.py (headless passkey ceremony).
+# python-fido2 provides WindowsClient (native Windows WebAuthn API / Windows Hello)
+# and Fido2Client (roaming USB security keys such as a YubiKey over CTAP-HID).
 fido2>=1.1

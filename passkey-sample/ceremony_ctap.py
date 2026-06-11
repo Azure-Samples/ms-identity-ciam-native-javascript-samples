@@ -9,17 +9,20 @@ resulting credential's clientDataJSON.origin is EXACTLY the value the server
 origin a browser is forced to stamp (e.g. "https://passkeytest.login.microsoft.com:3000").
 
 In a browser, navigator.credentials.create() hard-codes the origin to the
-page URL and will not let you override it. The native Windows WebAuthn API
-(used here via python-fido2's WindowsClient) instead lets the *caller* supply
-the origin, while still performing a real Windows Hello (platform) attestation
-that the server already accepts.
+page URL and will not let you override it. python-fido2 instead lets the
+*caller* supply the origin while performing a real hardware attestation the
+server already accepts. Two backends are supported:
+  * WindowsClient  -- native Windows WebAuthn API (Windows Hello / platform).
+  * Fido2Client    -- a roaming USB security key (e.g. a YubiKey) over CTAP-HID,
+                      which works on macOS, Linux and Windows.
 
 Flow
 ----
   1. You call POST /me/methods/fido (enroll) in Bruno and save the JSON.
-  2. This script reads that enroll JSON, runs the Windows Hello prompt with
-     origin = https://login.microsoft.com, and prints the activate request
-     body (and URL) ready to paste into Bruno's POST .../activate call.
+  2. This script reads that enroll JSON, drives your authenticator (Windows
+     Hello or a USB security key) with origin = https://login.microsoft.com,
+     and prints the activate request body (and URL) ready to paste into
+     Bruno's POST .../activate call.
 
 This is a LOCAL TEST HARNESS. It asserts an origin the script was not actually
 served from; the hardware attestation is genuine, but the origin is one you
@@ -31,8 +34,11 @@ Usage
   # validate the environment only (no hardware prompt):
   python ceremony_ctap.py --check
 
-  # run the ceremony from a saved enroll response:
+  # run the ceremony from a saved enroll response (auto-selects the backend):
   python ceremony_ctap.py enroll.json
+
+  # force the USB security key path (e.g. a YubiKey on macOS/Linux):
+  python ceremony_ctap.py enroll.json --authenticator usb
 
   # or pipe it in:
   Get-Content enroll.json | python ceremony_ctap.py
@@ -42,6 +48,11 @@ Options:
   --rpid     Override rp.id (default: keep the server's rp.id from enroll)
   --tenant   Tenant id used to build the activate URL (default: known test tenant)
   --name     displayName for the new passkey (default: passkey_<ms>_<rand>)
+  --authenticator {auto,windows,usb}
+             Which backend to use: "windows" = Windows Hello; "usb" = roaming
+             security key (YubiKey) over CTAP-HID (macOS/Linux/Windows); "auto"
+             (default) picks Windows Hello if available, else USB.
+  --pin      PIN for the USB security key (skips the interactive prompt).
   --attachment {keep,platform,cross-platform,any}
              Force authenticator type (default: keep server's value; use
              "platform" to force Windows Hello)
@@ -192,10 +203,9 @@ def prepare_options(options: dict, rpid: str | None, attachment: str,
 
 
 def run_self_check() -> int:
-    """Validate imports and platform support without touching hardware."""
+    """Validate imports and authenticator availability without touching hardware."""
     try:
-        from fido2.client import DefaultClientDataCollector  # noqa: F401
-        from fido2.client.windows import WindowsClient
+        import fido2  # noqa: F401
         from fido2.utils import websafe_encode  # noqa: F401
         from fido2.webauthn import PublicKeyCredentialCreationOptions  # noqa: F401
     except Exception as exc:  # pragma: no cover - environment dependent
@@ -203,16 +213,20 @@ def run_self_check() -> int:
         eprint("Install it with:  pip install fido2")
         return 1
 
-    available = False
-    try:
-        available = bool(WindowsClient.is_available())
-    except Exception as exc:
-        eprint(f"SELF-CHECK WARNING: WindowsClient.is_available() raised: {exc}")
-
     print("SELF-CHECK OK: python-fido2 imported.")
-    print(f"WindowsClient.is_available() -> {available}")
-    if not available:
-        eprint("NOTE: Windows WebAuthn API not available (needs Windows 10 19H1+).")
+
+    win_available = _windows_available()
+    print(f"Windows Hello (WindowsClient.is_available()) -> {win_available}")
+
+    usb_devices = _usb_device_names()
+    print(f"USB security keys detected -> {len(usb_devices)}")
+    for name in usb_devices:
+        print(f"  - {name}")
+
+    if not win_available and not usb_devices:
+        eprint("NOTE: no platform authenticator (Windows Hello) and no USB security")
+        eprint("      key detected. Plug in a YubiKey, or run on Windows with")
+        eprint("      Windows Hello enabled.")
         return 1
     return 0
 
@@ -220,15 +234,14 @@ def run_self_check() -> int:
 def run_ceremony(args) -> int:
     # Import here so --check can report a clean message if fido2 is missing.
     try:
-        from fido2.client.windows import WindowsClient
         from fido2.utils import websafe_encode
     except Exception as exc:
         eprint(f"ERROR: python-fido2 is not installed: {exc}")
         eprint("Install it with:  pip install fido2")
         return 1
 
-    if not WindowsClient.is_available():
-        eprint("ERROR: Windows WebAuthn API unavailable (needs Windows 10 19H1+).")
+    mode = resolve_authenticator(args.authenticator)
+    if mode is None:
         return 1
 
     enroll = load_enroll(args.enroll)
@@ -241,6 +254,7 @@ def run_ceremony(args) -> int:
     print(f"Server rp.id : {server_rpid}")
     print(f"Using rp.id  : {used_rpid}")
     print(f"Using origin : {args.origin}")
+    print(f"Authenticator: {mode}")
 
     collector = _make_collector(args.origin)
     if collector is None:
@@ -249,18 +263,28 @@ def run_ceremony(args) -> int:
     # WindowsClient anchors its dialog to the foreground window captured at
     # construction time, so build it right after the user confirms focus.
     eprint("")
-    eprint("==> Make sure THIS terminal window is focused.")
+    if mode == "windows":
+        eprint("==> Make sure THIS terminal window is focused.")
+        prompt = "==> Press Enter to launch the Windows Hello prompt... "
+    else:
+        eprint("==> Make sure your security key (e.g. a YubiKey) is plugged in.")
+        prompt = "==> Press Enter to start the ceremony... "
     try:
-        input("==> Press Enter to launch the Windows Hello prompt... ")
+        input(prompt)
     except (EOFError, KeyboardInterrupt):
         eprint("Cancelled.")
         return 1
 
-    handle = _foreground_handle()
     try:
-        client = _make_windows_client(collector, args.origin, handle)
+        if mode == "windows":
+            client = _make_windows_client(collector, args.origin,
+                                          _foreground_handle())
+        else:
+            client = _make_fido2_client(collector, args.origin, args.pin)
     except Exception as exc:
-        eprint(f"ERROR: could not construct WindowsClient: {exc}")
+        eprint(f"ERROR: could not construct authenticator client: {exc}")
+        return 1
+    if client is None:
         return 1
 
     try:
@@ -346,6 +370,127 @@ def _make_windows_client(collector, origin: str, handle):
     return WindowsClient(origin, handle=handle)
 
 
+def _device_name(dev) -> str:
+    """Best-effort human-readable name for a CTAP-HID device across versions."""
+    val = getattr(dev, "product_name", None)
+    if val:
+        return val
+    desc = getattr(dev, "descriptor", None)
+    if desc is not None:
+        val = getattr(desc, "product_name", None)
+        if val:
+            return val
+        path = getattr(desc, "path", None)
+        if path:
+            return str(path)
+    return str(dev)
+
+
+def _usb_device_names() -> list:
+    """List connected USB CTAP-HID authenticators (empty if none/unavailable)."""
+    try:
+        from fido2.hid import CtapHidDevice
+    except Exception:
+        return []
+    try:
+        return [_device_name(d) for d in CtapHidDevice.list_devices()]
+    except Exception:
+        return []
+
+
+def _windows_available() -> bool:
+    """True if the native Windows WebAuthn API is usable (Windows only)."""
+    try:
+        from fido2.client.windows import WindowsClient
+    except Exception:
+        return False
+    try:
+        return bool(WindowsClient.is_available())
+    except Exception:
+        return False
+
+
+def resolve_authenticator(choice: str) -> str | None:
+    """Decide which authenticator backend to use, or None on failure."""
+    if choice == "windows":
+        if not _windows_available():
+            eprint("ERROR: --authenticator windows requested but the Windows "
+                   "WebAuthn API is unavailable (needs Windows 10 19H1+).")
+            return None
+        return "windows"
+    if choice == "usb":
+        return "usb"
+    # auto: prefer the platform API on Windows, otherwise a USB security key.
+    if _windows_available():
+        return "windows"
+    if _usb_device_names():
+        return "usb"
+    eprint("ERROR: no usable authenticator found.")
+    eprint("       Plug in a security key (e.g. a YubiKey) and re-run, or run on")
+    eprint("       Windows with Windows Hello enabled. You can also force the USB")
+    eprint("       path explicitly with: --authenticator usb")
+    return None
+
+
+def _make_cli_interaction(pin: str | None):
+    """Build a CLI UserInteraction handling touch + PIN prompts for USB keys."""
+    from fido2.client import UserInteraction
+
+    class _CliInteraction(UserInteraction):
+        def prompt_up(self):
+            eprint("\n==> Touch your security key now...")
+
+        def request_pin(self, permissions, rp_id):
+            if pin:
+                return pin
+            from getpass import getpass
+            return getpass("==> Enter your security key PIN: ")
+
+        def request_uv(self, permissions, rp_id):
+            eprint("==> User verification required; follow your key's prompts.")
+            return True
+
+    return _CliInteraction()
+
+
+def _make_fido2_client(collector, origin: str, pin: str | None):
+    """Construct a Fido2Client for a USB CTAP-HID authenticator (e.g. YubiKey).
+
+    Works on macOS/Linux/Windows. Like the WindowsClient path, the caller
+    supplies the origin, so clientDataJSON.origin becomes the value the server
+    accepts rather than a browser page origin.
+
+    Newer (>=1.2): Fido2Client(device, client_data_collector=..., user_interaction=...)
+    Older (<1.2):  Fido2Client(device, origin, user_interaction=...)
+    """
+    import inspect
+
+    from fido2.client import Fido2Client
+    from fido2.hid import CtapHidDevice
+
+    devices = list(CtapHidDevice.list_devices())
+    if not devices:
+        eprint("ERROR: no USB security key found. Plug in your YubiKey and retry.")
+        return None
+    if len(devices) > 1:
+        eprint(f"NOTE: {len(devices)} security keys detected; using the first one:")
+        for d in devices:
+            eprint(f"      - {_device_name(d)}")
+    device = devices[0]
+    eprint(f"Using security key: {_device_name(device)}")
+
+    interaction = _make_cli_interaction(pin)
+    params = list(inspect.signature(Fido2Client.__init__).parameters)
+    if "client_data_collector" in params:
+        if collector in (None, False):
+            from fido2.client import DefaultClientDataCollector
+            collector = DefaultClientDataCollector(origin)
+        return Fido2Client(device, client_data_collector=collector,
+                           user_interaction=interaction)
+    # old positional-origin API
+    return Fido2Client(device, origin, user_interaction=interaction)
+
+
 def _foreground_handle():
     """Return the current foreground window handle (or None)."""
     try:
@@ -358,7 +503,8 @@ def _foreground_handle():
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Headless Windows Hello passkey ceremony for the My Account API.")
+        description="Headless passkey ceremony (Windows Hello or USB security "
+                    "key) for the My Account API.")
     parser.add_argument("enroll", nargs="?",
                         help="Path to the enroll response JSON (or pipe via stdin).")
     parser.add_argument("--origin", default=DEFAULT_ORIGIN,
@@ -369,6 +515,16 @@ def parse_args(argv=None):
                         help="Tenant id for the activate URL.")
     parser.add_argument("--name", default=None,
                         help="displayName for the passkey.")
+    parser.add_argument("--authenticator", default="auto",
+                        choices=["auto", "windows", "usb"],
+                        help='Authenticator backend: "windows" = native Windows '
+                             'Hello API; "usb" = roaming security key (e.g. a '
+                             'YubiKey) over CTAP-HID, works on macOS/Linux/Windows; '
+                             '"auto" (default) uses Windows Hello if available, '
+                             'else USB.')
+    parser.add_argument("--pin", default=None,
+                        help="PIN for the USB security key (skips the interactive "
+                             "prompt). Only used with the USB authenticator.")
     parser.add_argument("--attachment", default="keep",
                         choices=["keep", "platform", "cross-platform", "any"],
                         help='Force authenticator type ("platform" = Windows Hello).')
