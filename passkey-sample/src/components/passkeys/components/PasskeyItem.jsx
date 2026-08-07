@@ -30,7 +30,7 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                 <div className="flex-grow-1">
                     <Row className="g-2 mb-1">
                         <Col xs={6} className="text-start">
-                            <strong>Passkey ({passkey.passkeyType})</strong>
+                            <strong>{passkey.name}</strong>
                         </Col>
                         <Col xs={6} className="text-start">
                             <span className="text-muted small">{deviceDetails.authenticatorDevice} - {deviceDetails.method}</span>
@@ -55,7 +55,8 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                             e.stopPropagation(); // Prevent expanding when clicking delete
                             onDelete(passkey);
                         }}
-                        disabled={isLoading}
+                        disabled={isLoading || passkey.canDelete === false}
+                        title={passkey.canDelete === false ? 'This passkey cannot be deleted' : 'Delete passkey'}
                     >
                         <HiOutlineTrash />
                     </Button>

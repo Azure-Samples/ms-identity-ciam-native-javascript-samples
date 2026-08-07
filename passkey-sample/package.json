@@ -5,6 +5,7 @@
     "type": "module",
     "dependencies": {
         "@azure/msal-browser": "^4.30.0",
+        "@azure/msal-credential-management-browser": "file:azure-msal-credential-management-browser-0.0.0.tgz",
         "@azure/msal-react": "^3.0.29",
         "bootstrap": "^5.3.3",
         "react": "^19.2.1",

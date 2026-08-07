@@ -11,16 +11,15 @@ import {
     useAuthentication
 } from '../../hooks/passkeys';
 
-const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
+const PasskeysSection = ({ onShowToast, userId, ngcmfaExpiry }) => {
     const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
 
     // Custom hooks handle all the complex logic
     const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ 
-        appToken, userId, onShowToast 
+        userId, onShowToast 
     });
     
     const { handleAddPasskey, performAddPasskey } = usePasskeyAddOperation({ 
-        appToken, 
         userId, 
         ngcmfaExpiry, 
         onShowToast, 
@@ -29,7 +28,6 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
     });
     
     const { initiate: initiateDelete, showConfirmationModal, modalProps } = usePasskeyDeleteOperation({ 
-        appToken, 
         userId, 
         ngcmfaExpiry, 
         onShowToast, 
@@ -39,16 +37,16 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
 
     const { getCachedOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
-    // Handle initial fetch
+    // Handle initial fetch — list uses the SDK, which only needs the signed-in user.
     useEffect(() => {
-        if (appToken && userId) {
+        if (userId) {
             fetchPasskeys().catch(console.error);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appToken, userId]); // Only depend on appToken and userId, not fetchPasskeys
+    }, [userId]);
 
     useEffect(() => {
-        if (appToken && userId) {
+        if (userId) {
             const operation = getCachedOperation();
             if (operation) {
                 clearCachedOperation();
@@ -61,7 +59,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appToken, userId]);
+    }, [userId]);
 
     return (
         <>

@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { deleteUserPasskey } from '../../services/PasskeyService';
+import { useMsal } from '@azure/msal-react';
+import { deletePasskeyViaSdk } from '../../services/credentialClient';
 import { createToastMessages } from '../../utils/passkeyUtils';
+import { clearCachedMyAccountApiToken, isNgcmfaReauthRequired } from '../../utils/myAccountToken';
 import { useAuthentication } from './useAuthentication';
 
 export const usePasskeyDeleteOperation = ({ 
-    appToken, 
     userId, 
     ngcmfaExpiry, 
     onShowToast, 
     fetchPasskeys,
     currentPasskeys 
 }) => {
+    const { instance } = useMsal();
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [passkeyToDelete, setPasskeyToDelete] = useState(null);
     
@@ -26,7 +28,9 @@ export const usePasskeyDeleteOperation = ({
         const passkeyDisplayName = targetPasskey?.name || cachedPasskeyName;
         
         try {
-            await deleteUserPasskey(appToken, userId, passkeyId);
+            // SDK delete (My Account API). The SDK mints its own My Account API
+            // token, so no appToken is required here.
+            await deletePasskeyViaSdk(instance, passkeyId);
             
             const updatedPasskeys = await fetchPasskeys({
                 type: 'delete',
@@ -40,6 +44,19 @@ export const usePasskeyDeleteOperation = ({
                 onShowToast(createToastMessages.passkeyDeleted(passkeyDisplayName || 'Unknown'));
             }
         } catch (err) {
+            // Reactive NGCMFA: if the token exchange reported that MFA expired
+            // (AADSTS50078), clear the stale token B, cache the delete, and
+            // trigger the existing re-auth popup. PasskeysSection replays the
+            // cached 'delete' (reopening the confirm modal) after the redirect.
+            if (isNgcmfaReauthRequired(err)) {
+                clearCachedMyAccountApiToken();
+                cacheOperation({
+                    action: 'delete',
+                    passkey: targetPasskey || { id: passkeyId, name: passkeyDisplayName },
+                });
+                await handleReAuthentication();
+                return;
+            }
             if (onShowToast) {
                 onShowToast(createToastMessages.errorDeleting(err.message));
             }
@@ -47,15 +64,20 @@ export const usePasskeyDeleteOperation = ({
     };
 
     const initiate = async (passkey) => {
-        if (isTokenExpired(ngcmfaExpiry)) {
-            const deleteOperation = { 
-                action: 'delete', 
-                passkey: passkey
-            };
-            cacheOperation(deleteOperation);
-            await handleReAuthentication();
-            return;
-        }
+        // NGCMFA is now enforced REACTIVELY. The proactive 15-minute timer below
+        // is disabled in favour of catching AADSTS50078 from the actual delete
+        // token exchange (see performDelete's catch), so the confirm modal opens
+        // immediately and the re-auth popup only appears if the server requires
+        // a fresh MFA.
+        // if (isTokenExpired(ngcmfaExpiry)) {
+        //     const deleteOperation = {
+        //         action: 'delete',
+        //         passkey: passkey
+        //     };
+        //     cacheOperation(deleteOperation);
+        //     await handleReAuthentication();
+        //     return;
+        // }
 
         displayModal(passkey);
     };

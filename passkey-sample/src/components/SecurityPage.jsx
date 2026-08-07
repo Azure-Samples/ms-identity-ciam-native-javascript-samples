@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Container, Alert, Spinner } from 'react-bootstrap';
 import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
-import { loginRequest, appConfig } from '../authConfig';
-import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
+import { loginRequest } from '../authConfig';
+import { calculateNgcmfaExpiration, getAccessToken } from '../utils/tokenUtils';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
@@ -15,11 +15,9 @@ const SECONDS_PER_MINUTE = 60;
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
     const [accessToken, setAccessToken] = useState(null);
-    const [appToken, setAppToken] = useState(null);
     const [ngcmfaExpiration, setNgcmfaExpiration] = useState(null);
     const [loading, setLoading] = useState(true);
     const [accessTokenError, setAccessTokenError] = useState(null);
-    const [appTokenError, setAppTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
 
@@ -46,33 +44,6 @@ export const SecurityPage = () => {
     }, [instance, accounts]);
 
     useEffect(() => {
-        const fetchAppToken = async () => {
-            try {
-                const token = await getCachedAppToken(
-                    instance, 
-                    appConfig.proxyDomain, 
-                    appConfig.appId, 
-                    import.meta.env.VITE_APP_SECRET
-                );
-                
-                if (token) {
-                    setAppTokenError(null);
-                    setAppToken(token);
-                } else {
-                    throw new Error('App token request returned empty result');
-                }
-            } catch (error) {
-                setAppTokenError(`Failed to get app token: ${error.message}. Passkey functionality may be limited.`);
-                setAppToken(null);
-            }
-        };
-
-        if (instance) {
-            fetchAppToken();
-        }
-    }, [instance, accessToken]);
-
-    useEffect(() => {
         if (accessToken) {
             const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
             setNgcmfaExpiration(expiration);
@@ -81,11 +52,21 @@ export const SecurityPage = () => {
         }
     }, [accessToken]);
 
+    // ID token claims from the signed-in MSAL account. Unlike the access token
+    // (which may be opaque / non-decodable for some resources), the ID token is
+    // always a readable JWT, so we source the user's identity from here.
+    const idTokenClaims = (accounts && accounts[0] && accounts[0].idTokenClaims) || null;
+
     const getUserId = () => {
-        if (accessToken && accessToken.oid) {
-            return accessToken.oid;
-        }
-        return null;
+        // Prefer the account's ID-token oid. Fall back to the access token's oid/sub
+        // and finally 'me'. The SDK list call targets /me and does not need the real
+        // oid; this just keeps the page from blocking when oid is absent.
+        return (
+            (idTokenClaims && (idTokenClaims.oid || idTokenClaims.sub)) ||
+            (accessToken && (accessToken.oid || accessToken.sub)) ||
+            (accounts && accounts[0] && accounts[0].localAccountId) ||
+            'me'
+        );
     };
 
     const getUserData = () => {
@@ -94,17 +75,18 @@ export const SecurityPage = () => {
             email: "user@example.com",
         };
 
-        if (accessToken) {
+        const source = idTokenClaims || accessToken;
+        if (source) {
             return {
-                name: accessToken.name || accessToken.given_name || accessToken.family_name || defaultUserData.name,
-                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || defaultUserData.email,
+                name: source.name || source.given_name || source.family_name || defaultUserData.name,
+                email: source.preferred_username || source.unique_name || source.email || source.upn || defaultUserData.email,
             };
         }
 
         return defaultUserData;
     };
 
-    const displayError = accessTokenError || appTokenError;
+    const displayError = accessTokenError;
     const userData = !loading && !accessTokenError ? getUserData() : { name: "Loading...", email: "Loading..." };
     const userId = !loading && !accessTokenError ? getUserId() : null;
 
@@ -157,32 +139,29 @@ export const SecurityPage = () => {
     if (displayError) {
         return (
             <Container className="py-4">
-                <Alert variant={accessTokenError ? "danger" : "warning"}>
+                <Alert variant="danger">
                     <Alert.Heading>
-                        {accessTokenError ? "Authentication Error" : "Service Error"}
+                        Authentication Error
                     </Alert.Heading>
                     <p>{displayError}</p>
-                    {accessTokenError && appTokenError && (
-                        <>
-                            <hr />
-                            <p><strong>Additional issue:</strong> {appTokenError}</p>
-                        </>
-                    )}
                 </Alert>
             </Container>
         );
     }
 
-    if (!userId) {
-        return (
-            <Container className="py-4">
-                <Alert variant="warning">
-                    <Alert.Heading>User ID Not Available</Alert.Heading>
-                    <p>Unable to extract user ID from token claims. Please try logging in again.</p>
-                </Alert>
-            </Container>
-        );
-    }
+    // Temporarily disabled: the access token in this test setup may not carry an
+    // `oid` claim. getUserId() now falls back to `sub`/'me', so this guard is no
+    // longer needed. Kept (commented) for reference.
+    // if (!userId) {
+    //     return (
+    //         <Container className="py-4">
+    //             <Alert variant="warning">
+    //                 <Alert.Heading>User ID Not Available</Alert.Heading>
+    //                 <p>Unable to extract user ID from token claims. Please try logging in again.</p>
+    //             </Alert>
+    //         </Container>
+    //     );
+    // }
 
     return (
         <Container className="py-4">
@@ -202,7 +181,6 @@ export const SecurityPage = () => {
 
             <PasskeysSection
                 onShowToast={showToast}
-                appToken={appToken}
                 userId={userId}
                 ngcmfaExpiry={ngcmfaExpiration}
             />

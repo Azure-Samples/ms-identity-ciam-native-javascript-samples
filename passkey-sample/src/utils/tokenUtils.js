@@ -9,11 +9,27 @@
  */
 export const parseJwt = (token) => {
     try {
+        if (!token || typeof token !== 'string') {
+            return null;
+        }
         const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        if (!base64Url) {
+            // Not a JWT (e.g. an opaque/encrypted access token) — nothing to decode.
+            return null;
+        }
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        // atob requires the input length to be a multiple of 4; base64url
+        // strips the '=' padding, so restore it before decoding.
+        const padding = base64.length % 4;
+        if (padding) {
+            base64 += '='.repeat(4 - padding);
+        }
         const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
+        if (!jsonPayload) {
+            return null;
+        }
         return JSON.parse(jsonPayload);
     } catch (error) {
         console.error('Error parsing JWT:', error);
@@ -83,111 +99,4 @@ export const getAccessToken = async (instance, accounts, loginRequest) => {
             return { token: null, decodedToken: null, error: 'No account found' };
         }
     }
-};
-
-/**
- * Get application token using client credentials flow
- * @param {string} proxyDomain - Proxy domain URL
- * @param {string} appId - Application ID
- * @param {string} appSecret - Application secret
- * @returns {Promise<string|null>} - App token or null if failed
- */
-export const getAppToken = async (proxyDomain, appId, appSecret) => {
-    try {
-        const tokenEndpoint = `${proxyDomain}/oauth2/v2.0/token`;
-
-        const params = new URLSearchParams();
-        params.append('client_id', appId);
-        params.append('client_secret', appSecret);
-        params.append('grant_type', 'client_credentials');
-        params.append('scope', 'https://graph.microsoft.com/.default');
-
-        const response = await fetch(tokenEndpoint, {
-            method: 'POST',
-            body: params,
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.access_token;
-    } catch (error) {
-        console.error('Error acquiring app token:', error);
-        return null;
-    }
-};
-
-/**
- * Get cached application token using MSAL browser storage
- * @param {Object} instance - MSAL instance
- * @param {string} proxyDomain - Proxy domain URL
- * @param {string} appId - Application ID
- * @param {string} appSecret - Application secret
- * @returns {Promise<string|null>} - App token or null if failed
- */
-export const getCachedAppToken = async (instance, proxyDomain, appId, appSecret) => {
-    const cacheKey = 'app_token_cache';
-    
-    const storage = instance.getConfiguration().cache.cacheLocation === 'localStorage' 
-        ? window.localStorage 
-        : window.sessionStorage;
-    
-    try {
-        const cached = storage.getItem(cacheKey);
-        if (cached) {
-            const { token, expiresAt } = JSON.parse(cached);
-            if (Date.now() < expiresAt) {
-                console.log('Using cached app token');
-                return token;
-            } else {
-                console.log('Cached app token expired, removing from cache');
-                storage.removeItem(cacheKey);
-            }
-        }
-        
-        console.log('Fetching new app token');
-        const newToken = await getAppToken(proxyDomain, appId, appSecret);
-        
-        if (newToken) {
-            const decodedToken = parseJwt(newToken);
-            let expiresAt = Date.now() + (3600 * 1000);
-            
-            if (decodedToken && decodedToken.exp) {
-                expiresAt = (decodedToken.exp * 1000) - (5 * 60 * 1000);
-            }
-            
-            storage.setItem(cacheKey, JSON.stringify({
-                token: newToken,
-                expiresAt: expiresAt,
-                fetchedAt: Date.now()
-            }));
-            
-            console.log('App token cached until:', new Date(expiresAt));
-        }
-        
-        return newToken;
-    } catch (error) {
-        console.error('Error with cached app token:', error);
-        storage.removeItem(cacheKey);
-        return await getAppToken(proxyDomain, appId, appSecret);
-    }
-};
-
-/**
- * Clear cached application token from MSAL browser storage
- * @param {Object} instance - MSAL instance
- */
-export const clearAppTokenCache = (instance) => {
-    const cacheKey = 'app_token_cache';
-    const storage = instance.getConfiguration().cache.cacheLocation === 'localStorage' 
-        ? window.localStorage 
-        : window.sessionStorage;
-    
-    storage.removeItem(cacheKey);
-    console.log('App token cache cleared');
 };

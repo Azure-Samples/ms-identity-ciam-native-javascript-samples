@@ -87,7 +87,34 @@ export const loginRequest = {
  */
 export const appConfig = {
     proxyDomain: 'http://localhost:3001/api',
-    appId: 'your-client-id',
-    tenantId: 'your-tenant-id',
+    appId: '',
+    tenantId: '',
     customDomain: '', // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
+};
+
+/**
+ * Configuration for the My Account credential-management API, consumed by the
+ * @azure/msal-credential-management-browser SDK and the refresh-token exchange
+ * that mints its access token. Hardcoded for local testing.
+ */
+export const credentialApiConfig = {
+    exchangeClientId: '',
+    exchangeAuthority: '',
+    scope: '',
+    exchangeRedirectUri: typeof window !== 'undefined' ? `${window.location.origin}/` : '',
+    dc: '',
+    claims: JSON.stringify({
+        access_token: {
+            acrs: { essential: true, values: ['urn:user:registersecurityinfo'] },
+            amr: { essential: true, values: ['ngcmfa'] },
+        },
+    }),
+    authority: 'https://:3001/myaccount-api',
+    apiQueryParams: {
+        dc: '',
+        myaccessgrpccanary: 'true',
+        OobUseLegacyMintTokenFlow: 'false',
+        OobMyAccessBareAudience: 'true',
+        OobOboPropagateExplicitDatacenter: "true"
+    },
 };

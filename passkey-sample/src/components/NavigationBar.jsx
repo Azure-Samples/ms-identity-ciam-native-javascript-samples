@@ -1,7 +1,6 @@
 import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from '@azure/msal-react';
 import { Navbar, Button } from 'react-bootstrap';
 import { loginRequest } from '../authConfig';
-import { clearAppTokenCache } from '../utils/tokenUtils';
 
 export const NavigationBar = () => {
     const { instance } = useMsal();
@@ -20,7 +19,6 @@ export const NavigationBar = () => {
     const handleLogoutRedirect = async () => {
         try {
             const accounts = instance.getAllAccounts();
-            clearAppTokenCache(instance);
 
             if (accounts.length === 0) {
                 await instance.clearCache();

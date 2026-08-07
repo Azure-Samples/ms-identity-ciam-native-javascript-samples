@@ -27,6 +27,14 @@ const PasskeyDetails = ({ passkey }) => {
                         </div>
                     </Col>
                 </Row>
+                <Row className="g-3 mb-2">
+                    <Col xs={4} className="text-start">
+                        <div>
+                            <small className="text-muted d-block">Can Delete</small>
+                            <span className="small">{passkey.canDelete ? 'Yes' : 'No'}</span>
+                        </div>
+                    </Col>
+                </Row>
             </div>
         </div>
     );

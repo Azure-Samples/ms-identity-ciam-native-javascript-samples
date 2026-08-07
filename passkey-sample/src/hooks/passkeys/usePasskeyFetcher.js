@@ -1,16 +1,17 @@
 import { useState, useCallback } from 'react';
-import { fetchUserPasskey } from '../../services/PasskeyService';
+import { useMsal } from '@azure/msal-react';
+import { listPasskeysViaSdk } from '../../services/credentialClient';
 import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages } from '../../utils/passkeyUtils';
 
 /**
  * Hook for managing passkey data fetching with retry logic
  * @param {Object} params - Hook parameters
- * @param {string} params.appToken - Authentication token
  * @param {string} params.userId - User ID
  * @param {Function} params.onShowToast - Toast notification function
  * @returns {Object} Passkey data and fetching utilities
  */
-export const usePasskeyFetcher = ({ appToken, userId, onShowToast }) => {
+export const usePasskeyFetcher = ({ userId, onShowToast }) => {
+    const { instance } = useMsal();
     const [passkeys, setPasskeys] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -22,8 +23,8 @@ export const usePasskeyFetcher = ({ appToken, userId, onShowToast }) => {
             setLoadingState = true,
         } = options;
 
-        if (!appToken || !userId) {
-            setError('Access token or user ID not available');
+        if (!userId) {
+            setError('User ID not available');
             if (setLoadingState) setIsLoading(false);
             return;
         }
@@ -41,7 +42,7 @@ export const usePasskeyFetcher = ({ appToken, userId, onShowToast }) => {
                     console.log(`Fetch attempt ${attempt}/${maxRetries}...`);
                 }
                 
-                const transformedPasskeys = await fetchUserPasskey(appToken, userId);
+                const transformedPasskeys = await listPasskeysViaSdk(instance);
                 console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
                 
                 if (expectedChange) {
@@ -107,7 +108,7 @@ export const usePasskeyFetcher = ({ appToken, userId, onShowToast }) => {
         }
         
         return null;
-    }, [appToken, userId, onShowToast]);
+    }, [instance, userId, onShowToast]);
 
     const refetch = useCallback(() => {
         return fetchPasskeys();

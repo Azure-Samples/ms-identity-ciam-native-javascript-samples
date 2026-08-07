@@ -1,11 +1,24 @@
 import http from "http";
 import https from "https";
-import { appConfig } from "./src/authConfig.js";
+import fs from "fs";
+import { credentialApiConfig } from "./src/authConfig.js";
 const proxyConfig = {
-    localApiPath: "/api",
+    localApiPath: "/myaccount-api",
     port: 3001,
-    proxy: `https://login.microsoftonline.com/${appConfig.tenantId}`,
+    proxy: credentialApiConfig.exchangeAuthority,
 };
+
+
+const routes = [
+    { prefix: proxyConfig.localApiPath, upstream: proxyConfig.proxy },
+];
+
+// Serve the proxy over HTTPS (reusing the dev cert) so the HTTPS dev page can
+// call it without a mixed-content block. Falls back to HTTP if the cert is absent.
+const hasSSL = fs.existsSync("./auth-cert.pem") && fs.existsSync("./auth-key.pem");
+const httpsOptions = hasSSL
+    ? { cert: fs.readFileSync("./auth-cert.pem"), key: fs.readFileSync("./auth-key.pem") }
+    : null;
 
 const extraHeaders = [
     "x-client-SKU",
@@ -16,16 +29,14 @@ const extraHeaders = [
     "x-client-last-telemetry",
     "client-request-id",
 ];
-http.createServer((req, res) => {
+const requestHandler = (req, res) => {
     const reqUrl = new URL(req.url, `http://localhost:${proxyConfig.port}`);
-    const domain = new URL(proxyConfig.proxy).hostname;
 
-    // Set CORS headers for all responses including OPTIONS
     const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, " + extraHeaders.join(", "),
-        "Access-Control-Allow-Credentials": "true",
+        // "Access-Control-Allow-Credentials": "true",
         "Access-Control-Max-Age": "86400", // 24 hours
     };
 
@@ -36,10 +47,13 @@ http.createServer((req, res) => {
         return;
     }
 
-    if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-        const targetUrl = proxyConfig.proxy + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
+    const route = routes.find((r) => reqUrl.pathname.startsWith(r.prefix));
+    if (route) {
+        const domain = new URL(route.upstream).hostname;
+        const targetUrl = route.upstream + reqUrl.pathname.replace(route.prefix, "") + (reqUrl.search || "");
 
         console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
+        console.log("Proxying to -> " + targetUrl);
 
         const newHeaders = {};
         for (let [key, value] of Object.entries(req.headers)) {
@@ -78,7 +92,14 @@ http.createServer((req, res) => {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
     }
-}).listen(proxyConfig.port, () => {
-    console.log("CORS proxy running on http://localhost:3001");
+};
+
+const server = httpsOptions
+    ? https.createServer(httpsOptions, requestHandler)
+    : http.createServer(requestHandler);
+
+server.listen(proxyConfig.port, () => {
+    const scheme = httpsOptions ? "https" : "http";
+    console.log(`CORS proxy running on ${scheme}://localhost:${proxyConfig.port}`);
     console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.proxy);
 });
