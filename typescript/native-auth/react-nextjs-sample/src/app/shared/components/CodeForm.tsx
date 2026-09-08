@@ -7,6 +7,7 @@ export function CodeForm({
     loading,
     onResendCode,
     resendCountdown,
+    resendLoading = false,
     submitButtonText = "Verify Code",
     submitButtonLoadingText = "Verifying...",
 }: CodeFormProps) {
@@ -48,16 +49,20 @@ export function CodeForm({
                 style={formStyles.input}
                 required
             />
-            <button type="submit" style={formStyles.button} disabled={loading}>
+            <button type="submit" style={formStyles.button} disabled={loading || resendLoading}>
                 {loading ? submitButtonLoadingText : submitButtonText}
             </button>
             <button
                 type="button"
-                style={resendCountdown > 0 ? formStyles.buttonDisabled : formStyles.button}
+                style={resendCountdown > 0 || resendLoading || loading ? formStyles.buttonDisabled : formStyles.button}
                 onClick={onResendCode}
-                disabled={resendCountdown > 0}
+                disabled={resendCountdown > 0 || resendLoading || loading}
             >
-                {resendCountdown > 0 ? `Resend Code (${resendCountdown}s)` : "Resend Code"}
+                {resendLoading
+                    ? "Resending..."
+                    : resendCountdown > 0
+                      ? `Resend Code (${resendCountdown}s)`
+                      : "Resend Code"}
             </button>
         </form>
     );

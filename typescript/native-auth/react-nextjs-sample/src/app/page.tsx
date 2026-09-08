@@ -1,6 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
+import { broadcastResponseToMainFrame } from "@azure/msal-browser/redirect-bridge";
+
 export default function Home() {
+    useEffect(() => {
+        const params = `${window.location.hash}${window.location.search}`;
+        if (/[#&?](code|error|ear_jwe)=/.test(params)) {
+            broadcastResponseToMainFrame().catch((error) => {
+                console.error("Failed to relay authentication response to the main window:", error);
+            });
+        }
+    }, []);
+
     return (
         <main>
             <div className="auth-container">

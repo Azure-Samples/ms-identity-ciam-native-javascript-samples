@@ -36,13 +36,33 @@ export default function Navbar() {
                 <Link href="/sign-in" className={styles.link}>
                     Sign In
                 </Link>
+                <Link href="/sign-in-v2" className={styles.link}>
+                    Sign In V2
+                </Link>
                 <Link href="/sign-up" className={styles.link}>
                     Sign Up
+                </Link>
+                <Link href="/sign-up-v2" className={styles.link}>
+                    Sign Up V2
                 </Link>
                 <Link href="/reset-password" className={styles.link}>
                     Reset Password
                 </Link>
-                <button onClick={handleLogout} className={styles.link} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}>
+                <Link href="/reset-password-v2" className={styles.link}>
+                    Reset Password V2
+                </Link>
+                <button
+                    onClick={handleLogout}
+                    className={styles.link}
+                    style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                        color: "inherit",
+                        textDecoration: "underline",
+                    }}
+                >
                     Sign Out
                 </button>
             </div>

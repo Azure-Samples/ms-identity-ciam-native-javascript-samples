@@ -99,7 +99,7 @@ export default function SignUpPassword() {
             jobTitle: jobTitle,
             city: city,
             country: country,
-            flatusername: flatUsername,
+            ...(flatUsername && { flatusername: flatUsername }),
         };
 
         const result = await authClient.signUp({

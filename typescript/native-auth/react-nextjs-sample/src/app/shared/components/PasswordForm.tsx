@@ -5,8 +5,11 @@ export function PasswordForm({
     password,
     setPassword,
     loading,
+    passwordLabel = "Password",
+    passwordPattern,
     submitButtonText = "Submit Password",
     submitButtonLoadingText = "Submitting...",
+    children,
 }: PasswordFormProps) {
     const formStyles = {
         form: { display: "flex" as const, flexDirection: "column" as const, gap: "15px" },
@@ -29,14 +32,19 @@ export function PasswordForm({
 
     return (
         <form onSubmit={onSubmit} style={formStyles.form}>
-            <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={formStyles.input}
-                required
-            />
+            <label>
+                {passwordLabel} *
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    pattern={passwordPattern}
+                    style={formStyles.input}
+                    required
+                />
+            </label>
+            {children}
             <button type="submit" style={formStyles.button} disabled={loading}>
                 {loading ? submitButtonLoadingText : submitButtonText}
             </button>

@@ -10,6 +10,7 @@ export interface CodeFormProps extends FormProps {
     setCode: (value: string) => void;
     onResendCode: (e: React.FormEvent) => Promise<void>;
     resendCountdown: number;
+    resendLoading?: boolean;
     submitButtonText?: string;
     submitButtonLoadingText?: string;
 }
@@ -18,8 +19,11 @@ export interface PasswordFormProps extends FormProps {
     onSubmit: (e: React.FormEvent) => Promise<void>;
     password: string;
     setPassword: (value: string) => void;
+    passwordLabel?: string;
+    passwordPattern?: string;
     submitButtonText?: string;
     submitButtonLoadingText?: string;
+    children?: React.ReactNode;
 }
 
 export interface AuthMethodRegistrationFormProps extends FormProps {

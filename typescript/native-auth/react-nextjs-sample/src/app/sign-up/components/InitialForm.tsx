@@ -48,7 +48,7 @@ export function InitialForm({
         <form onSubmit={onSubmit} style={styles.form}>
             <input
                 type="text"
-                placeholder="Username (alias)"
+                placeholder="Username alias (email + password only)"
                 value={flatUsername}
                 onChange={(e) => setFlatUsername(e.target.value)}
                 style={styles.input}

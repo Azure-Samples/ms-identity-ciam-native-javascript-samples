@@ -25,6 +25,7 @@ import { PopupRequest } from "@azure/msal-browser";
 import { UserInfo } from "./components/UserInfo";
 import { MfaAuthMethodSelectionForm } from "../shared/components/MfaAuthMethodSelectionForm";
 import { MfaChallengeForm } from "../shared/components/MfaChallengeForm";
+import { ForceRefreshToken } from "../shared/components/ForceRefreshToken";
 
 export default function SignIn() {
     const [authClient, setAuthClient] = useState<ICustomAuthPublicClientApplication | null>(null);
@@ -85,7 +86,6 @@ export default function SignIn() {
         setLoading(true);
 
         if (!authClient) return;
-
         // Start the sign-in flow
         const result = await authClient.signIn({
             username,
@@ -125,6 +125,13 @@ export default function SignIn() {
                     if (accountResult.isCompleted()) {
                         result.state = new SignInCompletedState();
                         result.data = accountResult.data;
+                        // const accountData = result.data;
+                        // const atResult = await accountData!.getAccessToken({
+                        //     forceRefresh: true,
+                        // });
+                        // if (atResult.isCompleted()) {
+                        //     console.log("Access token acquired:", atResult!.data!.accessToken);
+                        // }
                     }
                 } catch (error) {
                     if (error instanceof Error) {
@@ -181,6 +188,13 @@ export default function SignIn() {
             }
 
             if (result.isCompleted()) {
+                // const accountData = result.data;
+                // const atResult = await accountData!.getAccessToken({
+                //     forceRefresh: true,
+                // });
+                // if (atResult.isCompleted()) {
+                //     console.log("Access token acquired:", atResult!.data!.accessToken);
+                // }
                 setData(result.data);
                 setCurrentSignInStatus(true);
                 setSignInState(result.state);
@@ -455,6 +469,13 @@ export default function SignIn() {
             }
 
             if (accountResult.isCompleted()) {
+                // const accountData = accountResult.data;
+                // const atResult = await accountData!.getAccessToken({
+                //     forceRefresh: true,
+                // });
+                // if (atResult.isCompleted()) {
+                //     console.log("Access token acquired:", atResult!.data!.accessToken);
+                // }
                 setData(accountResult.data);
                 setCurrentSignInStatus(true);
             }
@@ -488,7 +509,14 @@ export default function SignIn() {
         }
 
         if (isSignedIn || signInState instanceof SignInCompletedState) {
-            return <UserInfo userData={data} />;
+            return data ? (
+                <>
+                    <UserInfo userData={data} />
+                    <ForceRefreshToken accountData={data} />
+                </>
+            ) : (
+                <UserInfo userData={data} />
+            );
         }
 
         if (signInState instanceof SignInPasswordRequiredState) {
