@@ -6,9 +6,10 @@ import {
     CompletedStateV2,
     CustomAuthAccountData,
     CustomAuthPublicClientApplication,
-    ChallengeVerificationRequiredStateV2,
+    CodeRequiredStateV2,
     ICustomAuthPublicClientApplicationV2,
     MFARequiredStateV2,
+    MFAVerificationRequiredStateV2,
     PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { AuthenticationMethodV2 } from "@azure/msal-browser/custom-auth";
@@ -114,7 +115,7 @@ export default function SignInV2() {
                 return;
             }
 
-            if (result.isState("challengeVerificationRequired")) {
+            if (result.isState("codeRequired")) {
                 setCode("");
                 setSignInState(result.state);
                 return;
@@ -213,7 +214,12 @@ export default function SignInV2() {
 
     const handleCodeSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!(signInState instanceof ChallengeVerificationRequiredStateV2)) {
+        if (
+            !(
+                signInState instanceof CodeRequiredStateV2 ||
+                signInState instanceof MFAVerificationRequiredStateV2
+            )
+        ) {
             setError("Restart sign-in before submitting a verification code.");
             return;
         }
@@ -222,7 +228,10 @@ export default function SignInV2() {
         setLoading(true);
 
         try {
-            const result = await signInState.verifyChallenge(code);
+            const result =
+                signInState instanceof CodeRequiredStateV2
+                    ? await signInState.submitCode(code)
+                    : await signInState.submitChallenge(code);
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
@@ -256,7 +265,12 @@ export default function SignInV2() {
 
     const handleResendCode = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!(signInState instanceof ChallengeVerificationRequiredStateV2)) {
+        if (
+            !(
+                signInState instanceof CodeRequiredStateV2 ||
+                signInState instanceof MFAVerificationRequiredStateV2
+            )
+        ) {
             setError("Restart sign-in before requesting another code.");
             return;
         }
@@ -265,7 +279,10 @@ export default function SignInV2() {
         setResendLoading(true);
 
         try {
-            const result = await signInState.requestNewChallenge();
+            const result =
+                signInState instanceof CodeRequiredStateV2
+                    ? await signInState.resendCode()
+                    : await signInState.resendChallenge();
 
             if (result.isFailed()) {
                 if (result.error?.isBrowserRequired()) {
@@ -319,7 +336,10 @@ export default function SignInV2() {
             );
         }
 
-        if (signInState instanceof ChallengeVerificationRequiredStateV2) {
+        if (
+            signInState instanceof CodeRequiredStateV2 ||
+            signInState instanceof MFAVerificationRequiredStateV2
+        ) {
             return (
                 <ChallengeFormV2
                     onSubmit={handleCodeSubmit}

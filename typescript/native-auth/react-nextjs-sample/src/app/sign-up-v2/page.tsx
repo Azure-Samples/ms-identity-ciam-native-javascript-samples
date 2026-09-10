@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import {
     AttributesRequiredStateV2,
     AuthFlowStateBase,
-    ChallengeVerificationRequiredStateV2,
+    CodeRequiredStateV2,
     CompletedStateV2,
     CustomAuthApiError,
     CustomAuthAccountData,
@@ -171,7 +171,7 @@ export default function SignUpV2() {
 
     const handleCodeSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!(signUpState instanceof ChallengeVerificationRequiredStateV2)) {
+        if (!(signUpState instanceof CodeRequiredStateV2)) {
             setError("Restart sign-up before submitting a verification code.");
             return;
         }
@@ -180,7 +180,7 @@ export default function SignUpV2() {
         setLoading(true);
 
         try {
-            const result = await signUpState.verifyChallenge(code);
+            const result = await signUpState.submitCode(code);
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
                     setError("The verification code is invalid or expired.");
@@ -204,7 +204,7 @@ export default function SignUpV2() {
 
     const handleResendCode = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!(signUpState instanceof ChallengeVerificationRequiredStateV2)) {
+        if (!(signUpState instanceof CodeRequiredStateV2)) {
             return;
         }
 
@@ -212,7 +212,7 @@ export default function SignUpV2() {
         setResendLoading(true);
 
         try {
-            const result = await signUpState.requestNewChallenge();
+            const result = await signUpState.resendCode();
             if (result.isFailed()) {
                 setFailedResult("An error occurred while resending the code.", result.error?.errorDescription);
                 return;
@@ -334,7 +334,7 @@ export default function SignUpV2() {
             );
         }
 
-        if (signUpState instanceof ChallengeVerificationRequiredStateV2) {
+        if (signUpState instanceof CodeRequiredStateV2) {
             return (
                 <ChallengeFormV2
                     onSubmit={handleCodeSubmit}

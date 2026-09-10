@@ -14,7 +14,7 @@ import {
     AuthFlowStateBase,
     CustomAuthAccountData,
     AuthMethodSelectionRequiredStateV2,
-    ChallengeVerificationRequiredStateV2,
+    CodeRequiredStateV2,
     NewPasswordRequiredStateV2,
     SignInContinuationStateV2,
     CompletedStateV2,
@@ -131,11 +131,11 @@ export default function ResetPasswordV2() {
         setResendLoading(true);
 
         try {
-            if (!(resetState instanceof ChallengeVerificationRequiredStateV2)) {
+            if (!(resetState instanceof CodeRequiredStateV2)) {
                 return;
             }
 
-            const result = await resetState.requestNewChallenge();
+            const result = await resetState.resendCode();
             if (result.isFailed()) {
                 if (result.error?.isBrowserRequired()) {
                     setError("Resending the code requires continuing in a browser.");
@@ -157,8 +157,8 @@ export default function ResetPasswordV2() {
         setError("");
         setLoading(true);
 
-        if (resetState instanceof ChallengeVerificationRequiredStateV2) {
-            const result = await resetState.verifyChallenge(code);
+        if (resetState instanceof CodeRequiredStateV2) {
+            const result = await resetState.submitCode(code);
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
@@ -255,7 +255,7 @@ export default function ResetPasswordV2() {
             );
         }
 
-        if (resetState instanceof ChallengeVerificationRequiredStateV2) {
+        if (resetState instanceof CodeRequiredStateV2) {
             return (
                 <ChallengeFormV2
                     onSubmit={handleCodeSubmit}
