@@ -242,6 +242,12 @@ export default function SignInV2() {
                 return;
             }
 
+            if (result.isState("mfaRequired")) {
+                setSignInState(result.state);
+                setCode("");
+                return;
+            }
+
             setError("Code verification returned an unsupported state.");
         } finally {
             setLoading(false);
