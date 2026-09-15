@@ -1,9 +1,9 @@
 import { styles } from "../styles/styles";
 import type { ResetPasswordInitialFormProps } from "../types/formProperties";
 
-export function InitialForm({ onSubmit, username, setUsername, loading }: ResetPasswordInitialFormProps) {
+export function InitialForm({ onSubmit, username, setUsername, loading, noValidate = false }: ResetPasswordInitialFormProps) {
     return (
-        <form onSubmit={onSubmit} style={styles.form}>
+        <form onSubmit={onSubmit} style={styles.form} noValidate={noValidate}>
             <input
                 type="text"
                 placeholder="Email or Username"

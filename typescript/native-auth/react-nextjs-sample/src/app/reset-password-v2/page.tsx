@@ -20,6 +20,7 @@ import {
     CompletedStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { AuthenticationMethodV2 } from "@azure/msal-browser/custom-auth";
+import { getV2ErrorMessage } from "../shared/v2/utils/getV2ErrorMessage";
 
 export default function ResetPasswordV2() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplicationV2 | null>(null);
@@ -84,11 +85,11 @@ export default function ResetPasswordV2() {
 
         if (result.isFailed()) {
             if (result.error?.isInvalidInput()) {
-                setError("Please select an authentication method offered by the service.");
+                setError(getV2ErrorMessage(result.error));
             } else if (result.error?.isBrowserRequired()) {
-                setError("This authentication method must be completed in a browser.");
+                setError(getV2ErrorMessage(result.error));
             } else {
-                setError(result.error?.errorDescription || "An error occurred while requesting the verification code");
+                setError(getV2ErrorMessage(result.error));
             }
         } else {
             setResetState(result.state);
@@ -108,15 +109,15 @@ export default function ResetPasswordV2() {
 
         if (result.isFailed()) {
             if (result.error?.isInvalidInput()) {
-                setError("Enter a valid username.");
+                setError(getV2ErrorMessage(result.error));
             } else if (result.error?.isInvalidUsername()) {
-                setError("The username is invalid.");
+                setError(getV2ErrorMessage(result.error));
             } else if (result.error?.isUserNotFound()) {
-                setError("User not found.");
+                setError(getV2ErrorMessage(result.error));
             } else if (result.error?.isBrowserRequired()) {
-                setError("Password reset must be completed in a browser.");
+                setError(getV2ErrorMessage(result.error));
             } else {
-                setError(result.error?.errorDescription || "An error occurred while initiating password reset");
+                setError(getV2ErrorMessage(result.error));
             }
         } else {
             setResetState(result.state);
@@ -138,9 +139,9 @@ export default function ResetPasswordV2() {
             const result = await resetState.resendCode();
             if (result.isFailed()) {
                 if (result.error?.isBrowserRequired()) {
-                    setError("Resending the code requires continuing in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while resending the code");
+                    setError(getV2ErrorMessage(result.error));
                 }
             } else {
                 setResetState(result.state);
@@ -162,13 +163,13 @@ export default function ResetPasswordV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    setError("The verification code is invalid or expired.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidInput()) {
-                    setError("Enter the complete verification code.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Code verification must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while verifying the code");
+                    setError(getV2ErrorMessage(result.error));
                 }
             } else {
                 setResetState(result.state);
@@ -188,13 +189,13 @@ export default function ResetPasswordV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
-                    setError("The new password does not meet the password requirements.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidInput()) {
-                    setError("Enter a new password.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Password reset must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while setting the new password");
+                    setError(getV2ErrorMessage(result.error));
                 }
             } else if (result.state instanceof SignInContinuationStateV2) {
                 setResetState(result.state);
@@ -210,15 +211,13 @@ export default function ResetPasswordV2() {
     const handleAutoSignIn = async (signInState: SignInContinuationStateV2) => {
         setError("");
 
-        const result = await signInState.signIn({
-            scopes: [],
-        });
+        const result = await signInState.signIn();
 
         if (result.isFailed()) {
             if (result.error?.isBrowserRequired()) {
-                setError("Sign-in must be completed in a browser.");
+                setError(getV2ErrorMessage(result.error));
             } else {
-                setError(result.error?.errorDescription || "Password reset completed, but automatic sign-in failed.");
+                setError(getV2ErrorMessage(result.error));
             }
         } else if (result.isState("completed")) {
             setData(result.data);
@@ -251,6 +250,7 @@ export default function ResetPasswordV2() {
                     newPassword={newPassword}
                     setNewPassword={setNewPassword}
                     loading={loading}
+                    noValidate
                 />
             );
         }
@@ -268,6 +268,7 @@ export default function ResetPasswordV2() {
                     sentTo={resetState.sentTo}
                     channel={resetState.channel}
                     codeLength={resetState.codeLength}
+                    noValidate
                 />
             );
         }
@@ -289,6 +290,7 @@ export default function ResetPasswordV2() {
                 username={username}
                 setUsername={setUsername}
                 loading={loading}
+                noValidate
             />
         );
     };

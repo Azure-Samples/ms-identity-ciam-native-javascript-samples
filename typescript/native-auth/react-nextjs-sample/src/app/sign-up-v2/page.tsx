@@ -6,7 +6,6 @@ import {
     AuthFlowStateBase,
     CodeRequiredStateV2,
     CompletedStateV2,
-    CustomAuthApiError,
     CustomAuthAccountData,
     CustomAuthPublicClientApplication,
     ICustomAuthPublicClientApplicationV2,
@@ -20,28 +19,9 @@ import { ForceRefreshToken } from "../shared/components/ForceRefreshToken";
 import { PasswordForm } from "../shared/components/PasswordForm";
 import { UserInfo } from "../sign-in/components/UserInfo";
 import { styles } from "../sign-up/styles/styles";
+import { getV2ErrorMessage } from "../shared/v2/utils/getV2ErrorMessage";
 
 type AttributeValues = Record<string, string>;
-
-const getAttributeValidationMessage = (errorData: unknown): string | undefined => {
-    if (!(errorData instanceof CustomAuthApiError)) {
-        return undefined;
-    }
-
-    const messages = errorData.attributeValidationDetails
-        ?.map((detail) => {
-            const message = detail.message || detail.code;
-            if (!message) {
-                return undefined;
-            }
-
-            const attributes = detail.attributeIds?.join(", ");
-            return attributes ? `${attributes}: ${message}` : message;
-        })
-        .filter((message): message is string => Boolean(message));
-
-    return messages?.length ? messages.join(" ") : undefined;
-};
 
 export default function SignUpV2() {
     const [app, setApp] = useState<ICustomAuthPublicClientApplicationV2 | null>(null);
@@ -96,19 +76,15 @@ export default function SignUpV2() {
         return () => window.clearInterval(timer);
     }, [resendCountdown]);
 
-    const setFailedResult = (fallback: string, description?: string) => {
-        setError(description || fallback);
-    };
-
     const handleContinuation = async (continuationState: SignInContinuationStateV2) => {
         setSignUpState(continuationState);
-        const result = await continuationState.signIn({ scopes: [] });
+        const result = await continuationState.signIn();
 
         if (result.isFailed()) {
             if (result.error?.isBrowserRequired()) {
-                setError("Sign-in must be completed in a browser.");
+                setError(getV2ErrorMessage(result.error));
             } else {
-                setFailedResult("Sign-up completed, but automatic sign-in failed.", result.error?.errorDescription);
+                setError(getV2ErrorMessage(result.error));
             }
             return;
         }
@@ -144,19 +120,20 @@ export default function SignUpV2() {
                 username,
                 ...(password ? { password } : {}),
                 attributes,
-                scopes: [],
+                // scopes: [],
             });
 
             if (result.isFailed()) {
-                const attributeValidationMessage = getAttributeValidationMessage(result.error?.errorData);
-                if (attributeValidationMessage) {
-                    setError(attributeValidationMessage);
-                } else if (result.error?.isInvalidInput()) {
-                    setError("Enter a valid username and attributes.");
+                if (result.error?.isInvalidInput()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isInvalidPassword()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isUserAlreadyExists()) {
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Sign-up must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setFailedResult("An error occurred while starting sign-up.", result.error?.errorDescription);
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -183,11 +160,13 @@ export default function SignUpV2() {
             const result = await signUpState.submitCode(code);
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    setError("The verification code is invalid or expired.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidInput()) {
-                    setError("Enter the complete verification code.");
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isBrowserRequired()) {
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setFailedResult("An error occurred while verifying the code.", result.error?.errorDescription);
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -214,7 +193,13 @@ export default function SignUpV2() {
         try {
             const result = await signUpState.resendCode();
             if (result.isFailed()) {
-                setFailedResult("An error occurred while resending the code.", result.error?.errorDescription);
+                if (result.error?.isInvalidInput()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isBrowserRequired()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else {
+                    setError(getV2ErrorMessage(result.error));
+                }
                 return;
             }
 
@@ -238,13 +223,18 @@ export default function SignUpV2() {
         try {
             const result = await signUpState.submitAttributes(attributeValues);
             if (result.isFailed()) {
-                const attributeValidationMessage = getAttributeValidationMessage(result.error?.errorData);
-                if (attributeValidationMessage) {
-                    setError(attributeValidationMessage);
-                } else if (result.error?.isMissingRequiredAttributes()) {
-                    setError("One or more required attributes are missing or invalid.");
+                if (result.error?.isMissingRequiredAttributes()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isInvalidPassword()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isUserAlreadyExists()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isInvalidInput()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isBrowserRequired()) {
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setFailedResult("An error occurred while submitting attributes.", result.error?.errorDescription);
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -271,17 +261,18 @@ export default function SignUpV2() {
         try {
             const result = await signUpState.submitPassword(password, attributeValues);
             if (result.isFailed()) {
-                const attributeValidationMessage = getAttributeValidationMessage(result.error?.errorData);
-                if (attributeValidationMessage) {
-                    setError(attributeValidationMessage);
-                } else if (result.error?.isInvalidInput()) {
-                    setError("Enter a password.");
+                if (result.error?.isInvalidInput()) {
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidPassword()) {
-                    setError("The password does not meet the requirements.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isMissingRequiredAttributes()) {
-                    setError("One or more required attributes are missing or invalid.");
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isUserAlreadyExists()) {
+                    setError(getV2ErrorMessage(result.error));
+                } else if (result.error?.isBrowserRequired()) {
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setFailedResult("An error occurred while submitting the password.", result.error?.errorDescription);
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -347,6 +338,7 @@ export default function SignUpV2() {
                     sentTo={signUpState.sentTo}
                     channel={signUpState.channel}
                     codeLength={signUpState.codeLength}
+                    noValidate
                 />
             );
         }
@@ -359,6 +351,7 @@ export default function SignUpV2() {
                     setPassword={setPassword}
                     passwordLabel={signUpState.requiredPasswordAttribute.label || "Password"}
                     passwordPattern={signUpState.requiredPasswordAttribute.regex}
+                    noValidate
                     loading={loading}
                     submitButtonText="Submit password"
                     submitButtonLoadingText="Submitting..."
@@ -370,7 +363,7 @@ export default function SignUpV2() {
 
         if (signUpState instanceof AttributesRequiredStateV2) {
             return (
-                <form onSubmit={handleAttributesSubmit} style={styles.form}>
+                <form onSubmit={handleAttributesSubmit} style={styles.form} noValidate>
                     <p>Complete the attributes configured for this tenant. Fields marked optional may be left empty.</p>
                     {renderAttributeFields(signUpState)}
                     <button type="submit" style={loading ? styles.buttonDisabled : styles.button} disabled={loading}>
@@ -389,7 +382,7 @@ export default function SignUpV2() {
         }
 
         return (
-            <form onSubmit={handleInitialSubmit} style={styles.form}>
+            <form onSubmit={handleInitialSubmit} style={styles.form} noValidate>
                 <input
                     type="email"
                     placeholder="Email"

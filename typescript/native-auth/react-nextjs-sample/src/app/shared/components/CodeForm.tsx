@@ -4,6 +4,7 @@ export function CodeForm({
     onSubmit,
     code,
     setCode,
+    noValidate = false,
     loading,
     onResendCode,
     resendCountdown,
@@ -40,7 +41,7 @@ export function CodeForm({
     };
 
     return (
-        <form onSubmit={onSubmit} style={formStyles.form}>
+        <form onSubmit={onSubmit} style={formStyles.form} noValidate={noValidate}>
             <input
                 type="text"
                 placeholder="Enter verification code"

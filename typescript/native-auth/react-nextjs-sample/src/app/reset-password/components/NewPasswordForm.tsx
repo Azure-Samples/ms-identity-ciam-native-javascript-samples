@@ -1,9 +1,15 @@
 import { styles } from "../styles/styles";
 import type { NewPasswordFormProps } from "../types/formProperties";
 
-export function NewPasswordForm({ onSubmit, newPassword, setNewPassword, loading }: NewPasswordFormProps) {
+export function NewPasswordForm({
+    onSubmit,
+    newPassword,
+    setNewPassword,
+    loading,
+    noValidate = false,
+}: NewPasswordFormProps) {
     return (
-        <form onSubmit={onSubmit} style={styles.form}>
+        <form onSubmit={onSubmit} style={styles.form} noValidate={noValidate}>
             <input
                 type="password"
                 placeholder="Enter new password"

@@ -4,6 +4,7 @@ export function PasswordForm({
     onSubmit,
     password,
     setPassword,
+    noValidate = false,
     loading,
     passwordLabel = "Password",
     passwordPattern,
@@ -31,7 +32,7 @@ export function PasswordForm({
     };
 
     return (
-        <form onSubmit={onSubmit} style={formStyles.form}>
+        <form onSubmit={onSubmit} style={formStyles.form} noValidate={noValidate}>
             <label>
                 {passwordLabel} *
                 <input

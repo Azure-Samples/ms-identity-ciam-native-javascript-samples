@@ -19,11 +19,10 @@ export function ForceRefreshToken({ accountData }: ForceRefreshTokenProps) {
         setError("");
 
         const requestedScope = scope.trim();
-
+        const requestedClaims = claims.trim();
         setLoading(true);
 
         try {
-            const requestedClaims = claims.trim();
             const result = await accountData.getAccessToken({
                 forceRefresh: true,
                 ...(requestedScope && { scopes: [requestedScope] }),
@@ -93,7 +92,7 @@ export function ForceRefreshToken({ accountData }: ForceRefreshTokenProps) {
                 value={claims}
                 onChange={(event) => setClaims(event.target.value)}
                 placeholder={
-                    'Optional refresh-only claims JSON, e.g. {"access_token":{"acrs":{"essential":true,"value":"c4"}}}'
+                    'Optional refresh claims JSON, e.g. {"access_token":{"acrs":{"essential":true,"value":"c4"}}}'
                 }
                 disabled={loading}
                 rows={3}

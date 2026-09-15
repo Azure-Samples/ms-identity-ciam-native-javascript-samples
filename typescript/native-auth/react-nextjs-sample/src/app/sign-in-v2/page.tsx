@@ -18,6 +18,7 @@ import { PasswordForm } from "../shared/components/PasswordForm";
 import { ChallengeFormV2 } from "../shared/v2/components/ChallengeFormV2";
 import { ForceRefreshToken } from "../shared/components/ForceRefreshToken";
 import { MethodSelectionFormV2 } from "../shared/v2/components/MethodSelectionFormV2";
+import { getV2ErrorMessage } from "../shared/v2/utils/getV2ErrorMessage";
 import { UserInfo } from "../sign-in/components/UserInfo";
 import { styles } from "../sign-in/styles/styles";
 
@@ -90,22 +91,24 @@ export default function SignInV2() {
             const result = await app.signInV2({
                 username,
                 password: password || undefined,
-                scopes: [],
+                // scopes: ["api://96e12db6-dcb2-47f2-b6fc-2e3c8d27e903/Custom.Scope"],
             });
+
+            console.log(result);
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    setError("Enter a valid username.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidUsername()) {
-                    setError("The username is empty or invalid.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isUserNotFound()) {
-                    setError("User not found.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidPassword()) {
-                    setError("Incorrect password.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Sign-in must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while signing in.");
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -152,13 +155,13 @@ export default function SignInV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    setError("Enter a password.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidPassword()) {
-                    setError("Incorrect password.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Sign-in must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while verifying the password.");
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -194,13 +197,11 @@ export default function SignInV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    setError("Select an authentication method offered by the service.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("This authentication method must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(
-                        result.error?.errorDescription || "An error occurred while requesting the verification code.",
-                    );
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -214,12 +215,7 @@ export default function SignInV2() {
 
     const handleCodeSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (
-            !(
-                signInState instanceof CodeRequiredStateV2 ||
-                signInState instanceof MFAVerificationRequiredStateV2
-            )
-        ) {
+        if (!(signInState instanceof CodeRequiredStateV2 || signInState instanceof MFAVerificationRequiredStateV2)) {
             setError("Restart sign-in before submitting a verification code.");
             return;
         }
@@ -235,13 +231,13 @@ export default function SignInV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    setError("The verification code is invalid or expired.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isInvalidInput()) {
-                    setError("Enter the complete verification code.");
+                    setError(getV2ErrorMessage(result.error));
                 } else if (result.error?.isBrowserRequired()) {
-                    setError("Code verification must be completed in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while verifying the code.");
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -265,12 +261,7 @@ export default function SignInV2() {
 
     const handleResendCode = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (
-            !(
-                signInState instanceof CodeRequiredStateV2 ||
-                signInState instanceof MFAVerificationRequiredStateV2
-            )
-        ) {
+        if (!(signInState instanceof CodeRequiredStateV2 || signInState instanceof MFAVerificationRequiredStateV2)) {
             setError("Restart sign-in before requesting another code.");
             return;
         }
@@ -286,9 +277,9 @@ export default function SignInV2() {
 
             if (result.isFailed()) {
                 if (result.error?.isBrowserRequired()) {
-                    setError("Resending the code requires continuing in a browser.");
+                    setError(getV2ErrorMessage(result.error));
                 } else {
-                    setError(result.error?.errorDescription || "An error occurred while resending the code.");
+                    setError(getV2ErrorMessage(result.error));
                 }
                 return;
             }
@@ -323,6 +314,7 @@ export default function SignInV2() {
                     onSubmit={handlePasswordSubmit}
                     password={password}
                     setPassword={setPassword}
+                    noValidate
                     loading={loading}
                     submitButtonText="Sign In"
                     submitButtonLoadingText="Signing in..."
@@ -336,10 +328,7 @@ export default function SignInV2() {
             );
         }
 
-        if (
-            signInState instanceof CodeRequiredStateV2 ||
-            signInState instanceof MFAVerificationRequiredStateV2
-        ) {
+        if (signInState instanceof CodeRequiredStateV2 || signInState instanceof MFAVerificationRequiredStateV2) {
             return (
                 <ChallengeFormV2
                     onSubmit={handleCodeSubmit}
@@ -352,12 +341,13 @@ export default function SignInV2() {
                     sentTo={signInState.sentTo}
                     channel={signInState.channel}
                     codeLength={signInState.codeLength}
+                    noValidate
                 />
             );
         }
 
         return (
-            <form onSubmit={handleInitialSubmit} style={styles.form}>
+            <form onSubmit={handleInitialSubmit} style={styles.form} noValidate>
                 <input
                     type="text"
                     placeholder="Email or Username"
