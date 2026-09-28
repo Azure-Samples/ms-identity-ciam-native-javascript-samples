@@ -20,6 +20,7 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 - New users can register using either:
   - Email + password
   - Email + OTP (passwordless registration)
+- V2 sign-up starts with only email and an optional password; additional fields are rendered from the attributes requested by the SDK after sign-up begins.
 - During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
 - The sign-up flow may include email verification or additional steps as required by the backend.
 - After successful registration, the app automatically continues to sign in the user.

@@ -11,7 +11,6 @@ import {
     ICustomAuthPublicClientApplicationV2,
     SignInContinuationStateV2,
     SignUpPasswordRequiredStateV2,
-    UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
 import { customAuthConfig } from "../../config/auth-config";
 import { ChallengeFormV2 } from "../shared/v2/components/ChallengeFormV2";
@@ -29,9 +28,6 @@ export default function SignUpV2() {
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
-    const [givenName, setGivenName] = useState("");
-    const [surname, setSurname] = useState("");
-    const [usernameAlias, setUsernameAlias] = useState("");
     const [attributeValues, setAttributeValues] = useState<AttributeValues>({});
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
@@ -110,16 +106,10 @@ export default function SignUpV2() {
         setLoading(true);
 
         try {
-            const attributes: UserAccountAttributes = {
-                ...(givenName && { givenName }),
-                ...(surname && { surname }),
-                ...(givenName || surname ? { displayName: `${givenName} ${surname}`.trim() } : {}),
-                ...(usernameAlias && { username: usernameAlias }),
-            };
             const result = await app.signUpV2({
                 username,
                 ...(password ? { password } : {}),
-                attributes,
+                attributes: {},
                 // scopes: [],
             });
 
@@ -396,27 +386,6 @@ export default function SignUpV2() {
                     placeholder="Password (optional)"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    style={styles.input}
-                />
-                <input
-                    type="text"
-                    placeholder="First name (optional)"
-                    value={givenName}
-                    onChange={(event) => setGivenName(event.target.value)}
-                    style={styles.input}
-                />
-                <input
-                    type="text"
-                    placeholder="Last name (optional)"
-                    value={surname}
-                    onChange={(event) => setSurname(event.target.value)}
-                    style={styles.input}
-                />
-                <input
-                    type="text"
-                    placeholder="Username alias (email + password only)"
-                    value={usernameAlias}
-                    onChange={(event) => setUsernameAlias(event.target.value)}
                     style={styles.input}
                 />
                 <button type="submit" style={loading ? styles.buttonDisabled : styles.button} disabled={loading}>
