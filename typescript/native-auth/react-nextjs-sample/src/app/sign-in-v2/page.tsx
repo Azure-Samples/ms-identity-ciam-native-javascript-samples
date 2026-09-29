@@ -94,8 +94,6 @@ export default function SignInV2() {
                 // scopes: ["api://96e12db6-dcb2-47f2-b6fc-2e3c8d27e903/Custom.Scope"],
             });
 
-            console.log(result);
-
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
                     setError(getV2ErrorMessage(result.error));
