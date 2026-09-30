@@ -10,19 +10,135 @@ body {
   min-height: 100vh;
 }
 
-.auth-container {
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
 }
 
-.auth-container h2 {
-  margin-bottom: 1.5rem;
-  color: #111827;
-  font-size: 1.5rem;
-  font-weight: 600;
+.auth-container {
+  max-width: 400px;
+  margin: 40px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.auth-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.auth-capitalize {
+  text-transform: capitalize;
+}
+
+.auth-button,
+.auth-button-disabled,
+.auth-secondary-button,
+.auth-social-button {
+  padding: 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.auth-button {
+  background-color: #0078d4;
+  color: white;
+  border: none;
+}
+
+.auth-button-disabled {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  cursor: not-allowed;
+}
+
+.auth-secondary-button {
+  background-color: #fff;
+  color: #0078d4;
+  border: 1px solid #0078d4;
+}
+
+.auth-error {
+  color: #d13438;
+  margin-top: 10px;
+}
+
+.auth-heading {
+  margin: 0 0 10px;
   text-align: center;
+}
+
+.auth-signed-in-message {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+
+.auth-separator {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.auth-separator-line {
+  flex: 1;
+  border-bottom: 1px solid #ccc;
+}
+
+.auth-separator-text {
+  padding: 0 10px;
+  color: #666;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.auth-social-button {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.auth-provider-logo {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.auth-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.auth-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.auth-helper-text {
+  color: #4b5563;
+  font-size: 14px;
+  line-height: 1.5;
 }

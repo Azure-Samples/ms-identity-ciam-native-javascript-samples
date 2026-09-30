@@ -23,6 +23,9 @@
 }
 
 .link {
+    background: none;
+    border: none;
+    cursor: pointer;
     text-decoration: none;
     color: #333;
     font-weight: 500;
