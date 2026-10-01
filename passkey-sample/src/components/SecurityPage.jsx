@@ -30,14 +30,19 @@ export const SecurityPage = () => {
 
                 if (result.error) {
                     setAccessTokenError(result.error);
+                    setAccessToken(null);
+                    setNgcmfaExpiration(null);
                     setLoading(false);
                 } else {
                     setAccessTokenError(null);
                     setAccessToken(result.decodedToken);
+                    setNgcmfaExpiration(calculateNgcmfaExpiration(result.decodedToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE));
                     setLoading(false);
                 }
             } catch (error) {
                 setAccessTokenError(`Failed to get access token: ${error.message}`);
+                setAccessToken(null);
+                setNgcmfaExpiration(null);
                 setLoading(false);
             }
         };
@@ -70,22 +75,10 @@ export const SecurityPage = () => {
         if (instance) {
             fetchAppToken();
         }
-    }, [instance, accessToken]);
-
-    useEffect(() => {
-        if (accessToken) {
-            const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
-            setNgcmfaExpiration(expiration);
-        } else {
-            setNgcmfaExpiration(null);
-        }
-    }, [accessToken]);
+    }, [instance]);
 
     const getUserId = () => {
-        if (accessToken && accessToken.oid) {
-            return accessToken.oid;
-        }
-        return null;
+        return accessToken?.oid || (instance.getActiveAccount() || accounts[0])?.idTokenClaims?.oid || null;
     };
 
     const getUserData = () => {
@@ -94,19 +87,19 @@ export const SecurityPage = () => {
             email: "user@example.com",
         };
 
-        if (accessToken) {
+        const claims = accessToken || (instance.getActiveAccount() || accounts[0])?.idTokenClaims;
+        if (claims) {
             return {
-                name: accessToken.name || accessToken.given_name || accessToken.family_name || defaultUserData.name,
-                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || defaultUserData.email,
+                name: claims.name || claims.given_name || claims.family_name || defaultUserData.name,
+                email: claims.unique_name || claims.email || claims.preferred_username || claims.upn || defaultUserData.email,
             };
         }
 
         return defaultUserData;
     };
 
-    const displayError = accessTokenError || appTokenError;
-    const userData = !loading && !accessTokenError ? getUserData() : { name: "Loading...", email: "Loading..." };
-    const userId = !loading && !accessTokenError ? getUserId() : null;
+    const userData = getUserData();
+    const userId = getUserId();
 
     const alerts = [
         {
@@ -118,24 +111,18 @@ export const SecurityPage = () => {
     ];
 
     const showToast = (toastData) => {
-        // Check if this is a sessionExpiredWithAction toast and if one already exists
-        if (toastData.type === 'sessionExpiredWithAction') {
-            const existingSessionExpiredToast = toasts.find(
-                toast => toast.type === 'sessionExpiredWithAction' && toast.show
-            );
-            
-            // If a session expired toast is already showing, don't add another one
-            if (existingSessionExpiredToast) {
-                return;
+        setToasts(prev => {
+            if (toastData.type === 'sessionExpiredWithAction' &&
+                prev.some(toast => toast.type === 'sessionExpiredWithAction' && toast.show)) {
+                return prev;
             }
-        }
 
-        const newToast = {
-            id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-            show: true,
-            ...toastData
-        };
-        setToasts(prev => [...prev, newToast]);
+            return [...prev, {
+                id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+                show: true,
+                ...toastData
+            }];
+        });
     };
 
     const closeToast = (toastId) => {
@@ -150,36 +137,6 @@ export const SecurityPage = () => {
                         <span className="visually-hidden">Loading...</span>
                     </Spinner>
                 </div>
-            </Container>
-        );
-    }
-
-    if (displayError) {
-        return (
-            <Container className="py-4">
-                <Alert variant={accessTokenError ? "danger" : "warning"}>
-                    <Alert.Heading>
-                        {accessTokenError ? "Authentication Error" : "Service Error"}
-                    </Alert.Heading>
-                    <p>{displayError}</p>
-                    {accessTokenError && appTokenError && (
-                        <>
-                            <hr />
-                            <p><strong>Additional issue:</strong> {appTokenError}</p>
-                        </>
-                    )}
-                </Alert>
-            </Container>
-        );
-    }
-
-    if (!userId) {
-        return (
-            <Container className="py-4">
-                <Alert variant="warning">
-                    <Alert.Heading>User ID Not Available</Alert.Heading>
-                    <p>Unable to extract user ID from token claims. Please try logging in again.</p>
-                </Alert>
             </Container>
         );
     }
@@ -200,6 +157,8 @@ export const SecurityPage = () => {
                 />
             ))}
 
+            {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
+            {appTokenError && <Alert variant="warning">{appTokenError}</Alert>}
             <PasskeysSection
                 onShowToast={showToast}
                 appToken={appToken}

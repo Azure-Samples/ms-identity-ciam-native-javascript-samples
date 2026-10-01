@@ -9,11 +9,27 @@
  */
 export const parseJwt = (token) => {
     try {
+        if (!token || typeof token !== 'string') {
+            return null;
+        }
         const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        if (!base64Url) {
+            // Not a JWT (e.g. an opaque/encrypted access token) — nothing to decode.
+            return null;
+        }
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        // atob requires the input length to be a multiple of 4; base64url
+        // strips the '=' padding, so restore it before decoding.
+        const padding = base64.length % 4;
+        if (padding) {
+            base64 += '='.repeat(4 - padding);
+        }
         const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
+        if (!jsonPayload) {
+            return null;
+        }
         return JSON.parse(jsonPayload);
     } catch (error) {
         console.error('Error parsing JWT:', error);

@@ -5,6 +5,10 @@
 
 import { LogLevel } from '@azure/msal-browser';
 
+const clientId = '<your-client-id-here>';
+const tenantId = '<your-tenant-id>';
+const tenantName = '<your-tenant-name>';
+
 /**
  * Configuration object to be passed to MSAL instance on creation. 
  * For a full list of MSAL.js configuration parameters, visit:
@@ -13,8 +17,8 @@ import { LogLevel } from '@azure/msal-browser';
 
 export const msalConfig = {
     auth: {
-        clientId: '<your-client-id-here>', // This is the ONLY mandatory field that you need to supply.
-        authority: 'https://<your-tenant-name>.ciamlogin.com/', // Replace the placeholder with your tenant subdomain 
+        clientId,
+        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`,
         redirectUri: '/',
         postLogoutRedirectUri: '/',
         navigateToLoginRequestUrl: false,
@@ -22,6 +26,7 @@ export const msalConfig = {
     cache: {
         cacheLocation: 'sessionStorage', // Configures cache location. "sessionStorage" is more secure, but "localStorage" gives you SSO between tabs.
         storeAuthStateInCookie: false, // Set this to "true" if you are having issues on IE11 or Edge
+        claimsBasedCachingEnabled: true,
     },
     system: {
         loggerOptions: {
@@ -57,10 +62,10 @@ export const msalConfig = {
  * https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent#openid-connect-scopes
  */
 const claimsRequestValue = {
-    "id_token": {
-    "amr": {
-        "essential": true,
-        "values": ["ngcmfa"]
+    id_token: {
+        amr: {
+            essential: true,
+            values: ["ngcmfa"]
         }
     },
     access_token: {
@@ -81,13 +86,37 @@ export const loginRequest = {
     },
 };
 
+const proxyOrigin = 'http://localhost:3001';
+
+export const credentialApiConfig = {
+    exchangeClientId: msalConfig.auth.clientId,
+    exchangeAuthority: msalConfig.auth.authority,
+    scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
+    exchangeRedirectUri: typeof window === 'undefined'
+        ? ''
+        : new URL(msalConfig.auth.redirectUri, window.location.origin).href,
+    claims: JSON.stringify({
+        access_token: {
+            acrs: { essential: true, values: ['urn:user:registersecurityinfo'] },
+            amr: { essential: true, values: ['ngcmfa'] },
+        },
+    }),
+    authority: `${proxyOrigin}/myaccount-api`,
+    apiQueryParams: {
+        dc: '<your-test-datacenter>',
+        myaccessgrpccanary: 'true',
+        OobMyAccessBareAudience: 'true',
+        OobUseLegacyMintTokenFlow: 'true'
+    },
+};
 
 /**
  * Application configuration consumed by the SPA at runtime.
  */
 export const appConfig = {
-    proxyDomain: 'http://localhost:3001/api',
-    appId: 'your-client-id',
-    tenantId: 'your-tenant-id',
+    proxyDomain: `${proxyOrigin}/api`,
+    graphProxy: `${proxyOrigin}/graph`,
+    appId: msalConfig.auth.clientId,
+    tenantId,
     customDomain: '', // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
 };

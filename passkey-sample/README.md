@@ -1,6 +1,6 @@
 # Microsoft Identity Platform - React SPA with Passkeys
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform and passkey management using Microsoft Graph API.
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Passkey listing and registration use the Credential Management API; deletion still uses Microsoft Graph.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -149,14 +149,18 @@ Before running the application, you need to configure your Microsoft Entra ID ap
 
 #### Step 1: Configure MSAL Authentication Settings
 
-Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
+Set the client ID, tenant ID, and CIAM tenant subdomain in `src/authConfig.js`.
 
 ```javascript
+const clientId = '<your-client-id-here>';
+const tenantId = '<your-tenant-id>';
+const tenantName = '<your-tenant-name>';
+
 export const msalConfig = {
     auth: {
-        clientId: "<your-client-id-here>",            // Application (client) ID from app registration
-        authority: "https://passkeytest.ciamlogin.com/", // Replace passkeytest with your tenant subdomain
-        redirectUri: "/",                                // Resolved at runtime to the registered redirect URI
+        clientId, // Application (client) ID from app registration
+        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace passkeytest with your tenant subdomain
+        redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
 };
@@ -165,7 +169,7 @@ export const msalConfig = {
 **How to get these values:**
 
 1. **Client ID**: Found in your app registration overview page
-2. **Authority**: Your CIAM tenant authority URL in the format `https://passkeytest.ciamlogin.com/` (replace `passkeytest` with your tenant subdomain)
+2. **Tenant ID and subdomain**: Found in your tenant overview and CIAM tenant URL
 3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
 
 #### Step 2: Environment Configuration (.env file)
@@ -187,14 +191,12 @@ VITE_APP_SECRET=your-client-secret
 
 #### Step 3: Application Configuration (authConfig.js)
 
-The React app authentication configuration is centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
+The Credential Management API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
 
 ```javascript
-export const appConfig = {
-    proxyDomain: 'http://localhost:3001/api',
-    appId: 'your-client-id',
-    tenantId: 'your-tenant-id',
-    customDomain: '<custom-domain>' // your valid custom domain, if not specify, use tenant subdomain by default
+export const credentialApiConfig = {
+    scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
+    // ... other API settings
 };
 ```
 
@@ -222,7 +224,7 @@ Open a terminal and run the following command:
 npm run cors
 ```
 
-This starts the CORS proxy on `http://localhost:3001`. The proxy forwards token requests to `login.microsoftonline.com` so the browser can complete the client-credentials flow without CORS errors. Microsoft Graph calls go directly from the browser and do **not** route through this proxy.
+This starts the local proxy on port 3001.
 
 #### Step 3: Start sample app
 
@@ -253,11 +255,8 @@ The application includes SSL certificates for HTTPS development:
 
 ### CORS Proxy
 
-The `cors.js` file provides a proxy server that:
-
-- Handles CORS issues when calling the Microsoft Entra token endpoint
-- Runs on port 3001
-- Proxies requests to `https://login.microsoftonline.com/{tenantId}`
+- `/api/*` → Microsoft Entra token endpoint
+- `/myaccount-api/*` → Credential Management API (except DELETE)
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
@@ -266,7 +265,7 @@ For production deployment, consider using [Set up a reverse proxy for a single-p
 The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
-- Token acquisition for Graph API calls
+- Delegated Credential Management API access for passkey listing and registration
 - Multi-factor authentication (MFA) enforcement for passkey operations
 
 ## 🔐 Features
@@ -294,82 +293,27 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ### Project Structure
 
 ```text
-sample/
-├── public/                          # Static assets served at site root
-│   ├── favicon.svg                  # Application icon
-│   └── manifest.json                # PWA manifest
+passkey-sample/
+├── public/                 # Site assets
 ├── src/
-│   ├── components/                  # React components
-│   │   ├── common/                  # Shared UI components
-│   │   │   ├── index.js             # Component exports
-│   │   │   ├── ToastNotifications.jsx
-│   │   │   └── UIComponents.jsx
-│   │   ├── passkeys/                # Passkey management components
-│   │   │   ├── index.js
-│   │   │   ├── PasskeysSection.jsx
-│   │   │   └── components/          # Passkey sub-components
-│   │   │       ├── DeleteModal.jsx
-│   │   │       ├── PasskeyDetails.jsx
-│   │   │       ├── PasskeyItem.jsx
-│   │   │       ├── PasskeysHeader.jsx
-│   │   │       ├── PasskeysList.jsx
-│   │   │       └── utils.js
-│   │   ├── NavigationBar.jsx
-│   │   ├── PageLayout.jsx
-│   │   └── SecurityPage.jsx
-│   ├── hooks/passkeys/              # Custom React hooks
-│   │   ├── index.js
-│   │   ├── useAuthentication.js
-│   │   ├── usePasskeyAddOperation.js
-│   │   ├── usePasskeyDeleteOperation.js
-│   │   └── usePasskeyFetcher.js
-│   ├── services/                    # API service layer
-│   │   ├── GraphApiClient.js
-│   │   └── PasskeyService.js
-│   ├── utils/                       # Utility functions
-│   │   ├── graphServiceUtils.js
-│   │   ├── passkeyUtils.js
-│   │   └── tokenUtils.js
+│   ├── components/
+│   │   ├── common/         # Shared UI
+│   │   └── passkeys/       # Passkey UI
+│   ├── hooks/passkeys/     # Passkey operations
+│   ├── services/           # Credential Management and Graph API clients
 │   ├── styles/
-│   │   ├── App.css
-│   │   └── index.css
-│   ├── App.jsx                      # Root application component
-│   ├── authConfig.js                # MSAL and app configuration
-│   └── index.jsx                    # Application entry point
-├── index.html                       # HTML entry (Vite serves from project root)
-├── vite.config.js                   # Vite build/dev-server configuration
-├── .env                             # Local environment variables (gitignored)
-├── .env.example                     # Template for .env
-├── auth-cert.pem                    # SSL certificate for HTTPS development
-├── auth-key.pem                     # SSL private key
-├── cors.js                          # CORS proxy server for development
-├── package.json                     # Node.js dependencies and scripts
-├── package-lock.json                # Locked dependency versions
-└── README.md                        # This documentation file
+│   ├── utils/              # Token and passkey helpers
+│   ├── App.jsx
+│   ├── authConfig.js
+│   └── index.jsx
+├── .env.example
+├── cors.js                 # Local proxy
+├── proxy.config.js         # Proxy routes and upstreams
+├── index.html
+├── vite.config.js
+├── package.json
+└── README.md
 ```
-
-### Architecture Overview
-
-#### **Component Architecture**
-- **Modular Design**: Components are organized by feature (passkeys, common UI)
-- **Composition Pattern**: Smaller, focused components compose larger features
-- **Separation of Concerns**: UI components separated from business logic
-
-#### **Hook-Based State Management**
-- **Custom Hooks**: Business logic extracted into reusable hooks
-- **Separation of Concerns**: Authentication, data fetching, and operations in dedicated hooks
-- **Clean API**: Hooks provide simple interfaces for complex operations
-
-#### **Service Layer**
-- **API Abstraction**: Service layer abstracts Microsoft Graph API calls
-- **Error Handling**: Centralized error handling and response processing
-- **Token Management**: Secure token handling and caching
-
-#### **Utility Functions**
-- **Pure Functions**: Stateless utility functions for data processing
-- **Reusability**: Common operations shared across components
-- **Type Safety**: Robust data validation and transformation
-
 
 ## 📚 Additional Resources
 
