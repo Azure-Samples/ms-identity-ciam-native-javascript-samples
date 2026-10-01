@@ -103,10 +103,6 @@ export const credentialApiConfig = {
     }),
     authority: `${proxyOrigin}/myaccount-api`,
     apiQueryParams: {
-        dc: '<your-test-datacenter>',
-        myaccessgrpccanary: 'true',
-        OobMyAccessBareAudience: 'true',
-        OobUseLegacyMintTokenFlow: 'true'
     },
 };
 
