@@ -4,6 +4,10 @@ import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest, appConfig } from '../authConfig';
 import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
+import {
+    acquireMyAccountTokenAfterSignIn,
+    isTokenAcquisitionAfterSignInPending
+} from '../utils/myAccountToken';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
@@ -14,19 +18,28 @@ const SECONDS_PER_MINUTE = 60;
 
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
+    const account = instance.getActiveAccount() || accounts[0];
+    const accountId = account?.homeAccountId;
     const [accessToken, setAccessToken] = useState(null);
     const [appToken, setAppToken] = useState(null);
     const [ngcmfaExpiration, setNgcmfaExpiration] = useState(null);
     const [loading, setLoading] = useState(true);
     const [accessTokenError, setAccessTokenError] = useState(null);
     const [appTokenError, setAppTokenError] = useState(null);
+    const [myAccountTokenError, setMyAccountTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
 
     useEffect(() => {
         const fetchAccessToken = async () => {
             try {
-                const result = await getAccessToken(instance, accounts, loginRequest);
+                const isAfterSignIn = isTokenAcquisitionAfterSignInPending();
+                const result = await getAccessToken(
+                    instance,
+                    account ? [account] : [],
+                    loginRequest,
+                    isAfterSignIn
+                );
 
                 if (result.error) {
                     setAccessTokenError(result.error);
@@ -37,6 +50,13 @@ export const SecurityPage = () => {
                     setAccessTokenError(null);
                     setAccessToken(result.decodedToken);
                     setNgcmfaExpiration(calculateNgcmfaExpiration(result.decodedToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE));
+                    try {
+                        await acquireMyAccountTokenAfterSignIn(instance, account);
+                        setMyAccountTokenError(null);
+                    } catch (error) {
+                        console.error('Failed to acquire the My Account token after sign-in:', error);
+                        setMyAccountTokenError(`Failed to acquire the My Account token: ${error.message}`);
+                    }
                     setLoading(false);
                 }
             } catch (error) {
@@ -48,7 +68,9 @@ export const SecurityPage = () => {
         };
 
         fetchAccessToken();
-    }, [instance, accounts]);
+    // Account objects may be recreated when MSAL reads its cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [instance, accountId]);
 
     useEffect(() => {
         const fetchAppToken = async () => {
@@ -78,7 +100,7 @@ export const SecurityPage = () => {
     }, [instance]);
 
     const getUserId = () => {
-        return accessToken?.oid || (instance.getActiveAccount() || accounts[0])?.idTokenClaims?.oid || null;
+        return accessToken?.oid || account?.idTokenClaims?.oid || null;
     };
 
     const getUserData = () => {
@@ -87,7 +109,7 @@ export const SecurityPage = () => {
             email: "user@example.com",
         };
 
-        const claims = accessToken || (instance.getActiveAccount() || accounts[0])?.idTokenClaims;
+        const claims = accessToken || account?.idTokenClaims;
         if (claims) {
             return {
                 name: claims.name || claims.given_name || claims.family_name || defaultUserData.name,
@@ -159,12 +181,15 @@ export const SecurityPage = () => {
 
             {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
             {appTokenError && <Alert variant="warning">{appTokenError}</Alert>}
-            <PasskeysSection
-                onShowToast={showToast}
-                appToken={appToken}
-                userId={userId}
-                ngcmfaExpiry={ngcmfaExpiration}
-            />
+            {myAccountTokenError && <Alert variant="warning">{myAccountTokenError}</Alert>}
+            {!myAccountTokenError && (
+                <PasskeysSection
+                    onShowToast={showToast}
+                    appToken={appToken}
+                    userId={userId}
+                    ngcmfaExpiry={ngcmfaExpiration}
+                />
+            )}
 
             {/* Toast Notifications */}
             <ToastNotifications

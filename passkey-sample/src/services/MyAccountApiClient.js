@@ -66,15 +66,15 @@ async function requestMethod(path, method, token, body) {
     return response;
 }
 
-/** List authentication methods for the user represented by the supplied token. */
-export async function listPasskeyMethods(token) {
+async function listPasskeyMethods(token) {
     const response = await requestMethod(METHODS_PATH, 'GET', token);
     return response.json();
 }
 
 /** List the signed-in user's FIDO methods in the existing passkey UI format. */
 export async function fetchMyAccountPasskeys(instance, account) {
-    const collection = await createMyAccountApiClient(instance, account).listPasskeyMethods();
+    const token = await getMyAccountAccessToken(instance, account);
+    const collection = await listPasskeyMethods(token);
     const methods = collection?._embedded?.methods;
     if (!Array.isArray(methods)) {
         throw new Error('Unexpected My Account methods response: _embedded.methods is missing');
@@ -98,14 +98,12 @@ export async function fetchMyAccountPasskeys(instance, account) {
     });
 }
 
-/** Start a passkey enrollment for the signed-in user. */
-export async function beginPasskeyEnrollment(token) {
+async function beginPasskeyEnrollment(token) {
     const response = await requestMethod(`${METHODS_PATH}/fido`, 'POST', token);
     return response.json();
 }
 
-/** Complete an enrollment using its activation link and attestation payload. */
-export async function activatePasskeyEnrollment(activateHref, enrollment, token) {
+async function activatePasskeyEnrollment(activateHref, enrollment, token) {
     const response = await requestMethod(activateHref, 'POST', token, enrollment);
     if (response.status === 204) {
         return null;
@@ -114,21 +112,10 @@ export async function activatePasskeyEnrollment(activateHref, enrollment, token)
     return text ? JSON.parse(text) : null;
 }
 
-/** Bind My Account operations to the signed-in user's MSAL-managed token. */
-export function createMyAccountApiClient(instance, account) {
-    const getToken = () => getMyAccountAccessToken(instance, account);
-    return {
-        listPasskeyMethods: async () => listPasskeyMethods(await getToken()),
-        beginPasskeyEnrollment: async () => beginPasskeyEnrollment(await getToken()),
-        activatePasskeyEnrollment: async (href, enrollment) =>
-            activatePasskeyEnrollment(href, enrollment, await getToken()),
-    };
-}
-
 /** Register a FIDO credential using My Account's start and activation responses. */
 export async function registerMyAccountPasskey(instance, account) {
-    const client = createMyAccountApiClient(instance, account);
-    const start = await client.beginPasskeyEnrollment();
+    const token = await getMyAccountAccessToken(instance, account);
+    const start = await beginPasskeyEnrollment(token);
     if (start?.state !== 'interactionRequired' || start.type !== 'fido' ||
         !start.continuationToken || !start._links?.activate?.href ||
         !start.publicKey?.challenge || !start.publicKey?.user?.id || !start.publicKey?.rp?.id) {
@@ -157,7 +144,7 @@ export async function registerMyAccountPasskey(instance, account) {
         throw new Error('Passkey creation returned no credential or attestation');
     }
 
-    const method = await client.activatePasskeyEnrollment(start._links.activate.href, {
+    const method = await activatePasskeyEnrollment(start._links.activate.href, {
         continuationToken: start.continuationToken,
         displayName: generateUniquePasskeyName(),
         publicKeyCredential: {
@@ -165,7 +152,7 @@ export async function registerMyAccountPasskey(instance, account) {
             attestationObject: bufferToBase64url(credential.response.attestationObject),
             clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
         },
-    });
+    }, token);
     if (method?.type !== 'fido' || !method.id) {
         throw new Error('Unexpected My Account FIDO activation response');
     }

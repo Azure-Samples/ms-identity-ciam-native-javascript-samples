@@ -5,6 +5,12 @@ import { redirectForMyAccountAccess } from '../../utils/myAccountToken';
 import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
+const DOWNSTREAM_TOKEN_ERROR_CODE = 'AADSTS7006105';
+
+const requiresFullReauthentication = (error) => {
+    return error?.message?.includes(DOWNSTREAM_TOKEN_ERROR_CODE);
+};
+
 /**
  * Hook for managing passkey data fetching with retry logic
  * @param {Object} params - Hook parameters
@@ -101,6 +107,11 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                 
             } catch (error) {
                 lastError = error;
+                if (requiresFullReauthentication(error)) {
+                    cacheListOperation();
+                    await handleReAuthentication();
+                    break;
+                }
                 if (error instanceof InteractionRequiredAuthError) {
                     cacheListOperation();
                     onShowToast?.(createToastMessages.sessionExpiredWithAction(async () => {
@@ -123,15 +134,17 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                 }
             }
         }
-        
-        const errorMsg = lastError instanceof InteractionRequiredAuthError
+
+        const requiresUserAction = lastError instanceof InteractionRequiredAuthError
+            || requiresFullReauthentication(lastError);
+        const errorMsg = requiresUserAction
             ? onShowToast
                 ? 'Additional verification is required. Select Next in the security prompt to view your passkeys.'
                 : 'Additional verification is required. Sign in again to view your passkeys.'
             : `Failed to load passkeys: ${lastError?.message || 'Unknown error'}`;
         setError(errorMsg);
         
-        if (onShowToast && !(lastError instanceof InteractionRequiredAuthError)) {
+        if (onShowToast && !requiresUserAction) {
             onShowToast(createToastMessages.errorLoading());
         }
         

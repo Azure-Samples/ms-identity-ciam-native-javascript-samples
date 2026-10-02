@@ -1,6 +1,7 @@
 import { useMsal } from '@azure/msal-react';
 import { clearAppTokenCache } from '../../utils/tokenUtils';
 import { loginRequest } from '../../authConfig';
+import { requestMyAccountTokenAfterSignIn } from '../../utils/myAccountToken';
 import { checkNgcmfaExpiration, createToastMessages } from '../../utils/passkeyUtils';
 
 export const useAuthentication = ({ onShowToast }) => {
@@ -19,6 +20,7 @@ export const useAuthentication = ({ onShowToast }) => {
 
             const account = instance.getAllAccounts()[0];
             clearAppTokenCache(instance);
+            requestMyAccountTokenAfterSignIn();
             await instance.loginRedirect({
                 ...loginRequest,
                 loginHint: account?.username

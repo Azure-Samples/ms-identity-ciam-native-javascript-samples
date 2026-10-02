@@ -58,13 +58,15 @@ export const calculateNgcmfaExpiration = (decodedToken, expiryMinutes = 10, seco
  * @param {Object} instance - MSAL instance
  * @param {Array} accounts - User accounts
  * @param {Object} tokenRequest - Token request configuration
+ * @param {boolean} forceRefresh - Whether to bypass the access-token cache
  * @returns {Promise<Object>} - Object containing { token, decodedToken, error }
  */
-export const getAccessToken = async (instance, accounts, loginRequest) => {
+export const getAccessToken = async (instance, accounts, loginRequest, forceRefresh = false) => {
     if (accounts.length > 0) {
         const request = {
             claims: loginRequest.extraQueryParameters?.claims,
             account: accounts[0],
+            forceRefresh,
         };
 
         try {

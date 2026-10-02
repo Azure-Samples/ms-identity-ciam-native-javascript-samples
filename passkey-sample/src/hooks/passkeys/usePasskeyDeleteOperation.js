@@ -24,25 +24,26 @@ export const usePasskeyDeleteOperation = ({
     const performDelete = async (passkeyId, cachedPasskeyName) => {
         const targetPasskey = currentPasskeys.find(p => p.id === passkeyId);
         const passkeyDisplayName = targetPasskey?.name || cachedPasskeyName;
-        
+
         try {
             await deleteUserPasskey(appToken, userId, passkeyId);
-            
-            const updatedPasskeys = await fetchPasskeys({
+        } catch (err) {
+            onShowToast?.(createToastMessages.errorDeleting(err.message));
+            return;
+        }
+
+        onShowToast?.(createToastMessages.passkeyDeleted(passkeyDisplayName || 'Unknown'));
+
+        try {
+            await fetchPasskeys({
                 type: 'delete',
                 passkeyId: passkeyId
             }, {
                 setLoadingState: true,
-                showToast: true
+                showToast: false
             });
-
-            if (onShowToast && updatedPasskeys !== null) {
-                onShowToast(createToastMessages.passkeyDeleted(passkeyDisplayName || 'Unknown'));
-            }
-        } catch (err) {
-            if (onShowToast) {
-                onShowToast(createToastMessages.errorDeleting(err.message));
-            }
+        } catch (refreshError) {
+            console.warn('Passkey was deleted, but the passkey list could not be refreshed:', refreshError);
         }
     };
 

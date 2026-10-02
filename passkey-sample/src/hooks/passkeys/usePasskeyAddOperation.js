@@ -74,6 +74,7 @@ export const usePasskeyAddOperation = ({
                     onShowToast(createToastMessages.errorAdding(err.message));
                 }
             }
+            await fetchPasskeys();
         }
     };
 
