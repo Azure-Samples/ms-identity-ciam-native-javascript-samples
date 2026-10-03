@@ -88,7 +88,7 @@ export const loginRequest = {
 
 const proxyOrigin = 'http://localhost:3001';
 
-export const credentialApiConfig = {
+export const selfServiceApiConfig = {
     exchangeClientId: msalConfig.auth.clientId,
     exchangeAuthority: msalConfig.auth.authority,
     scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
@@ -101,7 +101,7 @@ export const credentialApiConfig = {
             amr: { essential: true, values: ['ngcmfa'] },
         },
     }),
-    authority: `${proxyOrigin}/myaccount-api`,
+    authority: `${proxyOrigin}/selfservice-api`,
     apiQueryParams: {
     },
 };

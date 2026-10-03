@@ -1,5 +1,5 @@
-import { credentialApiConfig } from '../authConfig';
-import { getMyAccountAccessToken } from '../utils/myAccountToken';
+import { selfServiceApiConfig } from '../authConfig';
+import { getSelfServiceAccessToken } from '../utils/selfServiceToken';
 import { base64urlToBuffer, bufferToBase64url, formatDetailedDate, formatPasskeyType, generateUniquePasskeyName } from '../utils/graphServiceUtils';
 
 const METHODS_PATH = '/api/v1.0/me/methods';
@@ -19,18 +19,18 @@ function buildMethodUrl(path) {
     const pathname = link.pathname;
     const methodsIndex = pathname.indexOf(METHODS_PATH);
     if (methodsIndex < 0) {
-        throw new Error('Expected a My Account methods link');
+        throw new Error('Expected a Self Service API methods link');
     }
 
     const methodPath = pathname.slice(methodsIndex);
     if (methodPath !== METHODS_PATH && !methodPath.startsWith(`${METHODS_PATH}/`)) {
-        throw new Error('Invalid My Account methods link');
+        throw new Error('Invalid Self Service API methods link');
     }
 
-    const base = credentialApiConfig.authority;
+    const base = selfServiceApiConfig.authority;
     const url = new URL(`${base.replace(/\/$/, '')}${methodPath}`);
     link.searchParams.forEach((value, key) => url.searchParams.append(key, value));
-    Object.entries(credentialApiConfig.apiQueryParams).forEach(([key, value]) => {
+    Object.entries(selfServiceApiConfig.apiQueryParams).forEach(([key, value]) => {
         url.searchParams.set(key, value);
     });
     return url;
@@ -38,7 +38,7 @@ function buildMethodUrl(path) {
 
 async function requestMethod(path, method, token, body) {
     if (!token) {
-        throw new Error('A user access token is required for the My Account API');
+        throw new Error('A user access token is required for the Self Service API');
     }
 
     const response = await fetch(buildMethodUrl(path), {
@@ -51,7 +51,7 @@ async function requestMethod(path, method, token, body) {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     if (!response.ok) {
-        let message = `My Account API returned HTTP ${response.status}`;
+        let message = `Self Service API returned HTTP ${response.status}`;
         const errorText = await response.text();
         if (errorText) {
             try {
@@ -72,17 +72,17 @@ async function listPasskeyMethods(token) {
 }
 
 /** List the signed-in user's FIDO methods in the existing passkey UI format. */
-export async function fetchMyAccountPasskeys(instance, account) {
-    const token = await getMyAccountAccessToken(instance, account);
+export async function fetchSelfServicePasskeys(instance, account) {
+    const token = await getSelfServiceAccessToken(instance, account);
     const collection = await listPasskeyMethods(token);
     const methods = collection?._embedded?.methods;
     if (!Array.isArray(methods)) {
-        throw new Error('Unexpected My Account methods response: _embedded.methods is missing');
+        throw new Error('Unexpected Self Service API methods response: _embedded.methods is missing');
     }
 
     return methods.filter(method => method.type === 'fido' || method.type === 'fido2').map(method => {
         if (!method.id) {
-            throw new Error('My Account returned a FIDO method without an ID');
+            throw new Error('Self Service API returned a FIDO method without an ID');
         }
         return {
             id: method.id,
@@ -112,14 +112,14 @@ async function activatePasskeyEnrollment(activateHref, enrollment, token) {
     return text ? JSON.parse(text) : null;
 }
 
-/** Register a FIDO credential using My Account's start and activation responses. */
-export async function registerMyAccountPasskey(instance, account) {
-    const token = await getMyAccountAccessToken(instance, account);
+/** Register a FIDO credential using Self Service API start and activation responses. */
+export async function registerSelfServicePasskey(instance, account) {
+    const token = await getSelfServiceAccessToken(instance, account);
     const start = await beginPasskeyEnrollment(token);
     if (start?.state !== 'interactionRequired' || start.type !== 'fido' ||
         !start.continuationToken || !start._links?.activate?.href ||
         !start.publicKey?.challenge || !start.publicKey?.user?.id || !start.publicKey?.rp?.id) {
-        throw new Error('Unexpected My Account FIDO enrollment response');
+        throw new Error('Unexpected Self Service API FIDO enrollment response');
     }
 
     const options = start.publicKey;
@@ -154,7 +154,7 @@ export async function registerMyAccountPasskey(instance, account) {
         },
     }, token);
     if (method?.type !== 'fido' || !method.id) {
-        throw new Error('Unexpected My Account FIDO activation response');
+        throw new Error('Unexpected Self Service API FIDO activation response');
     }
     return method;
 }

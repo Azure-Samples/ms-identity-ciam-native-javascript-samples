@@ -78,13 +78,13 @@ http.createServer((req, res) => {
         const targetUrl = proxyConfig.tokenAuthority + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
 
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
-    } else if (reqUrl.pathname.startsWith(`${proxyConfig.myAccountPrefix}/`)) {
+    } else if (reqUrl.pathname.startsWith(`${proxyConfig.selfServicePrefix}/`)) {
         if (req.method === "DELETE") {
             forwardRequest(req, res, null, corsHeaders, reqUrl.pathname);
             return;
         }
 
-        const targetUrl = proxyConfig.myAccountAuthority + reqUrl.pathname.slice(proxyConfig.myAccountPrefix.length) + (reqUrl.search || "");
+        const targetUrl = proxyConfig.selfServiceAuthority + reqUrl.pathname.slice(proxyConfig.selfServicePrefix.length) + (reqUrl.search || "");
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else {
         res.writeHead(404, { "Content-Type": "text/plain" });
@@ -93,5 +93,5 @@ http.createServer((req, res) => {
 }).listen(proxyConfig.port, () => {
     console.log("CORS proxy running on http://localhost:3001");
     console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.tokenAuthority);
-    console.log("Proxying from " + proxyConfig.myAccountPrefix + " ===> " + proxyConfig.myAccountAuthority);
+    console.log("Proxying from " + proxyConfig.selfServicePrefix + " ===> " + proxyConfig.selfServiceAuthority);
 });

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { fetchMyAccountPasskeys } from '../../services/MyAccountApiClient';
-import { redirectForMyAccountAccess } from '../../utils/myAccountToken';
+import { fetchSelfServicePasskeys } from '../../services/selfServiceApiClient';
+import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
 import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
@@ -69,7 +69,7 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                     console.log(`Fetch attempt ${attempt}/${maxRetries}...`);
                 }
                 
-                const transformedPasskeys = await fetchMyAccountPasskeys(instance, account);
+                const transformedPasskeys = await fetchSelfServicePasskeys(instance, account);
                 console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
                 
                 if (expectedChange) {
@@ -116,7 +116,7 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                     cacheListOperation();
                     onShowToast?.(createToastMessages.sessionExpiredWithAction(async () => {
                         try {
-                            await redirectForMyAccountAccess(instance, account);
+                            await redirectForSelfServiceAccess(instance, account);
                         } catch (redirectError) {
                             setError(`Could not verify your identity: ${redirectError.message}`);
                         }

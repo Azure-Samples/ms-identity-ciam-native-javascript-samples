@@ -5,9 +5,9 @@ import { useMsal } from '@azure/msal-react';
 import { loginRequest, appConfig } from '../authConfig';
 import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
 import {
-    acquireMyAccountTokenAfterSignIn,
-    isTokenAcquisitionAfterSignInPending
-} from '../utils/myAccountToken';
+    acquireSelfServiceTokenAfterSignIn,
+    isSelfServiceTokenAcquisitionAfterSignInPending
+} from '../utils/selfServiceToken';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
@@ -26,14 +26,14 @@ export const SecurityPage = () => {
     const [loading, setLoading] = useState(true);
     const [accessTokenError, setAccessTokenError] = useState(null);
     const [appTokenError, setAppTokenError] = useState(null);
-    const [myAccountTokenError, setMyAccountTokenError] = useState(null);
+    const [selfServiceTokenError, setSelfServiceTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
 
     useEffect(() => {
         const fetchAccessToken = async () => {
             try {
-                const isAfterSignIn = isTokenAcquisitionAfterSignInPending();
+                const isAfterSignIn = isSelfServiceTokenAcquisitionAfterSignInPending();
                 const result = await getAccessToken(
                     instance,
                     account ? [account] : [],
@@ -51,11 +51,11 @@ export const SecurityPage = () => {
                     setAccessToken(result.decodedToken);
                     setNgcmfaExpiration(calculateNgcmfaExpiration(result.decodedToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE));
                     try {
-                        await acquireMyAccountTokenAfterSignIn(instance, account);
-                        setMyAccountTokenError(null);
+                        await acquireSelfServiceTokenAfterSignIn(instance, account);
+                        setSelfServiceTokenError(null);
                     } catch (error) {
-                        console.error('Failed to acquire the My Account token after sign-in:', error);
-                        setMyAccountTokenError(`Failed to acquire the My Account token: ${error.message}`);
+                        console.error('Failed to acquire the Self Service API token after sign-in:', error);
+                        setSelfServiceTokenError(`Failed to acquire the Self Service API token: ${error.message}`);
                     }
                     setLoading(false);
                 }
@@ -181,8 +181,8 @@ export const SecurityPage = () => {
 
             {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
             {appTokenError && <Alert variant="warning">{appTokenError}</Alert>}
-            {myAccountTokenError && <Alert variant="warning">{myAccountTokenError}</Alert>}
-            {!myAccountTokenError && (
+            {selfServiceTokenError && <Alert variant="warning">{selfServiceTokenError}</Alert>}
+            {!selfServiceTokenError && (
                 <PasskeysSection
                     onShowToast={showToast}
                     appToken={appToken}

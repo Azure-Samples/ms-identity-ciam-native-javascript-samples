@@ -1,6 +1,6 @@
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { registerMyAccountPasskey } from '../../services/MyAccountApiClient';
-import { redirectForMyAccountAccess } from '../../utils/myAccountToken';
+import { registerSelfServicePasskey } from '../../services/selfServiceApiClient';
+import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
 import { createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
@@ -19,12 +19,12 @@ export const usePasskeyAddOperation = ({
     const requestVerification = async () => {
         cacheOperation({ action: 'add' });
         if (!onShowToast) {
-            await redirectForMyAccountAccess(instance, account);
+            await redirectForSelfServiceAccess(instance, account);
             return;
         }
         onShowToast(createToastMessages.sessionExpiredWithAction(async () => {
             try {
-                await redirectForMyAccountAccess(instance, account);
+                await redirectForSelfServiceAccess(instance, account);
             } catch (error) {
                 clearCachedOperation();
                 onShowToast(createToastMessages.errorAdding(error.message));
@@ -46,7 +46,7 @@ export const usePasskeyAddOperation = ({
                 return;
             }
 
-            await registerMyAccountPasskey(instance, account);
+            await registerSelfServicePasskey(instance, account);
             
             if (onShowToast) {
                 onShowToast(createToastMessages.passkeyAdded());
