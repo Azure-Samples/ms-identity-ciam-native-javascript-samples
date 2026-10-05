@@ -1,6 +1,6 @@
 # Microsoft Identity Platform - React SPA with Passkeys
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform and passkey management using Microsoft Graph API.
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. Deletion still uses the high-privilege Microsoft Graph API.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -18,7 +18,7 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 - Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
-- Client application registered under CIAM tenant with UserAuthMethod-Passkey.ReadWrite.All application permissions granted by admin
+- Client application registered under the CIAM tenant with the Self Service delegated permission and the Microsoft Graph application permission described below, with admin consent
 
 #### Device
 
@@ -108,7 +108,7 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 **⚠️ Critical**:
 
-- Register and run this sample **only against a test tenant**. Do not register it in a production tenant — the sample uses high-privilege admin APIs and is intended for demo/testing only.
+- Register and run this sample **only against a test tenant**. Do not register it in a production tenant and the sample is intended for demo/testing only.
 - Configure the app registration as **Single tenant**. In **App registrations** → your app → **Authentication** → **Supported account types**, select **Accounts in this organizational directory only**.
 
 #### Step 2: Register Redirect URI in Entra Portal
@@ -133,15 +133,25 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 #### Step 3: Verify Required Permissions
 
-Ensure your app registration has the following Microsoft Graph API permissions:
+Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
 
-**Application Permissions (Admin consent required):**
-- `UserAuthMethod-Passkey.ReadWrite.All` - Required for passkey management
+Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal with Graph Explorer while signed in as a tenant administrator.
 
-**Grant Admin Consent:**
-1. In your app registration, go to **API permissions**
-2. Click **Grant admin consent for [Your Tenant]**
-3. Confirm the consent
+Configure both APIs under **App registrations** → your app → **API permissions**:
+
+**Self Service (Credential Management) API — delegated permission for listing/getting and registering passkeys:**
+
+1. Click **Add a permission** → **APIs my organization uses**.
+2. Search for `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9` and select **Me-CredentialProfileManagement**.
+3. Select **Delegated permissions** → `Me.UserAuthenticationMethod.ReadWrite`.
+4. Click **Add permissions**.
+
+**Microsoft Graph — application permission for deleting passkeys:**
+
+1. Click **Add a permission** → **Microsoft Graph** → **Application permissions**.
+2. Select `UserAuthMethod-Passkey.ReadWrite.All` and click **Add permissions**.
+
+Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Graph application permission is used only for deletion; the Self Service permission is delegated to the signed-in user for list/get and add.
 
 ### 3. Application Configuration
 
@@ -149,14 +159,18 @@ Before running the application, you need to configure your Microsoft Entra ID ap
 
 #### Step 1: Configure MSAL Authentication Settings
 
-Update the `msalConfig.auth` section in `src/authConfig.js` with your application details:
+Set the client ID, tenant ID, and CIAM tenant subdomain in `src/authConfig.js`.
 
 ```javascript
+const clientId = '<your-client-id-here>';
+const tenantId = '<your-tenant-id>';
+const tenantName = '<your-tenant-name>';
+
 export const msalConfig = {
     auth: {
-        clientId: "<your-client-id-here>",            // Application (client) ID from app registration
-        authority: "https://passkeytest.ciamlogin.com/", // Replace passkeytest with your tenant subdomain
-        redirectUri: "/",                                // Resolved at runtime to the registered redirect URI
+        clientId, // Application (client) ID from app registration
+        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace tenantName with your tenant subdomain
+        redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
 };
@@ -165,12 +179,12 @@ export const msalConfig = {
 **How to get these values:**
 
 1. **Client ID**: Found in your app registration overview page
-2. **Authority**: Your CIAM tenant authority URL in the format `https://passkeytest.ciamlogin.com/` (replace `passkeytest` with your tenant subdomain)
+2. **Tenant ID and subdomain**: Found in your tenant overview and CIAM tenant URL
 3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
 
 #### Step 2: Environment Configuration (.env file)
 
-The repository does **not** include a `.env` file — you need to create one yourself. Copy `.env.example` to a new file named `.env` in the same `sample/` folder and fill in your values. `.env` is gitignored, so your local copy stays on your machine.
+The repository does **not** include a `.env` file — you need to create one yourself. Copy `.env.example` to a new file named `.env` in the same `passkey-sample/` folder and fill in your values. `.env` is gitignored, so your local copy stays on your machine.
 
 ```env
 # Local dev hostname — must match the auth.<tenant>.ciamlogin.com subdomain in your hosts file
@@ -187,14 +201,12 @@ VITE_APP_SECRET=your-client-secret
 
 #### Step 3: Application Configuration (authConfig.js)
 
-The React app authentication configuration is centralized in `src/authConfig.js`. Update the `appConfig` object with your values:
+The Self Service API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
 
 ```javascript
-export const appConfig = {
-    proxyDomain: 'http://localhost:3001/api',
-    appId: 'your-client-id',
-    tenantId: 'your-tenant-id',
-    customDomain: '<custom-domain>' // your valid custom domain, if not specify, use tenant subdomain by default
+export const selfServiceApiConfig = {
+    scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
+    // ... other API settings
 };
 ```
 
@@ -222,7 +234,7 @@ Open a terminal and run the following command:
 npm run cors
 ```
 
-This starts the CORS proxy on `http://localhost:3001`. The proxy forwards token requests to `login.microsoftonline.com` so the browser can complete the client-credentials flow without CORS errors. Microsoft Graph calls go directly from the browser and do **not** route through this proxy.
+This starts the local proxy on port 3001.
 
 #### Step 3: Start sample app
 
@@ -246,18 +258,15 @@ https://auth.passkeytest.ciamlogin.com:3000
 
 ### SSL Certificates
 
-The application includes SSL certificates for HTTPS development:
+Generate these SSL certificate files locally for HTTPS development:
 
 - `auth-cert.pem` - SSL certificate
 - `auth-key.pem` - SSL private key
 
 ### CORS Proxy
 
-The `cors.js` file provides a proxy server that:
-
-- Handles CORS issues when calling the Microsoft Entra token endpoint
-- Runs on port 3001
-- Proxies requests to `https://login.microsoftonline.com/{tenantId}`
+- `/api/*` → Microsoft Entra token endpoint
+- `/selfservice-api/*` → Self Service (Credential Management) API for list/get and add; deletion calls Microsoft Graph directly
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
@@ -266,7 +275,7 @@ For production deployment, consider using [Set up a reverse proxy for a single-p
 The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
-- Token acquisition for Graph API calls
+- Delegated Self Service (Credential Management) API access for passkey listing/getting and registration
 - Multi-factor authentication (MFA) enforcement for passkey operations
 
 ## 🔐 Features
@@ -294,85 +303,31 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ### Project Structure
 
 ```text
-sample/
-├── public/                          # Static assets served at site root
-│   ├── favicon.svg                  # Application icon
-│   └── manifest.json                # PWA manifest
+passkey-sample/
+├── public/                 # Site assets
 ├── src/
-│   ├── components/                  # React components
-│   │   ├── common/                  # Shared UI components
-│   │   │   ├── index.js             # Component exports
-│   │   │   ├── ToastNotifications.jsx
-│   │   │   └── UIComponents.jsx
-│   │   ├── passkeys/                # Passkey management components
-│   │   │   ├── index.js
-│   │   │   ├── PasskeysSection.jsx
-│   │   │   └── components/          # Passkey sub-components
-│   │   │       ├── DeleteModal.jsx
-│   │   │       ├── PasskeyDetails.jsx
-│   │   │       ├── PasskeyItem.jsx
-│   │   │       ├── PasskeysHeader.jsx
-│   │   │       ├── PasskeysList.jsx
-│   │   │       └── utils.js
-│   │   ├── NavigationBar.jsx
-│   │   ├── PageLayout.jsx
-│   │   └── SecurityPage.jsx
-│   ├── hooks/passkeys/              # Custom React hooks
-│   │   ├── index.js
-│   │   ├── useAuthentication.js
-│   │   ├── usePasskeyAddOperation.js
-│   │   ├── usePasskeyDeleteOperation.js
-│   │   └── usePasskeyFetcher.js
-│   ├── services/                    # API service layer
-│   │   ├── GraphApiClient.js
-│   │   └── PasskeyService.js
-│   ├── utils/                       # Utility functions
-│   │   ├── graphServiceUtils.js
-│   │   ├── passkeyUtils.js
-│   │   └── tokenUtils.js
+│   ├── components/
+│   │   ├── common/         # Shared UI
+│   │   └── passkeys/       # Passkey UI
+│   ├── hooks/passkeys/     # Passkey operations
+│   ├── services/           # Credential Management and Graph API clients
 │   ├── styles/
-│   │   ├── App.css
-│   │   └── index.css
-│   ├── App.jsx                      # Root application component
-│   ├── authConfig.js                # MSAL and app configuration
-│   └── index.jsx                    # Application entry point
-├── index.html                       # HTML entry (Vite serves from project root)
-├── vite.config.js                   # Vite build/dev-server configuration
-├── .env                             # Local environment variables (gitignored)
-├── .env.example                     # Template for .env
-├── auth-cert.pem                    # SSL certificate for HTTPS development
-├── auth-key.pem                     # SSL private key
-├── cors.js                          # CORS proxy server for development
-├── package.json                     # Node.js dependencies and scripts
-├── package-lock.json                # Locked dependency versions
-└── README.md                        # This documentation file
+│   ├── utils/              # Token and passkey helpers
+│   ├── App.jsx
+│   ├── authConfig.js
+│   └── index.jsx
+├── .env.example
+├── cors.js                 # Local proxy
+├── proxy.config.js         # Proxy routes and upstreams
+├── index.html
+├── vite.config.js
+├── package.json
+└── README.md
 ```
-
-### Architecture Overview
-
-#### **Component Architecture**
-- **Modular Design**: Components are organized by feature (passkeys, common UI)
-- **Composition Pattern**: Smaller, focused components compose larger features
-- **Separation of Concerns**: UI components separated from business logic
-
-#### **Hook-Based State Management**
-- **Custom Hooks**: Business logic extracted into reusable hooks
-- **Separation of Concerns**: Authentication, data fetching, and operations in dedicated hooks
-- **Clean API**: Hooks provide simple interfaces for complex operations
-
-#### **Service Layer**
-- **API Abstraction**: Service layer abstracts Microsoft Graph API calls
-- **Error Handling**: Centralized error handling and response processing
-- **Token Management**: Secure token handling and caching
-
-#### **Utility Functions**
-- **Pure Functions**: Stateless utility functions for data processing
-- **Reusability**: Common operations shared across components
-- **Type Safety**: Robust data validation and transformation
-
 
 ## 📚 Additional Resources
 
+- [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
 - [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)

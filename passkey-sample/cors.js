@@ -1,11 +1,6 @@
 import http from "http";
 import https from "https";
-import { appConfig } from "./src/authConfig.js";
-const proxyConfig = {
-    localApiPath: "/api",
-    port: 3001,
-    proxy: `https://login.microsoftonline.com/${appConfig.tenantId}`,
-};
+import { proxyConfig } from "./proxy.config.js";
 
 const extraHeaders = [
     "x-client-SKU",
@@ -16,9 +11,52 @@ const extraHeaders = [
     "x-client-last-telemetry",
     "client-request-id",
 ];
+
+function forwardRequest(req, res, targetUrl, corsHeaders, pathname) {
+    if (!targetUrl) {
+        res.writeHead(404, { "Content-Type": "text/plain" });
+        res.end("Not Found");
+        return;
+    }
+
+    console.log("Incoming request -> " + req.url + " ===> " + pathname);
+
+    const newHeaders = {};
+    for (let [key, value] of Object.entries(req.headers)) {
+        if (key !== 'origin') {
+            newHeaders[key] = value;
+        }
+    }
+
+    const proxyReq = https.request(
+        targetUrl, // CodeQL [SM04580] Targets are built from configured, fixed upstream hosts.
+        {
+            method: req.method,
+            headers: {
+                ...newHeaders,
+                host: new URL(targetUrl).hostname,
+            },
+        },
+        (proxyRes) => {
+            res.writeHead(proxyRes.statusCode, {
+                ...proxyRes.headers,
+                ...corsHeaders,
+            });
+            proxyRes.pipe(res);
+        }
+    );
+
+    proxyReq.on("error", (err) => {
+        console.error("Error with the proxy request:", err);
+        res.writeHead(500, { "Content-Type": "text/plain" });
+        res.end("Proxy error.");
+    });
+
+    req.pipe(proxyReq);
+}
+
 http.createServer((req, res) => {
     const reqUrl = new URL(req.url, `http://localhost:${proxyConfig.port}`);
-    const domain = new URL(proxyConfig.proxy).hostname;
 
     // Set CORS headers for all responses including OPTIONS
     const corsHeaders = {
@@ -37,48 +75,23 @@ http.createServer((req, res) => {
     }
 
     if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-        const targetUrl = proxyConfig.proxy + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
+        const targetUrl = proxyConfig.tokenAuthority + (reqUrl.pathname ? reqUrl.pathname.replace(proxyConfig.localApiPath, "") : "") + (reqUrl.search || "");
 
-        console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
-
-        const newHeaders = {};
-        for (let [key, value] of Object.entries(req.headers)) {
-            if (key !== 'origin') {
-                newHeaders[key] = value;
-            }
+        forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
+    } else if (reqUrl.pathname.startsWith(`${proxyConfig.selfServicePrefix}/`)) {
+        if (req.method === "DELETE") {
+            forwardRequest(req, res, null, corsHeaders, reqUrl.pathname);
+            return;
         }
 
-        const proxyReq = https.request(
-            targetUrl, // CodeQL [SM04580] The newly generated target URL utilizes the configured proxy URL to resolve the CORS issue and will be used exclusively for demo purposes and run locally.
-            {
-                method: req.method,
-                headers: {
-                    ...newHeaders,
-                    host: domain,
-                },
-            },
-            (proxyRes) => {
-                res.writeHead(proxyRes.statusCode, {
-                    ...proxyRes.headers,
-                    ...corsHeaders,
-                });
-
-                proxyRes.pipe(res);
-            }
-        );
-
-        proxyReq.on("error", (err) => {
-            console.error("Error with the proxy request:", err);
-            res.writeHead(500, { "Content-Type": "text/plain" });
-            res.end("Proxy error.");
-        });
-
-        req.pipe(proxyReq);
+        const targetUrl = proxyConfig.selfServiceAuthority + reqUrl.pathname.slice(proxyConfig.selfServicePrefix.length) + (reqUrl.search || "");
+        forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
     }
 }).listen(proxyConfig.port, () => {
     console.log("CORS proxy running on http://localhost:3001");
-    console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.proxy);
+    console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.tokenAuthority);
+    console.log("Proxying from " + proxyConfig.selfServicePrefix + " ===> " + proxyConfig.selfServiceAuthority);
 });
