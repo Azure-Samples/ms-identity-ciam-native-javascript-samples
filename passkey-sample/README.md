@@ -1,6 +1,6 @@
 # Microsoft Identity Platform - React SPA with Passkeys
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Passkey listing and registration use the Credential Management API; deletion still uses Microsoft Graph.
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. Deletion still uses the high-privilege Microsoft Graph API.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -18,7 +18,7 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 - Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
-- Client application registered under CIAM tenant with UserAuthMethod-Passkey.ReadWrite.All application permissions granted by admin
+- Client application registered under the CIAM tenant with the Self Service delegated permission and the Microsoft Graph application permission described below, with admin consent
 
 #### Device
 
@@ -108,7 +108,7 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 **⚠️ Critical**:
 
-- Register and run this sample **only against a test tenant**. Do not register it in a production tenant — the sample uses high-privilege admin APIs and is intended for demo/testing only.
+- Register and run this sample **only against a test tenant**. Do not register it in a production tenant and the sample is intended for demo/testing only.
 - Configure the app registration as **Single tenant**. In **App registrations** → your app → **Authentication** → **Supported account types**, select **Accounts in this organizational directory only**.
 
 #### Step 2: Register Redirect URI in Entra Portal
@@ -133,15 +133,21 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 #### Step 3: Verify Required Permissions
 
-Ensure your app registration has the following Microsoft Graph API permissions:
+Configure both APIs under **App registrations** → your app → **API permissions**:
 
-**Application Permissions (Admin consent required):**
-- `UserAuthMethod-Passkey.ReadWrite.All` - Required for passkey management
+**Self Service (Credential Management) API — delegated permission for listing/getting and registering passkeys:**
 
-**Grant Admin Consent:**
-1. In your app registration, go to **API permissions**
-2. Click **Grant admin consent for [Your Tenant]**
-3. Confirm the consent
+1. Click **Add a permission** → **APIs my organization uses**.
+2. Search for `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9` and select **Me-CredentialProfileManagement**.
+3. Select **Delegated permissions** → `Me.UserAuthenticationMethod.ReadWrite`.
+4. Click **Add permissions**.
+
+**Microsoft Graph — application permission for deleting passkeys:**
+
+1. Click **Add a permission** → **Microsoft Graph** → **Application permissions**.
+2. Select `UserAuthMethod-Passkey.ReadWrite.All` and click **Add permissions**.
+
+Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Graph application permission is used only for deletion; the Self Service permission is delegated to the signed-in user for list/get and add.
 
 ### 3. Application Configuration
 
@@ -159,7 +165,7 @@ const tenantName = '<your-tenant-name>';
 export const msalConfig = {
     auth: {
         clientId, // Application (client) ID from app registration
-        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace passkeytest with your tenant subdomain
+        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace tenantName with your tenant subdomain
         redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
@@ -174,7 +180,7 @@ export const msalConfig = {
 
 #### Step 2: Environment Configuration (.env file)
 
-The repository does **not** include a `.env` file — you need to create one yourself. Copy `.env.example` to a new file named `.env` in the same `sample/` folder and fill in your values. `.env` is gitignored, so your local copy stays on your machine.
+The repository does **not** include a `.env` file — you need to create one yourself. Copy `.env.example` to a new file named `.env` in the same `passkey-sample/` folder and fill in your values. `.env` is gitignored, so your local copy stays on your machine.
 
 ```env
 # Local dev hostname — must match the auth.<tenant>.ciamlogin.com subdomain in your hosts file
@@ -191,10 +197,10 @@ VITE_APP_SECRET=your-client-secret
 
 #### Step 3: Application Configuration (authConfig.js)
 
-The Credential Management API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
+The Self Service API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
 
 ```javascript
-export const credentialApiConfig = {
+export const selfServiceApiConfig = {
     scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
     // ... other API settings
 };
@@ -248,7 +254,7 @@ https://auth.passkeytest.ciamlogin.com:3000
 
 ### SSL Certificates
 
-The application includes SSL certificates for HTTPS development:
+Generate these SSL certificate files locally for HTTPS development:
 
 - `auth-cert.pem` - SSL certificate
 - `auth-key.pem` - SSL private key
@@ -256,7 +262,7 @@ The application includes SSL certificates for HTTPS development:
 ### CORS Proxy
 
 - `/api/*` → Microsoft Entra token endpoint
-- `/myaccount-api/*` → Credential Management API (except DELETE)
+- `/selfservice-api/*` → Self Service (Credential Management) API for list/get and add; deletion calls Microsoft Graph directly
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
@@ -265,7 +271,7 @@ For production deployment, consider using [Set up a reverse proxy for a single-p
 The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
-- Delegated Credential Management API access for passkey listing and registration
+- Delegated Self Service (Credential Management) API access for passkey listing/getting and registration
 - Multi-factor authentication (MFA) enforcement for passkey operations
 
 ## 🔐 Features
