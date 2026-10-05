@@ -133,6 +133,10 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 #### Step 3: Verify Required Permissions
 
+Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
+
+Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal with Graph Explorer while signed in as a tenant administrator.
+
 Configure both APIs under **App registrations** → your app → **API permissions**:
 
 **Self Service (Credential Management) API — delegated permission for listing/getting and registering passkeys:**
@@ -323,6 +327,7 @@ passkey-sample/
 
 ## 📚 Additional Resources
 
+- [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
 - [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)
