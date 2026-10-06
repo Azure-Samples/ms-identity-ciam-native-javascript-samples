@@ -1,30 +1,19 @@
 import { useState, useCallback } from 'react';
-import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { fetchSelfServicePasskeys } from '../../services/selfServiceApiClient';
-import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
+import { fetchUserPasskey } from '../../services/PasskeyService';
 import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages } from '../../utils/passkeyUtils';
-import { useAuthentication } from './useAuthentication';
-
-const DOWNSTREAM_TOKEN_ERROR_CODE = 'AADSTS7006105';
-
-const requiresFullReauthentication = (error) => {
-    return error?.message?.includes(DOWNSTREAM_TOKEN_ERROR_CODE);
-};
 
 /**
  * Hook for managing passkey data fetching with retry logic
  * @param {Object} params - Hook parameters
- * @param {Object} params.instance - MSAL instance
- * @param {Object} params.account - Signed-in account
- * @param {number|null} params.ngcmfaExpiry - Expiration derived from the user token iat
+ * @param {string} params.appToken - Authentication token
+ * @param {string} params.userId - User ID
  * @param {Function} params.onShowToast - Toast notification function
  * @returns {Object} Passkey data and fetching utilities
  */
-export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast }) => {
+export const usePasskeyFetcher = ({ appToken, userId, onShowToast }) => {
     const [passkeys, setPasskeys] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { isTokenExpired, handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
 
     const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
         const { 
@@ -33,27 +22,10 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
             setLoadingState = true,
         } = options;
 
-        const cacheListOperation = () => {
-            const pendingOperation = getCachedOperation();
-            if (!pendingOperation || pendingOperation.action === 'list') {
-                cacheOperation({ action: 'list' });
-            }
-        };
-
-        if (!account) {
-            setError('Sign in to view your passkeys');
+        if (!appToken || !userId) {
+            setError('Access token or user ID not available');
             if (setLoadingState) setIsLoading(false);
             return;
-        }
-
-        if (isTokenExpired(ngcmfaExpiry)) {
-            cacheListOperation();
-            const expiryError = new Error('The 15-minute verification has expired. Sign in again to view your passkeys.');
-            setError(expiryError.message);
-            if (setLoadingState) setIsLoading(false);
-            await handleReAuthentication();
-            if (expectedChange) throw expiryError;
-            return null;
         }
 
         let lastError;
@@ -69,7 +41,7 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                     console.log(`Fetch attempt ${attempt}/${maxRetries}...`);
                 }
                 
-                const transformedPasskeys = await fetchSelfServicePasskeys(instance, account);
+                const transformedPasskeys = await fetchUserPasskey(appToken, userId);
                 console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
                 
                 if (expectedChange) {
@@ -107,22 +79,6 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                 
             } catch (error) {
                 lastError = error;
-                if (requiresFullReauthentication(error)) {
-                    cacheListOperation();
-                    await handleReAuthentication();
-                    break;
-                }
-                if (error instanceof InteractionRequiredAuthError) {
-                    cacheListOperation();
-                    onShowToast?.(createToastMessages.sessionExpiredWithAction(async () => {
-                        try {
-                            await redirectForSelfServiceAccess(instance, account);
-                        } catch (redirectError) {
-                            setError(`Could not verify your identity: ${redirectError.message}`);
-                        }
-                    }));
-                    break;
-                }
                 if (maxRetries > 1) {
                     console.warn(`Fetch attempt ${attempt} failed:`, error);
                 } else {
@@ -134,17 +90,11 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
                 }
             }
         }
-
-        const requiresUserAction = lastError instanceof InteractionRequiredAuthError
-            || requiresFullReauthentication(lastError);
-        const errorMsg = requiresUserAction
-            ? onShowToast
-                ? 'Additional verification is required. Select Next in the security prompt to view your passkeys.'
-                : 'Additional verification is required. Sign in again to view your passkeys.'
-            : `Failed to load passkeys: ${lastError?.message || 'Unknown error'}`;
+        
+        const errorMsg = `Failed to load passkeys: ${lastError?.message || 'Unknown error'}`;
         setError(errorMsg);
         
-        if (onShowToast && !requiresUserAction) {
+        if (onShowToast) {
             onShowToast(createToastMessages.errorLoading());
         }
         
@@ -157,7 +107,7 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
         }
         
         return null;
-    }, [instance, account, ngcmfaExpiry, onShowToast]);
+    }, [appToken, userId, onShowToast]);
 
     const refetch = useCallback(() => {
         return fetchPasskeys();
