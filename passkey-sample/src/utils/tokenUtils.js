@@ -9,27 +9,11 @@
  */
 export const parseJwt = (token) => {
     try {
-        if (!token || typeof token !== 'string') {
-            return null;
-        }
         const base64Url = token.split('.')[1];
-        if (!base64Url) {
-            // Not a JWT (e.g. an opaque/encrypted access token) — nothing to decode.
-            return null;
-        }
-        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        // atob requires the input length to be a multiple of 4; base64url
-        // strips the '=' padding, so restore it before decoding.
-        const padding = base64.length % 4;
-        if (padding) {
-            base64 += '='.repeat(4 - padding);
-        }
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
-        if (!jsonPayload) {
-            return null;
-        }
         return JSON.parse(jsonPayload);
     } catch (error) {
         console.error('Error parsing JWT:', error);
@@ -58,15 +42,13 @@ export const calculateNgcmfaExpiration = (decodedToken, expiryMinutes = 10, seco
  * @param {Object} instance - MSAL instance
  * @param {Array} accounts - User accounts
  * @param {Object} tokenRequest - Token request configuration
- * @param {boolean} forceRefresh - Whether to bypass the access-token cache
  * @returns {Promise<Object>} - Object containing { token, decodedToken, error }
  */
-export const getAccessToken = async (instance, accounts, loginRequest, forceRefresh = false) => {
+export const getAccessToken = async (instance, accounts, loginRequest) => {
     if (accounts.length > 0) {
         const request = {
             claims: loginRequest.extraQueryParameters?.claims,
             account: accounts[0],
-            forceRefresh,
         };
 
         try {

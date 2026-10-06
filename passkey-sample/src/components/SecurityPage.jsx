@@ -4,10 +4,6 @@ import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
 import { loginRequest, appConfig } from '../authConfig';
 import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
-import {
-    acquireSelfServiceTokenAfterSignIn,
-    isSelfServiceTokenAcquisitionAfterSignInPending
-} from '../utils/selfServiceToken';
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
@@ -18,59 +14,36 @@ const SECONDS_PER_MINUTE = 60;
 
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
-    const account = instance.getActiveAccount() || accounts[0];
-    const accountId = account?.homeAccountId;
     const [accessToken, setAccessToken] = useState(null);
     const [appToken, setAppToken] = useState(null);
     const [ngcmfaExpiration, setNgcmfaExpiration] = useState(null);
     const [loading, setLoading] = useState(true);
     const [accessTokenError, setAccessTokenError] = useState(null);
     const [appTokenError, setAppTokenError] = useState(null);
-    const [selfServiceTokenError, setSelfServiceTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
 
     useEffect(() => {
         const fetchAccessToken = async () => {
             try {
-                const isAfterSignIn = isSelfServiceTokenAcquisitionAfterSignInPending();
-                const result = await getAccessToken(
-                    instance,
-                    account ? [account] : [],
-                    loginRequest,
-                    isAfterSignIn
-                );
+                const result = await getAccessToken(instance, accounts, loginRequest);
 
                 if (result.error) {
                     setAccessTokenError(result.error);
-                    setAccessToken(null);
-                    setNgcmfaExpiration(null);
                     setLoading(false);
                 } else {
                     setAccessTokenError(null);
                     setAccessToken(result.decodedToken);
-                    setNgcmfaExpiration(calculateNgcmfaExpiration(result.decodedToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE));
-                    try {
-                        await acquireSelfServiceTokenAfterSignIn(instance, account);
-                        setSelfServiceTokenError(null);
-                    } catch (error) {
-                        console.error('Failed to acquire the Self Service API token after sign-in:', error);
-                        setSelfServiceTokenError(`Failed to acquire the Self Service API token: ${error.message}`);
-                    }
                     setLoading(false);
                 }
             } catch (error) {
                 setAccessTokenError(`Failed to get access token: ${error.message}`);
-                setAccessToken(null);
-                setNgcmfaExpiration(null);
                 setLoading(false);
             }
         };
 
         fetchAccessToken();
-    // Account objects may be recreated when MSAL reads its cache.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [instance, accountId]);
+    }, [instance, accounts]);
 
     useEffect(() => {
         const fetchAppToken = async () => {
@@ -97,10 +70,22 @@ export const SecurityPage = () => {
         if (instance) {
             fetchAppToken();
         }
-    }, [instance]);
+    }, [instance, accessToken]);
+
+    useEffect(() => {
+        if (accessToken) {
+            const expiration = calculateNgcmfaExpiration(accessToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE);
+            setNgcmfaExpiration(expiration);
+        } else {
+            setNgcmfaExpiration(null);
+        }
+    }, [accessToken]);
 
     const getUserId = () => {
-        return accessToken?.oid || account?.idTokenClaims?.oid || null;
+        if (accessToken && accessToken.oid) {
+            return accessToken.oid;
+        }
+        return null;
     };
 
     const getUserData = () => {
@@ -109,19 +94,19 @@ export const SecurityPage = () => {
             email: "user@example.com",
         };
 
-        const claims = accessToken || account?.idTokenClaims;
-        if (claims) {
+        if (accessToken) {
             return {
-                name: claims.name || claims.given_name || claims.family_name || defaultUserData.name,
-                email: claims.unique_name || claims.email || claims.preferred_username || claims.upn || defaultUserData.email,
+                name: accessToken.name || accessToken.given_name || accessToken.family_name || defaultUserData.name,
+                email: accessToken.unique_name || accessToken.email || accessToken.preferred_username || accessToken.upn || defaultUserData.email,
             };
         }
 
         return defaultUserData;
     };
 
-    const userData = getUserData();
-    const userId = getUserId();
+    const displayError = accessTokenError || appTokenError;
+    const userData = !loading && !accessTokenError ? getUserData() : { name: "Loading...", email: "Loading..." };
+    const userId = !loading && !accessTokenError ? getUserId() : null;
 
     const alerts = [
         {
@@ -133,18 +118,24 @@ export const SecurityPage = () => {
     ];
 
     const showToast = (toastData) => {
-        setToasts(prev => {
-            if (toastData.type === 'sessionExpiredWithAction' &&
-                prev.some(toast => toast.type === 'sessionExpiredWithAction' && toast.show)) {
-                return prev;
+        // Check if this is a sessionExpiredWithAction toast and if one already exists
+        if (toastData.type === 'sessionExpiredWithAction') {
+            const existingSessionExpiredToast = toasts.find(
+                toast => toast.type === 'sessionExpiredWithAction' && toast.show
+            );
+            
+            // If a session expired toast is already showing, don't add another one
+            if (existingSessionExpiredToast) {
+                return;
             }
+        }
 
-            return [...prev, {
-                id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-                show: true,
-                ...toastData
-            }];
-        });
+        const newToast = {
+            id: `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+            show: true,
+            ...toastData
+        };
+        setToasts(prev => [...prev, newToast]);
     };
 
     const closeToast = (toastId) => {
@@ -159,6 +150,36 @@ export const SecurityPage = () => {
                         <span className="visually-hidden">Loading...</span>
                     </Spinner>
                 </div>
+            </Container>
+        );
+    }
+
+    if (displayError) {
+        return (
+            <Container className="py-4">
+                <Alert variant={accessTokenError ? "danger" : "warning"}>
+                    <Alert.Heading>
+                        {accessTokenError ? "Authentication Error" : "Service Error"}
+                    </Alert.Heading>
+                    <p>{displayError}</p>
+                    {accessTokenError && appTokenError && (
+                        <>
+                            <hr />
+                            <p><strong>Additional issue:</strong> {appTokenError}</p>
+                        </>
+                    )}
+                </Alert>
+            </Container>
+        );
+    }
+
+    if (!userId) {
+        return (
+            <Container className="py-4">
+                <Alert variant="warning">
+                    <Alert.Heading>User ID Not Available</Alert.Heading>
+                    <p>Unable to extract user ID from token claims. Please try logging in again.</p>
+                </Alert>
             </Container>
         );
     }
@@ -179,17 +200,12 @@ export const SecurityPage = () => {
                 />
             ))}
 
-            {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
-            {appTokenError && <Alert variant="warning">{appTokenError}</Alert>}
-            {selfServiceTokenError && <Alert variant="warning">{selfServiceTokenError}</Alert>}
-            {!selfServiceTokenError && (
-                <PasskeysSection
-                    onShowToast={showToast}
-                    appToken={appToken}
-                    userId={userId}
-                    ngcmfaExpiry={ngcmfaExpiration}
-                />
-            )}
+            <PasskeysSection
+                onShowToast={showToast}
+                appToken={appToken}
+                userId={userId}
+                ngcmfaExpiry={ngcmfaExpiration}
+            />
 
             {/* Toast Notifications */}
             <ToastNotifications
