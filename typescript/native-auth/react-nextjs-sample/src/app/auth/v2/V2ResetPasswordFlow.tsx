@@ -16,6 +16,7 @@ import { NewPasswordForm } from "../components/forms/NewPasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
+import { v2AuthorizationInputs } from "../../../config/v2-request-config";
 import type { AuthFlowProps } from "../types";
 
 type V2ResetPasswordFlowProps = Omit<
@@ -28,7 +29,10 @@ function getThrownErrorMessage(error: unknown): string {
 }
 
 export function startV2ResetPassword(app: AuthFlowProps["app"], username: string) {
-    return app.resetPasswordV2({ username });
+    return app.resetPasswordV2({
+        username,
+        ...v2AuthorizationInputs,
+    });
 }
 
 export function V2ResetPasswordFlow({
@@ -126,7 +130,7 @@ export function V2ResetPasswordFlow({
         setError("");
         setLoading(true);
         try {
-            const result = await resetState.requestChallenge(method);
+            const result = await resetState.selectAuthMethod(method);
             if (result.isFailed()) {
                 setError(getV2ErrorMessage(result.error));
                 return;
@@ -136,7 +140,7 @@ export function V2ResetPasswordFlow({
                 setCode("");
                 setResetState(result.state);
             } else {
-                setError("Verification challenge request returned an unsupported state.");
+                setError("Authentication method selection returned an unsupported state.");
             }
         } catch (caughtError) {
             setError(getThrownErrorMessage(caughtError));

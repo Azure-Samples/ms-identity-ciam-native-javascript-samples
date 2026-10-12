@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
+    AuthMethodSelectionRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
-    MFARequiredStateV2,
     MFAVerificationRequiredStateV2,
     PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
@@ -14,8 +14,9 @@ import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { AuthStepLayout } from "../components/AuthStepLayout";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
-import { V2MfaFlow } from "./V2MfaFlow";
+import { V2AuthMethodFlow } from "./V2AuthMethodFlow";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
+import { v2AuthorizationInputs } from "../../../config/v2-request-config";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 
 type V2SignInFlowProps = Omit<Extract<AuthFlowProps, { version: "v2"; action: "signIn" }>, "version" | "action">;
@@ -28,6 +29,7 @@ export function startV2SignIn(app: AuthFlowProps["app"], credentials: InitialCre
     return app.signInV2({
         username: credentials.username,
         password: credentials.password || undefined,
+        ...v2AuthorizationInputs,
     });
 }
 
@@ -42,7 +44,7 @@ export function V2SignInFlow({
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
-    const [mfaBusy, setMfaBusy] = useState(false);
+    const [authMethodBusy, setAuthMethodBusy] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
 
@@ -68,7 +70,7 @@ export function V2SignInFlow({
             setSignInState(initialResult.state);
         } else if (initialResult.isState("codeRequired")) {
             setSignInState(initialResult.state);
-        } else if (initialResult.isState("mfaRequired")) {
+        } else if (initialResult.isState("authMethodSelectionRequired")) {
             setSignInState(initialResult.state);
         } else if (initialResult.isState("completed")) {
             setSignInState(initialResult.state);
@@ -120,7 +122,7 @@ export function V2SignInFlow({
 
             if (result.isState("completed")) {
                 complete(result.state, result.data);
-            } else if (result.isState("mfaRequired")) {
+            } else if (result.isState("authMethodSelectionRequired")) {
                 setSignInState(result.state);
             } else {
                 setError("Password submission returned an unsupported state.");
@@ -145,21 +147,13 @@ export function V2SignInFlow({
             const result = await signInState.submitCode(code);
 
             if (result.isFailed()) {
-                if (result.error?.isInvalidCode()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else if (result.error?.isInvalidInput()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else if (result.error?.isBrowserRequired()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else {
-                    setError(getV2ErrorMessage(result.error));
-                }
+                setError(getV2ErrorMessage(result.error));
                 return;
             }
 
             if (result.isState("completed")) {
                 complete(result.state, result.data);
-            } else if (result.isState("mfaRequired")) {
+            } else if (result.isState("authMethodSelectionRequired")) {
                 setCode("");
                 setSignInState(result.state);
             } else {
@@ -185,11 +179,7 @@ export function V2SignInFlow({
             const result = await signInState.resendCode();
 
             if (result.isFailed()) {
-                if (result.error?.isBrowserRequired()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else {
-                    setError(getV2ErrorMessage(result.error));
-                }
+                setError(getV2ErrorMessage(result.error));
                 return;
             }
 
@@ -214,14 +204,17 @@ export function V2SignInFlow({
                 submitButtonLoadingText="Signing in..."
             />
         );
-    } else if (signInState instanceof MFARequiredStateV2 || signInState instanceof MFAVerificationRequiredStateV2) {
+    } else if (
+        signInState instanceof AuthMethodSelectionRequiredStateV2 ||
+        signInState instanceof MFAVerificationRequiredStateV2
+    ) {
         content = (
-            <V2MfaFlow
+            <V2AuthMethodFlow
                 state={signInState}
                 onStateChange={setSignInState}
                 onCompleted={complete}
                 onErrorChange={setError}
-                onBusyChange={setMfaBusy}
+                onBusyChange={setAuthMethodBusy}
             />
         );
     } else if (signInState instanceof CodeRequiredStateV2) {
@@ -251,7 +244,7 @@ export function V2SignInFlow({
         <AuthStepLayout
             title="V2 Sign In"
             error={error}
-            busy={loading || resendLoading || mfaBusy}
+            busy={loading || resendLoading || authMethodBusy}
             onCancel={handleCancel}
         >
             {content}

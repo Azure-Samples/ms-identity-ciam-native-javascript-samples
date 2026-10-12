@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
+    AuthMethodSelectionRequiredStateV2,
     CompletedStateV2,
-    MFARequiredStateV2,
     MFAVerificationRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
@@ -13,8 +13,8 @@ import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
 
-interface V2MfaFlowProps {
-    state: MFARequiredStateV2 | MFAVerificationRequiredStateV2;
+interface V2AuthMethodFlowProps {
+    state: AuthMethodSelectionRequiredStateV2 | MFAVerificationRequiredStateV2;
     onStateChange: (state: AuthFlowStateBase) => void;
     onCompleted: (state: CompletedStateV2, account?: CustomAuthAccountData) => void;
     onErrorChange: (error: string) => void;
@@ -25,13 +25,13 @@ function getThrownErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : "An unexpected sign-in error occurred.";
 }
 
-export function V2MfaFlow({
+export function V2AuthMethodFlow({
     state,
     onStateChange,
     onCompleted,
     onErrorChange,
     onBusyChange,
-}: V2MfaFlowProps) {
+}: V2AuthMethodFlowProps) {
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -60,8 +60,8 @@ export function V2MfaFlow({
     }, [resendCountdown]);
 
     const handleMethodSubmit = async (id: string) => {
-        if (!(state instanceof MFARequiredStateV2)) {
-            setError("Restart sign-in before selecting an MFA method.");
+        if (!(state instanceof AuthMethodSelectionRequiredStateV2)) {
+            setError("Restart sign-in before selecting an authentication method.");
             return;
         }
 
@@ -74,15 +74,9 @@ export function V2MfaFlow({
         setError("");
         setLoading(true);
         try {
-            const result = await state.requestChallenge(method);
+            const result = await state.selectAuthMethod(method);
             if (result.isFailed()) {
-                if (result.error?.isInvalidInput()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else if (result.error?.isBrowserRequired()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else {
-                    setError(getV2ErrorMessage(result.error));
-                }
+                setError(getV2ErrorMessage(result.error));
                 return;
             }
 
@@ -107,15 +101,7 @@ export function V2MfaFlow({
         try {
             const result = await state.submitChallenge(code);
             if (result.isFailed()) {
-                if (result.error?.isInvalidCode()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else if (result.error?.isInvalidInput()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else if (result.error?.isBrowserRequired()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else {
-                    setError(getV2ErrorMessage(result.error));
-                }
+                setError(getV2ErrorMessage(result.error));
                 return;
             }
 
@@ -143,11 +129,7 @@ export function V2MfaFlow({
         try {
             const result = await state.resendChallenge();
             if (result.isFailed()) {
-                if (result.error?.isBrowserRequired()) {
-                    setError(getV2ErrorMessage(result.error));
-                } else {
-                    setError(getV2ErrorMessage(result.error));
-                }
+                setError(getV2ErrorMessage(result.error));
                 return;
             }
 
@@ -161,7 +143,7 @@ export function V2MfaFlow({
         }
     };
 
-    if (state instanceof MFARequiredStateV2) {
+    if (state instanceof AuthMethodSelectionRequiredStateV2) {
         return (
             <MethodSelectionForm
                 options={state.methods.map((method) => ({
@@ -170,7 +152,7 @@ export function V2MfaFlow({
                 }))}
                 onSubmit={handleMethodSubmit}
                 loading={loading}
-                description="Choose how to receive your verification code:"
+                description="Choose an authentication method:"
                 submitText="Send code"
                 submittingText="Sending..."
             />

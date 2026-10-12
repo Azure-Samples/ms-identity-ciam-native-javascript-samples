@@ -4,16 +4,14 @@ import type { ActiveFlow, AuthAction, AuthFlowProps, InitialCredentials } from "
 import { startV2ResetPassword, V2ResetPasswordFlow } from "./V2ResetPasswordFlow";
 import { startV2SignIn, V2SignInFlow } from "./V2SignInFlow";
 import { startV2SignUp, V2SignUpFlow } from "./V2SignUpFlow";
+import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
 
 type V2AuthEntryFlowProps = Extract<AuthFlowProps, { version: "v2" }>;
 type V2ActiveFlow = Extract<ActiveFlow, { version: "v2" }>;
 
 function validateInitialResult(flow: V2ActiveFlow): V2ActiveFlow {
     if (flow.initialResult.isFailed()) {
-        throw new Error(
-            flow.initialResult.error?.errorData.errorDescription ||
-                "The authentication request could not be started.",
-        );
+        throw new Error(getV2ErrorMessage(flow.initialResult.error));
     }
 
     return flow;
