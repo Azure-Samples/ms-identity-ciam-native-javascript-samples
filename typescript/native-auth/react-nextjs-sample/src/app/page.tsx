@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import type { PopupRequest } from "@azure/msal-browser";
 import { broadcastResponseToMainFrame } from "@azure/msal-browser/redirect-bridge";
 import {
@@ -32,6 +32,12 @@ export default function Home() {
             });
         }
     }, [setError]);
+
+    useLayoutEffect(() => {
+        if (!account) {
+            setUsername("");
+        }
+    }, [account]);
 
     const cancelFlow = useCallback(() => {
         setActiveFlow(undefined);

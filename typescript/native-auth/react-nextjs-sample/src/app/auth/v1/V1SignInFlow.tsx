@@ -33,12 +33,7 @@ export function startV1SignIn(app: AuthFlowProps["app"], credentials: InitialCre
     });
 }
 
-export function V1SignInFlow({
-    app,
-    initialResult,
-    onCancel,
-    onCompleted,
-}: V1SignInFlowProps) {
+export function V1SignInFlow({ app, initialResult, onCancel, onCompleted }: V1SignInFlowProps) {
     const handledInitialResult = useRef(false);
     const [state, setState] = useState<AuthFlowStateBase | null>(null);
     const [code, setCode] = useState("");
@@ -59,10 +54,13 @@ export function V1SignInFlow({
         return () => window.clearInterval(timer);
     }, [resendCountdown]);
 
-    const complete = useCallback((account?: CustomAuthAccountData) => {
-        setCode("");
-        onCompleted(account);
-    }, [onCompleted]);
+    const complete = useCallback(
+        (account?: CustomAuthAccountData) => {
+            setCode("");
+            onCompleted(account);
+        },
+        [onCompleted],
+    );
 
     const handleCancel = () => {
         setCode("");
@@ -82,7 +80,7 @@ export function V1SignInFlow({
         if (hasFailed(accountResult)) {
             throw new Error(
                 accountResult.error?.errorData.errorDescription ||
-                    "An error occurred while getting the account from the cache."
+                    "An error occurred while getting the account from the cache.",
             );
         }
         if (!accountResult.isCompleted()) {
@@ -152,7 +150,7 @@ export function V1SignInFlow({
                     result.error?.errorData.errorDescription ||
                         (result.error?.isInvalidPassword()
                             ? "Incorrect password."
-                            : "An error occurred while verifying the password.")
+                            : "An error occurred while verifying the password."),
                 );
                 return;
             }
@@ -184,7 +182,7 @@ export function V1SignInFlow({
                     result.error?.errorData.errorDescription ||
                         (result.error?.isInvalidCode()
                             ? "Invalid verification code."
-                            : "An error occurred while verifying the code.")
+                            : "An error occurred while verifying the code."),
                 );
                 return;
             }

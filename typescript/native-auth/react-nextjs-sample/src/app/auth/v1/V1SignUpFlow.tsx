@@ -42,11 +42,7 @@ export function startV1SignUp(app: AuthFlowProps["app"], credentials: InitialCre
     });
 }
 
-export function V1SignUpFlow({
-    initialResult,
-    onCancel,
-    onCompleted,
-}: V1SignUpFlowProps) {
+export function V1SignUpFlow({ initialResult, onCancel, onCompleted }: V1SignUpFlowProps) {
     const handledInitialResult = useRef(false);
     const [state, setState] = useState<AuthFlowStateBase | null>(null);
     const [code, setCode] = useState("");
@@ -68,11 +64,14 @@ export function V1SignUpFlow({
         return () => window.clearInterval(timer);
     }, [resendCountdown]);
 
-    const complete = useCallback((account?: CustomAuthAccountData) => {
-        setCode("");
-        setAttributeValues({});
-        onCompleted(account);
-    }, [onCompleted]);
+    const complete = useCallback(
+        (account?: CustomAuthAccountData) => {
+            setCode("");
+            setAttributeValues({});
+            onCompleted(account);
+        },
+        [onCompleted],
+    );
 
     const handleCancel = () => {
         setCode("");
@@ -172,7 +171,7 @@ export function V1SignUpFlow({
                     result.error?.errorData.errorDescription ||
                         (result.error?.isInvalidCode()
                             ? "Invalid verification code."
-                            : "An error occurred while verifying the code.")
+                            : "An error occurred while verifying the code."),
                 );
                 return;
             }
@@ -226,7 +225,7 @@ export function V1SignUpFlow({
                     result.error?.errorData.errorDescription ||
                         (result.error?.isInvalidPassword()
                             ? "Invalid password."
-                            : "An error occurred while submitting the password.")
+                            : "An error occurred while submitting the password."),
                 );
                 return;
             }
@@ -251,7 +250,7 @@ export function V1SignUpFlow({
 
         const requiredAttributes = state.getRequiredAttributes();
         const missingAttribute = requiredAttributes.find(
-            (attribute) => attribute.required !== false && !attributeValues[attribute.name]?.trim()
+            (attribute) => attribute.required !== false && !attributeValues[attribute.name]?.trim(),
         );
         if (missingAttribute) {
             setError(`${getAttributeLabel(missingAttribute.name)} is required.`);
@@ -272,18 +271,13 @@ export function V1SignUpFlow({
             const result = await state.submitAttributes(attributes);
             if (hasFailed(result)) {
                 if (result.error?.isMissingRequiredAttributes()) {
-                    setError(
-                        result.error.errorData.errorDescription || "Required account attributes are missing.",
-                    );
+                    setError(result.error.errorData.errorDescription || "Required account attributes are missing.");
                 } else if (result.error?.isAttributesValidationFailed()) {
-                    setError(
-                        result.error.errorData.errorDescription ||
-                            "One or more account attributes are invalid.",
-                    );
+                    setError(result.error.errorData.errorDescription || "One or more account attributes are invalid.");
                 } else {
                     setError(
                         result.error?.errorData.errorDescription ||
-                            "An error occurred while submitting account attributes."
+                            "An error occurred while submitting account attributes.",
                     );
                 }
                 return;
@@ -303,8 +297,7 @@ export function V1SignUpFlow({
         }
     };
 
-    const requiredAttributes =
-        state instanceof SignUpAttributesRequiredState ? state.getRequiredAttributes() : [];
+    const requiredAttributes = state instanceof SignUpAttributesRequiredState ? state.getRequiredAttributes() : [];
     const attributeFields: AttributeField[] = requiredAttributes.map((attribute) => ({
         name: attribute.name,
         label: getAttributeLabel(attribute.name),
@@ -326,12 +319,7 @@ export function V1SignUpFlow({
             />
         );
     } else if (state instanceof SignUpPasswordRequiredState) {
-        content = (
-            <PasswordForm
-                onSubmit={handlePasswordSubmit}
-                loading={loading}
-            />
-        );
+        content = <PasswordForm onSubmit={handlePasswordSubmit} loading={loading} />;
     } else if (state instanceof SignUpAttributesRequiredState) {
         content = (
             <DynamicAttributesForm

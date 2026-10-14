@@ -11,7 +11,7 @@
         <p>Sign up completed! Signing you in automatically...</p>
     </div>
     <form
-        *ngIf="!showPassword && !showCode && !isSignedIn && !isSignedUp && !showAuthMethodsForRegistration && !showChallengeForRegistration && !showMfaAuthMethods && !showMfaChallenge"
+        *ngIf="!autoStart && !showPassword && !showCode && !showAttributes && !isSignedIn && !isSignedUp && !showAuthMethodsForRegistration && !showChallengeForRegistration && !showMfaAuthMethods && !showMfaChallenge"
         (ngSubmit)="startSignUp()" autocomplete="off">
         <input type="text" [(ngModel)]="flatUsername" name="flatUsername" placeholder="Username (alias)" />
         <input type="text" [(ngModel)]="firstName" name="firstName" placeholder="First Name" required />
@@ -37,6 +37,16 @@
             <span>Sign Up with {{ provider.name }}</span>
         </button>
     </form>
+
+    <app-dynamic-attributes-form
+        *ngIf="showAttributes"
+        [fields]="attributeFields"
+        [values]="attributeValues"
+        [loading]="loading"
+        (valueChange)="onAttributeValueChange($event)"
+        (submitForm)="submitAttributes()"
+    >
+    </app-dynamic-attributes-form>
 
     <!-- Use shared password form -->
     <app-password-form *ngIf="showPassword" [password]="password" [loading]="loading" submitButtonText="Submit Password"
@@ -77,4 +87,8 @@
     </app-mfa-challenge-form>
 
     <div class="error" *ngIf="error">{{ error }}</div>
+    <button *ngIf="embedded && error" type="button" class="auth-secondary-button auth-restart-button"
+        [disabled]="loading" (click)="cancel.emit()">
+        Start over
+    </button>
 </div>

@@ -1,0 +1,28 @@
+<ng-template #attributeFields>
+    <p class="auth-helper-text">Complete the attributes configured for this tenant. Fields marked optional may be left empty.</p>
+    <label *ngFor="let field of fields; trackBy: trackFieldByName">
+        {{ field.label }}{{ field.required ? " *" : " (optional)" }}
+        <input
+            class="auth-input"
+            [name]="field.name"
+            [type]="field.inputType"
+            [required]="field.required"
+            [attr.pattern]="field.pattern || null"
+            [value]="values[field.name] || ''"
+            (input)="onValueChange(field.name, $event)"
+        />
+    </label>
+</ng-template>
+
+<ng-container *ngIf="fieldsOnly; else form">
+    <ng-container *ngTemplateOutlet="attributeFields"></ng-container>
+</ng-container>
+
+<ng-template #form>
+    <form class="auth-form" (ngSubmit)="submitForm.emit()" novalidate>
+        <ng-container *ngTemplateOutlet="attributeFields"></ng-container>
+        <button type="submit" [class]="loading ? 'auth-button-disabled' : 'auth-button'" [disabled]="loading">
+            {{ loading ? "Submitting..." : "Continue" }}
+        </button>
+    </form>
+</ng-template>

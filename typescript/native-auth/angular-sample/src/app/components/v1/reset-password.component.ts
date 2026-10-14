@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     ResetPasswordCodeRequiredState,
@@ -33,6 +33,13 @@ import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-chal
     ],
 })
 export class ResetPasswordComponent {
+    @Input() initialUsername = "";
+    @Input() autoStart = false;
+    @Input() embedded = false;
+
+    @Output() cancel = new EventEmitter<void>();
+    @Output() ready = new EventEmitter<string | undefined>();
+
     username = "";
     code = "";
     newPassword = "";
@@ -60,6 +67,8 @@ export class ResetPasswordComponent {
     constructor(private auth: AuthService) {}
 
     async ngOnInit() {
+        this.username = this.initialUsername;
+
         const client = await this.auth.getClient();
         const result = client.getCurrentAccount();
         if (result.isCompleted()) {
@@ -68,7 +77,10 @@ export class ResetPasswordComponent {
             this.showNewPassword = false;
             this.isReset = false;
             this.userData = result.data;
+        } else if (this.autoStart) {
+            await this.startReset();
         }
+        this.ready.emit(this.error || undefined);
     }
 
     async startReset() {
@@ -87,9 +99,9 @@ export class ResetPasswordComponent {
         if (result.isFailed()) {
             this.error = result.error?.errorData?.errorDescription || "Password reset failed";
             if (result.error?.isInvalidUsername()) {
-                this.error = "Invalid email address";
+                this.error = result.error.errorData.errorDescription || "Invalid email address";
             } else if (result.error?.isUserNotFound()) {
-                this.error = "User not found";
+                this.error = result.error.errorData.errorDescription || "User not found";
             } else {
                 this.error =
                     result.error?.errorData?.errorDescription || "An error occurred while initiating password reset";
@@ -117,7 +129,7 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    this.error = "Invalid verification code";
+                    this.error = result.error.errorData.errorDescription || "Invalid verification code";
                 } else {
                     this.error =
                         result.error?.errorData.errorDescription || "An error occurred while verifying the code";
@@ -167,7 +179,7 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
-                    this.error = "Invalid password";
+                    this.error = result.error.errorData.errorDescription || "Invalid password";
                 } else {
                     this.error =
                         result.error?.errorData.errorDescription || "An error occurred while setting new password";
@@ -254,9 +266,10 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else if (result.error?.isVerificationContactBlocked()) {
                     this.error =
+                        result.error.errorData.errorDescription ||
                         "The verification contact is blocked. Consider using a different contact or a different authentication method";
                 } else {
                     this.error =
@@ -296,7 +309,7 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -329,7 +342,7 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -361,7 +374,7 @@ export class ResetPasswordComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||

@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     SignInPasswordRequiredState,
@@ -41,6 +41,14 @@ import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-chal
     ],
 })
 export class SignInComponent implements OnInit {
+    @Input() initialUsername = "";
+    @Input() initialPassword = "";
+    @Input() autoStart = false;
+    @Input() embedded = false;
+
+    @Output() cancel = new EventEmitter<void>();
+    @Output() ready = new EventEmitter<string | undefined>();
+
     username = "";
     password = "";
     code = "";
@@ -74,6 +82,9 @@ export class SignInComponent implements OnInit {
     constructor(private auth: AuthService) {}
 
     async ngOnInit() {
+        this.username = this.initialUsername;
+        this.password = this.initialPassword;
+
         const client = await this.auth.getClient();
         const result = client.getCurrentAccount();
 
@@ -82,7 +93,10 @@ export class SignInComponent implements OnInit {
             this.showCode = false;
             this.showPassword = false;
             this.userData = result.data;
+        } else if (this.autoStart) {
+            await this.startSignIn();
         }
+        this.ready.emit(this.error || undefined);
     }
 
     async startSignIn() {
@@ -97,16 +111,18 @@ export class SignInComponent implements OnInit {
         this.showMfaChallenge = false;
 
         const client = await this.auth.getClient();
-        const result: SignInResult = await client.signIn({ username: this.username });
+        const result: SignInResult = await client.signIn({
+            username: this.username,
+        });
         let currentState = result.state;
 
         if (result.isFailed()) {
             if (result.error?.isUserNotFound()) {
-                this.error = "User not found";
+                this.error = result.error.errorData.errorDescription || "User not found";
             } else if (result.error?.isInvalidUsername()) {
-                this.error = "Username is invalid";
+                this.error = result.error.errorData.errorDescription || "Username is invalid";
             } else if (result.error?.isPasswordIncorrect()) {
-                this.error = "Password is invalid";
+                this.error = result.error.errorData.errorDescription || "Password is invalid";
             } else if (result.error?.isRedirectRequired()) {
                 const fallbackResult = await this.authWithFallback(client);
                 if (fallbackResult) {
@@ -171,6 +187,10 @@ export class SignInComponent implements OnInit {
 
         this.signInState = currentState;
         this.loading = false;
+
+        if (this.showPassword && this.password) {
+            await this.submitPassword();
+        }
     }
 
     async authWithFallback(client: ICustomAuthPublicClientApplication): Promise<boolean> {
@@ -203,7 +223,7 @@ export class SignInComponent implements OnInit {
             const result = await this.signInState.submitPassword(this.password);
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
-                    this.error = "Incorrect password";
+                    this.error = result.error.errorData.errorDescription || "Incorrect password";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription || "An error occurred while verifying the password";
@@ -244,6 +264,7 @@ export class SignInComponent implements OnInit {
                 this.signInState = result.state;
             }
         }
+        this.password = "";
         this.loading = false;
     }
 
@@ -255,7 +276,7 @@ export class SignInComponent implements OnInit {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    this.error = "Invalid code";
+                    this.error = result.error.errorData.errorDescription || "Invalid code";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription || "An error occurred while verifying the code";
@@ -317,9 +338,10 @@ export class SignInComponent implements OnInit {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else if (result.error?.isVerificationContactBlocked()) {
                     this.error =
+                        result.error.errorData.errorDescription ||
                         "The verification contact is blocked. Consider using a different contact or a different authentication method";
                 } else {
                     this.error =
@@ -359,7 +381,7 @@ export class SignInComponent implements OnInit {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -414,7 +436,7 @@ export class SignInComponent implements OnInit {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -446,7 +468,7 @@ export class SignInComponent implements OnInit {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||

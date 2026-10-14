@@ -1,0 +1,17 @@
+<form class="auth-form" (ngSubmit)="submitForm.emit()">
+    <input type="text" name="username" class="auth-input" [ngModel]="username" (ngModelChange)="usernameChange.emit($event)" [placeholder]="usernamePlaceholder" required />
+    <input
+        *ngIf="showPassword"
+        type="password"
+        name="password"
+        class="auth-input"
+        [ngModel]="password"
+        (ngModelChange)="passwordChange.emit($event)"
+        placeholder="Password (optional)"
+        autocomplete="current-password"
+    />
+    <p class="auth-helper-text" *ngIf="helperText">{{ helperText }}</p>
+    <button type="submit" class="auth-button" [disabled]="loading">
+        {{ loading ? submittingText : submitText }}
+    </button>
+</form>

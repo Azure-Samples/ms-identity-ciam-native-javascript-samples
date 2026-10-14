@@ -1,0 +1,328 @@
+import { CommonModule } from "@angular/common";
+import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import {
+    AuthFlowStateBase,
+    AuthMethodSelectionRequiredStateV2,
+    CodeRequiredStateV2,
+    CompletedStateV2,
+    MFAVerificationRequiredStateV2,
+    PasswordRequiredStateV2,
+} from "@azure/msal-browser/custom-auth";
+import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import { AuthService } from "../../services/auth.service";
+import { v2AuthorizationInputs } from "../../config/v2-request-config";
+import { AuthStartFormComponent } from "../shared/auth-start-form/auth-start-form.component";
+import { AuthStepLayoutComponent } from "../shared/auth-step-layout/auth-step-layout.component";
+import { CodeFormComponent } from "../shared/code-form/code-form.component";
+import {
+    MethodOption,
+    MethodSelectionFormComponent,
+} from "../shared/method-selection-form/method-selection-form.component";
+import { PasswordFormComponent } from "../shared/password-form/password-form.component";
+import { getThrownErrorMessage, getV2ErrorMessage } from "./v2-flow-utils";
+
+@Component({
+    selector: "app-sign-in-v2",
+    templateUrl: "./sign-in-v2.component.html",
+    standalone: true,
+    imports: [
+        CommonModule,
+        AuthStartFormComponent,
+        AuthStepLayoutComponent,
+        CodeFormComponent,
+        MethodSelectionFormComponent,
+        PasswordFormComponent,
+    ],
+})
+export class SignInV2Component implements OnInit {
+    @Input() initialUsername = "";
+    @Input() initialPassword = "";
+    @Input() autoStart = false;
+    @Input() embedded = false;
+
+    @Output() cancel = new EventEmitter<void>();
+    @Output() completed = new EventEmitter<CustomAuthAccountData | undefined>();
+    @Output() ready = new EventEmitter<string | undefined>();
+
+    username = "";
+    password = "";
+    code = "";
+    error = "";
+    loading = false;
+    resendLoading = false;
+    resendCountdown = 0;
+    state: AuthFlowStateBase | null = null;
+    userData: CustomAuthAccountData | undefined;
+
+    constructor(private auth: AuthService) {}
+
+    async ngOnInit(): Promise<void> {
+        this.username = this.initialUsername;
+        this.password = this.initialPassword;
+
+        const client = await this.auth.getClient();
+        const accountResult = client.getCurrentAccount();
+        if (accountResult.isCompleted()) {
+            this.userData = accountResult.data;
+        } else if (this.autoStart) {
+            await this.startSignIn();
+        }
+        this.ready.emit(this.error || undefined);
+    }
+
+    get passwordState(): PasswordRequiredStateV2 | null {
+        return this.state instanceof PasswordRequiredStateV2 ? this.state : null;
+    }
+
+    get codeState(): CodeRequiredStateV2 | null {
+        return this.state instanceof CodeRequiredStateV2 ? this.state : null;
+    }
+
+    get methodSelectionState(): AuthMethodSelectionRequiredStateV2 | null {
+        return this.state instanceof AuthMethodSelectionRequiredStateV2 ? this.state : null;
+    }
+
+    get mfaVerificationState(): MFAVerificationRequiredStateV2 | null {
+        return this.state instanceof MFAVerificationRequiredStateV2 ? this.state : null;
+    }
+
+    get isCompleted(): boolean {
+        return this.state instanceof CompletedStateV2;
+    }
+
+    get methodOptions(): readonly MethodOption[] {
+        return (
+            this.methodSelectionState?.methods.map((method) => ({
+                value: method.id,
+                label: `${method.type}${method.hint ? ` (${method.hint})` : ""}`,
+            })) ?? []
+        );
+    }
+
+    async startSignIn(): Promise<void> {
+        this.resetFlow();
+        this.loading = true;
+
+        try {
+            const client = await this.auth.getClient();
+            const result = await client.signInV2({
+                username: this.username,
+                password: this.password || undefined,
+                ...v2AuthorizationInputs,
+            });
+
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else if (
+                result.isState("passwordRequired") ||
+                result.isState("codeRequired") ||
+                result.isState("authMethodSelectionRequired")
+            ) {
+                this.state = result.state;
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
+            } else {
+                this.error = "Sign-in returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.password = "";
+            this.loading = false;
+        }
+    }
+
+    async submitPassword(password: string): Promise<void> {
+        const state = this.passwordState;
+        if (!state) {
+            this.error = "Restart sign-in before submitting a password.";
+            return;
+        }
+
+        this.error = "";
+        this.loading = true;
+        try {
+            const result = await state.submitPassword(password);
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
+            } else if (result.isState("authMethodSelectionRequired")) {
+                this.state = result.state;
+            } else {
+                this.error = "Password submission returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async submitCode(): Promise<void> {
+        const state = this.codeState;
+        if (!state) {
+            this.error = "Restart sign-in before submitting a verification code.";
+            return;
+        }
+
+        this.error = "";
+        this.loading = true;
+        try {
+            const result = await state.submitCode(this.code);
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
+            } else if (result.isState("authMethodSelectionRequired")) {
+                this.code = "";
+                this.state = result.state;
+            } else {
+                this.error = "Code verification returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async selectAuthMethod(methodId: string): Promise<void> {
+        const state = this.methodSelectionState;
+        if (!state) {
+            this.error = "Restart sign-in before selecting an authentication method.";
+            return;
+        }
+
+        const method = state.methods.find((item) => item.id === methodId);
+        if (!method) {
+            this.error = "The selected authentication method is no longer available.";
+            return;
+        }
+
+        this.error = "";
+        this.loading = true;
+        try {
+            const result = await state.selectAuthMethod(method);
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else {
+                this.code = "";
+                this.state = result.state;
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async submitMfaCode(): Promise<void> {
+        const state = this.mfaVerificationState;
+        if (!state) {
+            this.error = "Restart sign-in before submitting an MFA code.";
+            return;
+        }
+
+        this.error = "";
+        this.loading = true;
+        try {
+            const result = await state.submitChallenge(this.code);
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
+            } else {
+                this.error = "MFA verification returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async resendCode(): Promise<void> {
+        const state = this.codeState;
+        if (!state) {
+            this.error = "Restart sign-in before requesting another code.";
+            return;
+        }
+
+        this.error = "";
+        this.resendLoading = true;
+        try {
+            const result = await state.resendCode();
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else {
+                this.code = "";
+                this.state = result.state;
+                this.startResendCountdown();
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.resendLoading = false;
+        }
+    }
+
+    async resendMfaCode(): Promise<void> {
+        const state = this.mfaVerificationState;
+        if (!state) {
+            this.error = "Restart sign-in before requesting another MFA code.";
+            return;
+        }
+
+        this.error = "";
+        this.resendLoading = true;
+        try {
+            const result = await state.resendChallenge();
+            if (result.isFailed()) {
+                this.error = getV2ErrorMessage(result.error);
+            } else {
+                this.code = "";
+                this.state = result.state;
+                this.startResendCountdown();
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
+        } finally {
+            this.resendLoading = false;
+        }
+    }
+
+    restart(): void {
+        if (this.embedded) {
+            this.cancel.emit();
+            return;
+        }
+
+        this.resetFlow();
+    }
+
+    private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
+        this.state = state;
+        this.code = "";
+        this.userData = account;
+        this.completed.emit(account);
+    }
+
+    private resetFlow(): void {
+        this.state = null;
+        this.userData = undefined;
+        this.code = "";
+        this.error = "";
+        this.resendCountdown = 0;
+    }
+
+    private startResendCountdown(): void {
+        this.resendCountdown = 30;
+        const timer = window.setInterval(() => {
+            this.resendCountdown = Math.max(0, this.resendCountdown - 1);
+            if (this.resendCountdown === 0) {
+                window.clearInterval(timer);
+            }
+        }, 1000);
+    }
+}

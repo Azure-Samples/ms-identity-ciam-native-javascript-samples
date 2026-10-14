@@ -31,11 +31,7 @@ export function startV1ResetPassword(app: AuthFlowProps["app"], username: string
     return app.resetPassword({ username });
 }
 
-export function V1ResetPasswordFlow({
-    initialResult,
-    onCancel,
-    onCompleted,
-}: V1ResetPasswordFlowProps) {
+export function V1ResetPasswordFlow({ initialResult, onCancel, onCompleted }: V1ResetPasswordFlowProps) {
     const handledInitialResult = useRef(false);
     const [state, setState] = useState<AuthFlowStateBase | null>(null);
     const [code, setCode] = useState("");
@@ -56,10 +52,13 @@ export function V1ResetPasswordFlow({
         return () => window.clearInterval(timer);
     }, [resendCountdown]);
 
-    const complete = useCallback((account?: CustomAuthAccountData) => {
-        setCode("");
-        onCompleted(account);
-    }, [onCompleted]);
+    const complete = useCallback(
+        (account?: CustomAuthAccountData) => {
+            setCode("");
+            onCompleted(account);
+        },
+        [onCompleted],
+    );
 
     const handleCancel = () => {
         setCode("");
@@ -110,7 +109,7 @@ export function V1ResetPasswordFlow({
                     } else {
                         setError(
                             initialResult.error?.errorData.errorDescription ||
-                                "An error occurred while initiating password reset."
+                                "An error occurred while initiating password reset.",
                         );
                     }
                     return;
@@ -143,7 +142,7 @@ export function V1ResetPasswordFlow({
                     result.error?.errorData.errorDescription ||
                         (result.error?.isInvalidCode()
                             ? "Invalid verification code."
-                            : "An error occurred while verifying the code.")
+                            : "An error occurred while verifying the code."),
                 );
                 return;
             }
@@ -194,7 +193,7 @@ export function V1ResetPasswordFlow({
                     setError(result.error.errorData.errorDescription || "Invalid password.");
                 } else {
                     setError(
-                        result.error?.errorData.errorDescription || "An error occurred while setting the new password."
+                        result.error?.errorData.errorDescription || "An error occurred while setting the new password.",
                     );
                 }
                 return;
@@ -226,12 +225,7 @@ export function V1ResetPasswordFlow({
             />
         );
     } else if (state instanceof ResetPasswordPasswordRequiredState) {
-        content = (
-            <NewPasswordForm
-                onSubmit={handleNewPasswordSubmit}
-                loading={loading}
-            />
-        );
+        content = <NewPasswordForm onSubmit={handleNewPasswordSubmit} loading={loading} />;
     } else if (isV1MfaOrRegistrationState(state)) {
         content = (
             <V1MfaAndRegistrationFlow
@@ -255,7 +249,9 @@ export function V1ResetPasswordFlow({
         );
     } else {
         content = (
-            <p className="auth-helper-text">{loading ? "Starting password reset..." : "Unable to continue password reset."}</p>
+            <p className="auth-helper-text">
+                {loading ? "Starting password reset..." : "Unable to continue password reset."}
+            </p>
         );
     }
 

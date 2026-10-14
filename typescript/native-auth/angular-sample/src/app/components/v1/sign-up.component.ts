@@ -1,9 +1,10 @@
-import { Component } from "@angular/core";
+import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { AuthService } from "../../services/auth.service";
 import {
     SignUpPasswordRequiredState,
     SignUpCodeRequiredState,
     SignUpCompletedState,
+    SignUpAttributesRequiredState,
     UserAccountAttributes,
     AuthenticationMethod,
     AuthMethodRegistrationRequiredState,
@@ -21,6 +22,15 @@ import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selectio
 import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
 import { MfaAuthMethodSelectionFormComponent } from "../shared/mfa-auth-method-selection-form/mfa-auth-method-selection-form.component";
 import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-challenge-form.component";
+import {
+    AttributeField,
+    AttributeValueChange,
+    DynamicAttributesFormComponent,
+} from "../shared/dynamic-attributes-form/dynamic-attributes-form.component";
+
+function hasFailed(result: { isFailed(): boolean }): boolean {
+    return result.isFailed();
+}
 
 @Component({
     selector: "app-sign-up",
@@ -35,9 +45,18 @@ import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-chal
         AuthMethodChallengeFormComponent,
         MfaAuthMethodSelectionFormComponent,
         MfaChallengeFormComponent,
+        DynamicAttributesFormComponent,
     ],
 })
 export class SignUpComponent {
+    @Input() initialUsername = "";
+    @Input() initialPassword = "";
+    @Input() autoStart = false;
+    @Input() embedded = false;
+
+    @Output() cancel = new EventEmitter<void>();
+    @Output() ready = new EventEmitter<string | undefined>();
+
     firstName = "";
     lastName = "";
     jobTitle = "";
@@ -51,6 +70,7 @@ export class SignUpComponent {
     loading = false;
     showPassword = false;
     showCode = false;
+    showAttributes = false;
     showAuthMethodsForRegistration = false;
     showChallengeForRegistration = false;
     showMfaAuthMethods = false;
@@ -67,6 +87,8 @@ export class SignUpComponent {
     userData: any = null;
     signUpState: any = null;
     resendCountdown = 0;
+    attributeFields: readonly AttributeField[] = [];
+    attributeValues: Record<string, string> = {};
 
     socialProviders = [
         { name: "Google", domainHint: "Google", logo: "/logos/google.svg" },
@@ -78,6 +100,9 @@ export class SignUpComponent {
     constructor(private auth: AuthService) {}
 
     async ngOnInit() {
+        this.email = this.initialUsername;
+        this.password = this.initialPassword;
+
         const client = await this.auth.getClient();
         const result = client.getCurrentAccount();
         if (result.isCompleted()) {
@@ -85,7 +110,10 @@ export class SignUpComponent {
             this.showCode = false;
             this.showPassword = false;
             this.userData = result.data;
+        } else if (this.autoStart) {
+            await this.startSignUp();
         }
+        this.ready.emit(this.error || undefined);
     }
 
     async startSignUp() {
@@ -94,35 +122,31 @@ export class SignUpComponent {
         this.isSignedUp = false;
         this.showPassword = false;
         this.showCode = false;
+        this.showAttributes = false;
         this.signUpState = null;
 
         const client = await this.auth.getClient();
-        const attributes: UserAccountAttributes = {
-            displayName: this.firstName || this.lastName,
-            givenName: this.firstName,
-            surname: this.lastName,
-            jobTitle: this.jobTitle,
-            city: this.city,
-            country: this.country,
-            flatusername: this.flatUsername,
-        };
+        const attributes = this.buildInitialAttributes();
 
         const result = await client.signUp({
             username: this.email,
-            attributes,
+            ...(this.password ? { password: this.password } : {}),
+            ...(Object.keys(attributes).length > 0 ? { attributes } : {}),
         });
 
         if (result.isFailed()) {
             if (result.error?.isUserAlreadyExists()) {
-                this.error = "An account with this email or username already exists";
+                this.error =
+                    result.error.errorData.errorDescription ||
+                    "An account with this email or username already exists";
             } else if (result.error?.isInvalidUsername()) {
-                this.error = "Invalid username";
+                this.error = result.error.errorData.errorDescription || "Invalid username";
             } else if (result.error?.isInvalidPassword()) {
-                this.error = "Invalid password";
+                this.error = result.error.errorData.errorDescription || "Invalid password";
             } else if (result.error?.isAttributesValidationFailed()) {
-                this.error = "Invalid attributes";
+                this.error = result.error.errorData.errorDescription || "Invalid attributes";
             } else if (result.error?.isMissingRequiredAttributes()) {
-                this.error = "Missing required attributes";
+                this.error = result.error.errorData.errorDescription || "Missing required attributes";
             } else {
                 this.error = result.error?.errorData.errorDescription || "An error occurred while signing up";
             }
@@ -133,9 +157,13 @@ export class SignUpComponent {
         if (result.isPasswordRequired()) {
             this.showPassword = true;
             this.showCode = false;
+            this.showAttributes = false;
         } else if (result.isCodeRequired()) {
             this.showPassword = false;
             this.showCode = true;
+            this.showAttributes = false;
+        } else if (result.isAttributesRequired()) {
+            this.showAttributesRequired(result.state);
         }
 
         this.loading = false;
@@ -149,7 +177,7 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidPassword()) {
-                    this.error = "Invalid password";
+                    this.error = result.error.errorData.errorDescription || "Invalid password";
                 } else {
                     this.error =
                         result.error?.errorData.errorDescription || "An error occurred while submitting the password";
@@ -160,8 +188,11 @@ export class SignUpComponent {
                 this.isSignedUp = true;
                 this.showPassword = false;
                 this.showCode = false;
+                this.showAttributes = false;
                 this.signUpState = result.state;
                 this.handleAutoSignIn();
+            } else if (result.isAttributesRequired()) {
+                this.showAttributesRequired(result.state);
             }
         }
         this.loading = false;
@@ -175,7 +206,7 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidCode()) {
-                    this.error = "Invalid verification code";
+                    this.error = result.error.errorData.errorDescription || "Invalid verification code";
                 } else {
                     this.error =
                         result.error?.errorData.errorDescription || "An error occurred while verifying the code";
@@ -186,15 +217,139 @@ export class SignUpComponent {
                 this.isSignedUp = true;
                 this.showCode = false;
                 this.showPassword = false;
+                this.showAttributes = false;
                 this.signUpState = result.state;
                 this.handleAutoSignIn();
             } else if (result.isPasswordRequired()) {
                 this.showCode = false;
                 this.showPassword = true;
+                this.showAttributes = false;
                 this.signUpState = result.state;
+            } else if (result.isAttributesRequired()) {
+                this.showAttributesRequired(result.state);
             }
         }
         this.loading = false;
+    }
+
+    async submitAttributes() {
+        if (!(this.signUpState instanceof SignUpAttributesRequiredState)) {
+            this.error = "Start over before submitting account attributes.";
+            return;
+        }
+
+        const requiredAttributes = this.signUpState.getRequiredAttributes();
+        const missingAttribute = requiredAttributes.find(
+            (attribute) => attribute.required !== false && !this.attributeValues[attribute.name]?.trim(),
+        );
+        if (missingAttribute) {
+            this.error = `${this.getAttributeLabel(missingAttribute.name)} is required.`;
+            return;
+        }
+
+        const attributes: UserAccountAttributes = {};
+        for (const attribute of requiredAttributes) {
+            const value = this.attributeValues[attribute.name];
+            if (value) {
+                attributes[attribute.name] = value;
+            }
+        }
+
+        this.error = "";
+        this.loading = true;
+        try {
+            const result = await this.signUpState.submitAttributes(attributes);
+
+            if (hasFailed(result)) {
+                if (result.error?.isMissingRequiredAttributes()) {
+                    this.error =
+                        result.error.errorData.errorDescription || "Required account attributes are missing.";
+                } else if (result.error?.isAttributesValidationFailed()) {
+                    this.error =
+                        result.error.errorData.errorDescription || "One or more account attributes are invalid.";
+                } else {
+                    this.error =
+                        result.error?.errorData.errorDescription ||
+                        "An error occurred while submitting account attributes.";
+                }
+                return;
+            }
+
+            this.signUpState = result.state;
+            if (result.isCompleted()) {
+                this.isSignedUp = true;
+                this.showAttributes = false;
+                this.attributeValues = {};
+                await this.handleAutoSignIn();
+            } else {
+                this.error = "Submitting account attributes returned an unsupported state.";
+            }
+        } catch (error: unknown) {
+            this.error = error instanceof Error ? error.message : "An unexpected error occurred.";
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    onAttributeValueChange(change: AttributeValueChange): void {
+        this.attributeValues = {
+            ...this.attributeValues,
+            [change.name]: change.value,
+        };
+    }
+
+    private buildInitialAttributes(): UserAccountAttributes {
+        const displayName = this.firstName || this.lastName;
+        const flatUsername = this.flatUsername.trim();
+
+        return {
+            ...(displayName ? { displayName } : {}),
+            ...(this.firstName ? { givenName: this.firstName } : {}),
+            ...(this.lastName ? { surname: this.lastName } : {}),
+            ...(this.jobTitle ? { jobTitle: this.jobTitle } : {}),
+            ...(this.city ? { city: this.city } : {}),
+            ...(this.country ? { country: this.country } : {}),
+            ...(flatUsername ? { flatusername: flatUsername } : {}),
+        };
+    }
+
+    private showAttributesRequired(state: SignUpAttributesRequiredState): void {
+        this.signUpState = state;
+        this.showPassword = false;
+        this.showCode = false;
+        this.showAttributes = true;
+        this.attributeValues = {};
+        this.attributeFields = state.getRequiredAttributes().map((attribute) => ({
+            name: attribute.name,
+            label: this.getAttributeLabel(attribute.name),
+            required: attribute.required !== false,
+            inputType: "text",
+            pattern: attribute.options?.regex,
+        }));
+    }
+
+    private getAttributeLabel(name: string): string {
+        const labels: Record<string, string> = {
+            displayName: "Display name",
+            givenName: "First name",
+            surname: "Last name",
+            jobTitle: "Job title",
+            city: "City",
+            state: "State or province",
+            postalCode: "Postal code",
+            country: "Country or region",
+            flatusername: "Username (alias)",
+        };
+
+        if (labels[name]) {
+            return labels[name];
+        }
+
+        const readableName = name
+            .replace(/^extension_[^_]+_/, "")
+            .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+            .replace(/[_-]+/g, " ");
+        return readableName.charAt(0).toUpperCase() + readableName.slice(1);
     }
 
     async resendCode() {
@@ -238,9 +393,10 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else if (result.error?.isVerificationContactBlocked()) {
                     this.error =
+                        result.error.errorData.errorDescription ||
                         "The verification contact is blocked. Consider using a different contact or a different authentication method";
                 } else {
                     this.error =
@@ -280,7 +436,7 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -313,7 +469,7 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isInvalidInput()) {
-                    this.error = "Incorrect verification contact.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect verification contact.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||
@@ -345,7 +501,7 @@ export class SignUpComponent {
 
             if (result.isFailed()) {
                 if (result.error?.isIncorrectChallenge()) {
-                    this.error = "Incorrect code.";
+                    this.error = result.error.errorData.errorDescription || "Incorrect code.";
                 } else {
                     this.error =
                         result.error?.errorData?.errorDescription ||

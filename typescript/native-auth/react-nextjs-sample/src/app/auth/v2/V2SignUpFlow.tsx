@@ -11,10 +11,7 @@ import {
     SignUpPasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData, UserAccountAttributes } from "@azure/msal-browser/custom-auth";
-import {
-    DynamicAttributeFields,
-    DynamicAttributesForm,
-} from "../components/forms/DynamicAttributesForm";
+import { DynamicAttributeFields, DynamicAttributesForm } from "../components/forms/DynamicAttributesForm";
 import type { AttributeField } from "../components/forms/DynamicAttributesForm";
 import { AuthStepLayout } from "../components/AuthStepLayout";
 import type { AuthFlowProps, InitialCredentials } from "../types";
@@ -30,9 +27,7 @@ function getThrownErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : "An unexpected sign-up error occurred.";
 }
 
-function getAttributeFields(
-    state: AttributesRequiredStateV2 | SignUpPasswordRequiredStateV2,
-): AttributeField[] {
+function getAttributeFields(state: AttributesRequiredStateV2 | SignUpPasswordRequiredStateV2): AttributeField[] {
     return state.attributes.map((attribute) => ({
         name: attribute.attributeId,
         label: attribute.label || attribute.attributeId,
@@ -61,11 +56,7 @@ export function startV2SignUp(app: AuthFlowProps["app"], credentials: InitialCre
     });
 }
 
-export function V2SignUpFlow({
-    initialResult,
-    onCancel,
-    onCompleted,
-}: V2SignUpFlowProps) {
+export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpFlowProps) {
     const handledInitialResult = useRef(false);
     const onCompletedRef = useRef(onCompleted);
     const [attributeValues, setAttributeValues] = useState<AttributeValues>({});
@@ -306,6 +297,7 @@ export function V2SignUpFlow({
                 onSubmit={handlePasswordSubmit}
                 passwordLabel={signUpState.requiredPasswordAttribute.label || "Password"}
                 passwordPattern={signUpState.requiredPasswordAttribute.regex}
+                submitButtonText="Submit"
                 loading={loading}
                 noValidate
             >
@@ -342,12 +334,7 @@ export function V2SignUpFlow({
     }
 
     return (
-        <AuthStepLayout
-            title="V2 Sign Up"
-            error={error}
-            busy={loading || resendLoading}
-            onCancel={handleCancel}
-        >
+        <AuthStepLayout title="V2 Sign Up" error={error} busy={loading || resendLoading} onCancel={handleCancel}>
             {content}
         </AuthStepLayout>
     );

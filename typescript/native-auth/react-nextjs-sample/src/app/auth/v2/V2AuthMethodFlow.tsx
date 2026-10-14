@@ -153,8 +153,8 @@ export function V2AuthMethodFlow({
                 onSubmit={handleMethodSubmit}
                 loading={loading}
                 description="Choose an authentication method:"
-                submitText="Send code"
-                submittingText="Sending..."
+                submitText="Continue"
+                submittingText="Continuing..."
             />
         );
     }

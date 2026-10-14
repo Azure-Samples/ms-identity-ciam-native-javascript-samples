@@ -1,7 +1,7 @@
 import type { SignInInputsV2 } from "@azure/msal-browser/custom-auth";
 
 export const v2AuthorizationInputs = {
-    scopes: ["profile", "offline_access"],
+    scopes: ["openid", "profile", "offline_access"],
     claims: JSON.stringify({
         access_token: {
             acrs: {

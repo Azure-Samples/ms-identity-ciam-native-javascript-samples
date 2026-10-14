@@ -1,0 +1,139 @@
+<ng-container *ngIf="account; else signedOut">
+    <div class="auth-container">
+        <h1 class="auth-heading">Native Authentication</h1>
+        <div class="auth-signed-in-message">
+            <p>Signed in as {{ account.getAccount().username }}</p>
+        </div>
+        <div class="auth-error" *ngIf="error">{{ error }}</div>
+    </div>
+</ng-container>
+
+<ng-template #signedOut>
+    <ng-container *ngIf="!activeFlow || flowStarting">
+        <ng-container *ngTemplateOutlet="start"></ng-container>
+    </ng-container>
+
+    <div *ngIf="activeFlow as flow" [hidden]="flowStarting">
+        <div class="auth-container" *ngIf="error">
+            <div class="auth-error">{{ error }}</div>
+        </div>
+        <ng-container [ngSwitch]="flow.version">
+            <ng-container *ngSwitchCase="'v1'">
+                <app-sign-in
+                    *ngIf="flow.action === 'signIn'"
+                    [initialUsername]="flow.username"
+                    [initialPassword]="flow.password || ''"
+                    [autoStart]="true"
+                    [embedded]="true"
+                    (cancel)="cancelFlow()"
+                    (ready)="showActiveFlow($event)"
+                >
+                </app-sign-in>
+                <app-sign-up
+                    *ngIf="flow.action === 'signUp'"
+                    [initialUsername]="flow.username"
+                    [initialPassword]="flow.password || ''"
+                    [autoStart]="true"
+                    [embedded]="true"
+                    (cancel)="cancelFlow()"
+                    (ready)="showActiveFlow($event)"
+                >
+                </app-sign-up>
+                <app-reset-password *ngIf="flow.action === 'resetPassword'" [initialUsername]="flow.username" [autoStart]="true" [embedded]="true" (cancel)="cancelFlow()" (ready)="showActiveFlow($event)">
+                </app-reset-password>
+            </ng-container>
+
+            <ng-container *ngSwitchCase="'v2'">
+                <app-sign-in-v2
+                    *ngIf="flow.action === 'signIn'"
+                    [initialUsername]="flow.username"
+                    [initialPassword]="flow.password || ''"
+                    [autoStart]="true"
+                    [embedded]="true"
+                    (cancel)="cancelFlow()"
+                    (completed)="completeFlow($event)"
+                    (ready)="showActiveFlow($event)"
+                >
+                </app-sign-in-v2>
+                <app-sign-up-v2
+                    *ngIf="flow.action === 'signUp'"
+                    [initialUsername]="flow.username"
+                    [initialPassword]="flow.password || ''"
+                    [autoStart]="true"
+                    [embedded]="true"
+                    (cancel)="cancelFlow()"
+                    (completed)="completeFlow($event)"
+                    (ready)="showActiveFlow($event)"
+                >
+                </app-sign-up-v2>
+                <app-reset-password-v2
+                    *ngIf="flow.action === 'resetPassword'"
+                    [initialUsername]="flow.username"
+                    [autoStart]="true"
+                    [embedded]="true"
+                    (cancel)="cancelFlow()"
+                    (completed)="completeFlow($event)"
+                    (ready)="showActiveFlow($event)"
+                >
+                </app-reset-password-v2>
+            </ng-container>
+        </ng-container>
+    </div>
+</ng-template>
+
+<ng-template #start>
+    <div class="auth-container">
+        <h1 class="auth-heading">Native Authentication</h1>
+        <form class="auth-form">
+            <div class="auth-toggle" role="group" aria-label="Native authentication version">
+                <button
+                    type="button"
+                    [class]="version === 'v1' ? 'auth-button' : 'auth-secondary-button'"
+                    [attr.aria-pressed]="version === 'v1'"
+                    [disabled]="loading || flowStarting"
+                    (click)="changeVersion('v1')"
+                >
+                    V1
+                </button>
+                <button
+                    type="button"
+                    [class]="version === 'v2' ? 'auth-button' : 'auth-secondary-button'"
+                    [attr.aria-pressed]="version === 'v2'"
+                    [disabled]="loading || flowStarting"
+                    (click)="changeVersion('v2')"
+                >
+                    V2
+                </button>
+            </div>
+
+            <input type="text" name="username" class="auth-input" [(ngModel)]="username" placeholder="Email or Username" [disabled]="flowStarting" required />
+            <input type="password" name="password" class="auth-input" [(ngModel)]="password" placeholder="Password (optional)" autocomplete="current-password" [disabled]="flowStarting" />
+            <p class="auth-helper-text">Password is optional for Sign In and Sign Up. Reset Password uses only the email address.</p>
+
+            <div class="auth-actions">
+                <button type="button" class="auth-button" [disabled]="loading || flowStarting" (click)="startFlow('signIn')">
+                    {{ flowStarting && startingAction === "signIn" ? "Signing in..." : "Sign In" }}
+                </button>
+                <button type="button" class="auth-button" [disabled]="loading || flowStarting" (click)="startFlow('signUp')">
+                    {{ flowStarting && startingAction === "signUp" ? "Signing up..." : "Sign Up" }}
+                </button>
+                <button type="button" class="auth-button" [disabled]="loading || flowStarting" (click)="startFlow('resetPassword')">
+                    {{ flowStarting && startingAction === "resetPassword" ? "Starting..." : "Reset Password" }}
+                </button>
+            </div>
+
+            <div class="auth-error" *ngIf="error">{{ error }}</div>
+
+            <div class="auth-separator">
+                <div class="auth-separator-line"></div>
+                <span class="auth-separator-text">OR</span>
+                <div class="auth-separator-line"></div>
+            </div>
+
+            <button *ngFor="let provider of socialProviders" type="button" class="auth-social-button" [disabled]="loading || flowStarting" (click)="continueWithProvider(provider.domainHint)">
+                <img [src]="provider.logo" [alt]="provider.name + ' logo'" class="auth-provider-logo" />
+                <span>Continue with {{ provider.name }}</span>
+            </button>
+        </form>
+    </div>
+</ng-template>

@@ -1,0 +1,70 @@
+<app-auth-step-layout title="V2 Sign Up" [error]="error" [busy]="loading || resendLoading" (restart)="restart()">
+    <div class="auth-signed-in-message" *ngIf="userData">Signed up and signed in as {{ userData.getAccount().username }}</div>
+
+    <app-auth-start-form
+        *ngIf="!state && !userData"
+        [(username)]="username"
+        [(password)]="password"
+        [loading]="loading"
+        usernamePlaceholder="Email"
+        submitText="Sign Up"
+        submittingText="Signing up..."
+        helperText="Password is optional. The service will request it later when required."
+        (submitForm)="startSignUp()"
+    >
+    </app-auth-start-form>
+
+    <app-code-form
+        *ngIf="codeState as currentCodeState"
+        [code]="code"
+        [loading]="loading"
+        [resendLoading]="resendLoading"
+        [resendCountdown]="resendCountdown"
+        [sentTo]="currentCodeState.sentTo"
+        [channel]="currentCodeState.channel"
+        [codeLength]="currentCodeState.codeLength"
+        [showDeliveryHint]="true"
+        [noValidate]="true"
+        [disableResendWhileLoading]="true"
+        placeholder="Enter verification code"
+        (codeChange)="code = $event"
+        (submitForm)="submitCode()"
+        (resend)="resendCode()"
+    >
+    </app-code-form>
+
+    <app-password-form
+        *ngIf="passwordState as currentPasswordState"
+        [password]="password"
+        [loading]="loading"
+        [noValidate]="true"
+        [passwordLabel]="currentPasswordState.requiredPasswordAttribute.label || 'Password'"
+        [passwordPattern]="currentPasswordState.requiredPasswordAttribute.regex"
+        submitButtonText="Submit"
+        autocomplete="new-password"
+        (passwordChange)="password = $event"
+        (submitForm)="submitPassword()"
+    >
+        <app-dynamic-attributes-form [fields]="passwordAttributeFields" [values]="attributeValues" [fieldsOnly]="true" (valueChange)="onAttributeValueChange($event)"> </app-dynamic-attributes-form>
+    </app-password-form>
+
+    <app-dynamic-attributes-form
+        *ngIf="attributesState"
+        [fields]="attributeFields"
+        [values]="attributeValues"
+        [loading]="loading"
+        (valueChange)="onAttributeValueChange($event)"
+        (submitForm)="submitAttributes()"
+    >
+    </app-dynamic-attributes-form>
+
+    <div *ngIf="continuationState">
+        <p class="auth-helper-text">
+            {{ loading ? "Completing sign-in..." : "Sign-in after sign-up needs to be retried." }}
+        </p>
+        <button *ngIf="!loading" type="button" class="auth-secondary-button" (click)="retryContinuation()">Retry sign-in</button>
+    </div>
+
+    <div class="auth-signed-in-message" *ngIf="isCompleted && !userData">Sign-up completed.</div>
+    <p *ngIf="loading && !state">Starting sign-up...</p>
+</app-auth-step-layout>

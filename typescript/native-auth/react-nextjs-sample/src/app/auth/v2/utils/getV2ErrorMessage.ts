@@ -2,6 +2,9 @@ import { CustomAuthApiError } from "@azure/msal-browser/custom-auth";
 import type { AuthFlowErrorV2 } from "@azure/msal-browser/custom-auth";
 
 function getActionMessage(error: AuthFlowErrorV2): string | undefined {
+    if (error.isInvalidInput()) {
+        return "Check the supplied values and try again.";
+    }
     if (error.isInvalidCredentials()) {
         return "The username or password is incorrect.";
     }
@@ -48,7 +51,9 @@ export function getV2ErrorMessage(error: AuthFlowErrorV2 | null | undefined): st
 
     if (error.errorData instanceof CustomAuthApiError) {
         error.errorData.attributeValidationDetails?.forEach((detail) => {
-            const attributes = detail.attributeIds?.join(", ");
+            const attributes = Array.isArray(detail.attributeIds)
+                ? detail.attributeIds.filter((attributeId) => typeof attributeId === "string").join(", ")
+                : "";
             const code = detail.code ? `Code: ${detail.code}.` : "";
             const message = detail.message ? `Message: ${detail.message}` : "";
             const detailMessage = [attributes ? `Attributes: ${attributes}.` : "", code, message]
