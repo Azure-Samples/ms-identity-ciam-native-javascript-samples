@@ -52,7 +52,7 @@
                     [embedded]="true"
                     (cancel)="cancelFlow()"
                     (completed)="completeFlow($event)"
-                    (ready)="showActiveFlow($event)"
+                    (ready)="showActiveV2Flow($event)"
                 >
                 </app-sign-in-v2>
                 <app-sign-up-v2
@@ -63,7 +63,7 @@
                     [embedded]="true"
                     (cancel)="cancelFlow()"
                     (completed)="completeFlow($event)"
-                    (ready)="showActiveFlow($event)"
+                    (ready)="showActiveV2Flow($event)"
                 >
                 </app-sign-up-v2>
                 <app-reset-password-v2
@@ -73,7 +73,7 @@
                     [embedded]="true"
                     (cancel)="cancelFlow()"
                     (completed)="completeFlow($event)"
-                    (ready)="showActiveFlow($event)"
+                    (ready)="showActiveV2Flow($event)"
                 >
                 </app-reset-password-v2>
             </ng-container>
@@ -106,8 +106,34 @@
                 </button>
             </div>
 
-            <input type="text" name="username" class="auth-input" [(ngModel)]="username" placeholder="Email or Username" [disabled]="flowStarting" required />
-            <input type="password" name="password" class="auth-input" [(ngModel)]="password" placeholder="Password (optional)" autocomplete="current-password" [disabled]="flowStarting" />
+            <input
+                id="unified-auth-username"
+                type="text"
+                name="username"
+                class="auth-input"
+                [(ngModel)]="username"
+                (ngModelChange)="clearInitialFieldError('username')"
+                placeholder="Email or Username"
+                [disabled]="flowStarting"
+                [attr.aria-invalid]="initialFieldErrors['username'] ? 'true' : null"
+                [attr.aria-describedby]="initialFieldErrors['username'] ? 'unified-auth-username-error' : null"
+                required
+            />
+            <p *ngIf="initialFieldErrors['username']" id="unified-auth-username-error" class="auth-field-error" role="alert">{{ initialFieldErrors["username"] }}</p>
+            <input
+                id="unified-auth-password"
+                type="password"
+                name="password"
+                class="auth-input"
+                [(ngModel)]="password"
+                (ngModelChange)="clearInitialFieldError('password')"
+                placeholder="Password (optional)"
+                autocomplete="current-password"
+                [disabled]="flowStarting"
+                [attr.aria-invalid]="initialFieldErrors['password'] ? 'true' : null"
+                [attr.aria-describedby]="initialFieldErrors['password'] ? 'unified-auth-password-error' : null"
+            />
+            <p *ngIf="initialFieldErrors['password']" id="unified-auth-password-error" class="auth-field-error" role="alert">{{ initialFieldErrors["password"] }}</p>
             <p class="auth-helper-text">Password is optional for Sign In and Sign Up. Reset Password uses only the email address.</p>
 
             <div class="auth-actions">

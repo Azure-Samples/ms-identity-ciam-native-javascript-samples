@@ -11,6 +11,12 @@ import { SignUpComponent } from "../v1/sign-up.component";
 import { ResetPasswordV2Component } from "../v2/reset-password-v2.component";
 import { SignInV2Component } from "../v2/sign-in-v2.component";
 import { SignUpV2Component } from "../v2/sign-up-v2.component";
+import {
+    formatV2ErrorPresentation,
+    getV2FieldErrors,
+    type V2ErrorPresentation,
+    type V2FieldErrors,
+} from "../v2/v2-flow-utils";
 
 type AuthVersion = "v1" | "v2";
 type AuthAction = "signIn" | "signUp" | "resetPassword";
@@ -42,6 +48,7 @@ export class UnifiedAuthComponent implements OnInit {
     username = "";
     password = "";
     error = "";
+    initialFieldErrors: V2FieldErrors = {};
     loading = true;
     flowStarting = false;
     startingAction: AuthAction | undefined;
@@ -81,6 +88,7 @@ export class UnifiedAuthComponent implements OnInit {
         this.version = version;
         this.activeFlow = undefined;
         this.error = "";
+        this.initialFieldErrors = {};
     }
 
     startFlow(action: AuthAction): void {
@@ -91,6 +99,7 @@ export class UnifiedAuthComponent implements OnInit {
         }
 
         this.error = "";
+        this.initialFieldErrors = {};
         this.flowStarting = true;
         this.startingAction = action;
         this.activeFlow = {
@@ -109,12 +118,14 @@ export class UnifiedAuthComponent implements OnInit {
         this.username = "";
         this.password = "";
         this.error = "";
+        this.initialFieldErrors = {};
     }
 
     async completeFlow(account?: CustomAuthAccountData): Promise<void> {
         this.flowStarting = false;
         this.startingAction = undefined;
         this.error = "";
+        this.initialFieldErrors = {};
 
         if (account) {
             this.finishFlow(account);
@@ -151,6 +162,28 @@ export class UnifiedAuthComponent implements OnInit {
             this.activeFlow = undefined;
             this.error = initialError;
         }
+    }
+
+    showActiveV2Flow(initialError?: V2ErrorPresentation): void {
+        this.flowStarting = false;
+        this.startingAction = undefined;
+
+        if (initialError) {
+            this.activeFlow = undefined;
+            this.error = formatV2ErrorPresentation(initialError);
+            this.initialFieldErrors = getV2FieldErrors(initialError);
+        }
+    }
+
+    clearInitialFieldError(name: string): void {
+        const normalizedName = name.toLowerCase();
+        if (!this.initialFieldErrors[normalizedName]) {
+            return;
+        }
+
+        const next = { ...this.initialFieldErrors };
+        delete next[normalizedName];
+        this.initialFieldErrors = next;
     }
 
     async continueWithProvider(domainHint: string): Promise<void> {
@@ -193,6 +226,7 @@ export class UnifiedAuthComponent implements OnInit {
         this.username = "";
         this.password = "";
         this.error = "";
+        this.initialFieldErrors = {};
         this.account = account;
         this.auth.setCurrentAccount(account);
     }

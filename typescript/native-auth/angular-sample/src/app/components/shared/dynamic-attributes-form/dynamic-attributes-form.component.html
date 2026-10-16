@@ -1,8 +1,9 @@
 <ng-template #attributeFields>
     <p class="auth-helper-text">Complete the attributes configured for this tenant. Fields marked optional may be left empty.</p>
-    <label *ngFor="let field of fields; trackBy: trackFieldByName">
+    <label *ngFor="let field of fields; let index = index; trackBy: trackFieldByName" [attr.for]="'auth-attribute-' + index">
         {{ field.label }}{{ field.required ? " *" : " (optional)" }}
         <input
+            [id]="'auth-attribute-' + index"
             class="auth-input"
             [name]="field.name"
             [type]="field.inputType"
@@ -10,7 +11,10 @@
             [attr.pattern]="field.pattern || null"
             [value]="values[field.name] || ''"
             (input)="onValueChange(field.name, $event)"
+            [attr.aria-invalid]="getFieldError(field.name) ? 'true' : null"
+            [attr.aria-describedby]="getFieldError(field.name) ? 'auth-attribute-' + index + '-error' : null"
         />
+        <span *ngIf="getFieldError(field.name) as fieldError" [id]="'auth-attribute-' + index + '-error'" class="auth-field-error" role="alert">{{ fieldError }}</span>
     </label>
 </ng-template>
 

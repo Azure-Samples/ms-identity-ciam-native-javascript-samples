@@ -6,9 +6,11 @@
         [(username)]="username"
         [(password)]="password"
         [loading]="loading"
+        [fieldErrors]="fieldErrors"
         submitText="Sign In"
         submittingText="Signing in..."
         helperText="Password is optional. Leave it empty to use another configured authentication method."
+        (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignIn()"
     >
     </app-auth-start-form>
@@ -17,11 +19,12 @@
         *ngIf="passwordState"
         [loading]="loading"
         [password]="password"
+        [passwordError]="fieldErrors['password']"
         [noValidate]="true"
         submitButtonText="Sign In"
         submitButtonLoadingText="Signing in..."
         (submitForm)="submitPassword(password)"
-        (passwordChange)="password = $event"
+        (passwordChange)="onPasswordChange($event)"
     >
     </app-password-form>
 

@@ -12,7 +12,11 @@ export interface V2ErrorPresentation {
 
 export type V2FieldErrors = Readonly<Record<string, string>>;
 
-function getActionMessage(error: AuthFlowErrorV2): string | undefined {
+function normalizeAttributeIds(attributeIds: readonly string[] | undefined): readonly string[] {
+    return Array.isArray(attributeIds) ? attributeIds : [];
+}
+
+function getActionMessage(error: AuthFlowErrorV2, invalidAttributes: readonly string[]): string | undefined {
     if (error.isBrowserRequired()) {
         return "Browser authentication is required to continue.";
     }
@@ -35,11 +39,11 @@ function getActionMessage(error: AuthFlowErrorV2): string | undefined {
         return "An account already exists for this username.";
     }
     if (error.isMissingRequiredAttributes()) {
-        return error.invalidAttributes.length > 0
+        return invalidAttributes.length > 0
             ? "Complete all required account attributes and correct the invalid values."
             : "Complete all required account attributes.";
     }
-    if (error.invalidAttributes.length > 0) {
+    if (invalidAttributes.length > 0) {
         return "Correct the invalid account attributes.";
     }
     if (error.isInvalidInput()) {
@@ -57,12 +61,14 @@ export function getV2ErrorPresentation(error: AuthFlowErrorV2 | null | undefined
         };
     }
 
-    const actionMessage = getActionMessage(error);
+    const requiredAttributes = normalizeAttributeIds(error.requiredAttributes);
+    const invalidAttributes = normalizeAttributeIds(error.invalidAttributes);
+    const actionMessage = getActionMessage(error, invalidAttributes);
 
     return {
         message: actionMessage || error.errorDescription || error.errorData.message || "The authentication request failed.",
-        requiredAttributes: error.requiredAttributes,
-        invalidAttributes: error.invalidAttributes,
+        requiredAttributes,
+        invalidAttributes,
         errorCode: actionMessage ? undefined : error.errorData.error,
         innerErrorCode: error.innerErrorCode,
         subError: error.errorData.subError,

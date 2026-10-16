@@ -1,15 +1,31 @@
 <form class="auth-form" (ngSubmit)="submitForm.emit()">
-    <input type="text" name="username" class="auth-input" [ngModel]="username" (ngModelChange)="usernameChange.emit($event)" [placeholder]="usernamePlaceholder" required />
+    <input
+        id="auth-start-username"
+        type="text"
+        name="username"
+        class="auth-input"
+        [ngModel]="username"
+        (ngModelChange)="onUsernameChange($event)"
+        [placeholder]="usernamePlaceholder"
+        [attr.aria-invalid]="usernameError ? 'true' : null"
+        [attr.aria-describedby]="usernameError ? 'auth-start-username-error' : null"
+        required
+    />
+    <p *ngIf="usernameError" id="auth-start-username-error" class="auth-field-error" role="alert">{{ usernameError }}</p>
     <input
         *ngIf="showPassword"
+        id="auth-start-password"
         type="password"
         name="password"
         class="auth-input"
         [ngModel]="password"
-        (ngModelChange)="passwordChange.emit($event)"
+        (ngModelChange)="onPasswordChange($event)"
         placeholder="Password (optional)"
         autocomplete="current-password"
+        [attr.aria-invalid]="passwordError ? 'true' : null"
+        [attr.aria-describedby]="passwordError ? 'auth-start-password-error' : null"
     />
+    <p *ngIf="showPassword && passwordError" id="auth-start-password-error" class="auth-field-error" role="alert">{{ passwordError }}</p>
     <p class="auth-helper-text" *ngIf="helperText">{{ helperText }}</p>
     <button type="submit" class="auth-button" [disabled]="loading">
         {{ loading ? submittingText : submitText }}

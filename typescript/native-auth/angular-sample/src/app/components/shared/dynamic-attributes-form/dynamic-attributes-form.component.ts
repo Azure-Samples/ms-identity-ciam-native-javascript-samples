@@ -24,6 +24,7 @@ export interface AttributeValueChange {
 export class DynamicAttributesFormComponent {
     @Input() fields: readonly AttributeField[] = [];
     @Input() values: Readonly<Record<string, string>> = {};
+    @Input() fieldErrors: Readonly<Record<string, string>> = {};
     @Input() loading = false;
     @Input() fieldsOnly = false;
 
@@ -39,5 +40,9 @@ export class DynamicAttributesFormComponent {
 
     trackFieldByName(_index: number, field: AttributeField): string {
         return field.name;
+    }
+
+    getFieldError(name: string): string | undefined {
+        return this.fieldErrors[name.toLowerCase()];
     }
 }

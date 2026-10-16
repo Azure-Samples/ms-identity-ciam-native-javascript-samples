@@ -17,8 +17,28 @@ export class AuthStartFormComponent {
     @Input() submitText = "Continue";
     @Input() submittingText = "Loading...";
     @Input() helperText = "";
+    @Input() fieldErrors: Readonly<Record<string, string>> = {};
 
     @Output() usernameChange = new EventEmitter<string>();
     @Output() passwordChange = new EventEmitter<string>();
+    @Output() fieldChange = new EventEmitter<string>();
     @Output() submitForm = new EventEmitter<void>();
+
+    onUsernameChange(value: string): void {
+        this.fieldChange.emit("username");
+        this.usernameChange.emit(value);
+    }
+
+    onPasswordChange(value: string): void {
+        this.fieldChange.emit("password");
+        this.passwordChange.emit(value);
+    }
+
+    get usernameError(): string | undefined {
+        return this.fieldErrors["username"];
+    }
+
+    get passwordError(): string | undefined {
+        return this.fieldErrors["password"];
+    }
 }

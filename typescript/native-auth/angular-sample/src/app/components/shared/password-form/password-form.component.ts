@@ -14,6 +14,7 @@ export class PasswordFormComponent {
     @Input() placeholder = "Password";
     @Input() passwordLabel = "Password";
     @Input() passwordPattern: string | undefined;
+    @Input() passwordError: string | undefined;
     @Input() autocomplete = "current-password";
     @Input() noValidate = false;
     @Input() submitButtonText = "Submit Password";

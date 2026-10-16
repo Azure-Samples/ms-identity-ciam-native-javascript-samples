@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import {
+    type AuthFlowErrorV2,
     AuthFlowStateBase,
     AuthMethodSelectionRequiredStateV2,
     CodeRequiredStateV2,
@@ -9,6 +10,7 @@ import {
     SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import { v2AuthorizationInputs } from "../../config/v2-request-config";
 import { AuthService } from "../../services/auth.service";
 import { AuthStartFormComponent } from "../shared/auth-start-form/auth-start-form.component";
 import { AuthStepLayoutComponent } from "../shared/auth-step-layout/auth-step-layout.component";
@@ -18,7 +20,15 @@ import {
     MethodSelectionFormComponent,
 } from "../shared/method-selection-form/method-selection-form.component";
 import { NewPasswordFormComponent } from "../shared/new-password-form/new-password-form.component";
-import { getThrownErrorMessage, getV2ErrorMessage } from "./v2-flow-utils";
+import {
+    createV2ErrorPresentation,
+    formatV2ErrorPresentation,
+    getThrownErrorMessage,
+    getV2ErrorPresentation,
+    getV2FieldErrors,
+    type V2ErrorPresentation,
+    type V2FieldErrors,
+} from "./v2-flow-utils";
 
 @Component({
     selector: "app-reset-password-v2",
@@ -40,16 +50,18 @@ export class ResetPasswordV2Component implements OnInit {
 
     @Output() cancel = new EventEmitter<void>();
     @Output() completed = new EventEmitter<CustomAuthAccountData | undefined>();
-    @Output() ready = new EventEmitter<string | undefined>();
+    @Output() ready = new EventEmitter<V2ErrorPresentation | undefined>();
 
     username = "";
     code = "";
     error = "";
+    fieldErrors: V2FieldErrors = {};
     loading = false;
     resendLoading = false;
     resendCountdown = 0;
     state: AuthFlowStateBase | null = null;
     userData: CustomAuthAccountData | undefined;
+    private initialErrorPresentation: V2ErrorPresentation | undefined;
 
     constructor(private auth: AuthService) {}
 
@@ -58,7 +70,10 @@ export class ResetPasswordV2Component implements OnInit {
         if (this.autoStart) {
             await this.startResetPassword();
         }
-        this.ready.emit(this.error || undefined);
+        this.ready.emit(
+            this.initialErrorPresentation ??
+                (this.error ? createV2ErrorPresentation(this.error) : undefined),
+        );
     }
 
     get methodSelectionState(): AuthMethodSelectionRequiredStateV2 | null {
@@ -96,9 +111,12 @@ export class ResetPasswordV2Component implements OnInit {
 
         try {
             const client = await this.auth.getClient();
-            const result = await client.resetPasswordV2({ username: this.username });
+            const result = await client.resetPasswordV2({
+                username: this.username,
+                ...v2AuthorizationInputs,
+            });
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.initialErrorPresentation = this.applyV2Error(result.error);
             } else if (result.isState("authMethodSelectionRequired") || result.isState("codeRequired")) {
                 this.state = result.state;
             } else {
@@ -125,11 +143,12 @@ export class ResetPasswordV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("codeRequired")) {
                 this.code = "";
                 this.state = result.state;
@@ -151,11 +170,12 @@ export class ResetPasswordV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.submitCode(this.code);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("newPasswordRequired")) {
                 this.code = "";
                 this.state = result.state;
@@ -177,11 +197,12 @@ export class ResetPasswordV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.resendLoading = true;
         try {
             const result = await state.resendCode();
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else {
                 this.code = "";
                 this.state = result.state;
@@ -202,11 +223,12 @@ export class ResetPasswordV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.submitNewPassword(newPassword);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("signInContinuation")) {
                 await this.continueSignIn(result.state);
             } else {
@@ -235,14 +257,26 @@ export class ResetPasswordV2Component implements OnInit {
         this.resetFlow();
     }
 
+    clearFieldError(name: string): void {
+        const normalizedName = name.toLowerCase();
+        if (!this.fieldErrors[normalizedName]) {
+            return;
+        }
+
+        const next = { ...this.fieldErrors };
+        delete next[normalizedName];
+        this.fieldErrors = next;
+    }
+
     private async continueSignIn(state: SignInContinuationStateV2): Promise<void> {
         this.state = state;
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.signIn();
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else {
@@ -257,6 +291,7 @@ export class ResetPasswordV2Component implements OnInit {
 
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
         this.state = state;
+        this.fieldErrors = {};
         this.userData = account;
         this.completed.emit(account);
     }
@@ -266,7 +301,16 @@ export class ResetPasswordV2Component implements OnInit {
         this.userData = undefined;
         this.code = "";
         this.error = "";
+        this.fieldErrors = {};
         this.resendCountdown = 0;
+        this.initialErrorPresentation = undefined;
+    }
+
+    private applyV2Error(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
+        const presentation = getV2ErrorPresentation(error);
+        this.error = formatV2ErrorPresentation(presentation);
+        this.fieldErrors = getV2FieldErrors(presentation);
+        return presentation;
     }
 
     private startResendCountdown(): void {

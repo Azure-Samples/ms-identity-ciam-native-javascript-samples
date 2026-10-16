@@ -6,10 +6,12 @@
         [(username)]="username"
         [(password)]="password"
         [loading]="loading"
+        [fieldErrors]="fieldErrors"
         usernamePlaceholder="Email"
         submitText="Sign Up"
         submittingText="Signing up..."
         helperText="Password is optional. The service will request it later when required."
+        (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignUp()"
     >
     </app-auth-start-form>
@@ -37,21 +39,30 @@
         *ngIf="passwordState as currentPasswordState"
         [password]="password"
         [loading]="loading"
+        [passwordError]="fieldErrors['password']"
         [noValidate]="true"
         [passwordLabel]="currentPasswordState.requiredPasswordAttribute.label || 'Password'"
         [passwordPattern]="currentPasswordState.requiredPasswordAttribute.regex"
         submitButtonText="Submit"
         autocomplete="new-password"
-        (passwordChange)="password = $event"
+        (passwordChange)="onPasswordChange($event)"
         (submitForm)="submitPassword()"
     >
-        <app-dynamic-attributes-form [fields]="passwordAttributeFields" [values]="attributeValues" [fieldsOnly]="true" (valueChange)="onAttributeValueChange($event)"> </app-dynamic-attributes-form>
+        <app-dynamic-attributes-form
+            [fields]="passwordAttributeFields"
+            [values]="attributeValues"
+            [fieldErrors]="fieldErrors"
+            [fieldsOnly]="true"
+            (valueChange)="onAttributeValueChange($event)"
+        >
+        </app-dynamic-attributes-form>
     </app-password-form>
 
     <app-dynamic-attributes-form
         *ngIf="attributesState"
         [fields]="attributeFields"
         [values]="attributeValues"
+        [fieldErrors]="fieldErrors"
         [loading]="loading"
         (valueChange)="onAttributeValueChange($event)"
         (submitForm)="submitAttributes()"

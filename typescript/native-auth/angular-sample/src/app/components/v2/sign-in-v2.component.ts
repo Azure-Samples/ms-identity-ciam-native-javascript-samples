@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
 import {
+    type AuthFlowErrorV2,
     AuthFlowStateBase,
     AuthMethodSelectionRequiredStateV2,
     CodeRequiredStateV2,
@@ -19,7 +20,15 @@ import {
     MethodSelectionFormComponent,
 } from "../shared/method-selection-form/method-selection-form.component";
 import { PasswordFormComponent } from "../shared/password-form/password-form.component";
-import { getThrownErrorMessage, getV2ErrorMessage } from "./v2-flow-utils";
+import {
+    createV2ErrorPresentation,
+    formatV2ErrorPresentation,
+    getThrownErrorMessage,
+    getV2ErrorPresentation,
+    getV2FieldErrors,
+    type V2ErrorPresentation,
+    type V2FieldErrors,
+} from "./v2-flow-utils";
 
 @Component({
     selector: "app-sign-in-v2",
@@ -42,17 +51,19 @@ export class SignInV2Component implements OnInit {
 
     @Output() cancel = new EventEmitter<void>();
     @Output() completed = new EventEmitter<CustomAuthAccountData | undefined>();
-    @Output() ready = new EventEmitter<string | undefined>();
+    @Output() ready = new EventEmitter<V2ErrorPresentation | undefined>();
 
     username = "";
     password = "";
     code = "";
     error = "";
+    fieldErrors: V2FieldErrors = {};
     loading = false;
     resendLoading = false;
     resendCountdown = 0;
     state: AuthFlowStateBase | null = null;
     userData: CustomAuthAccountData | undefined;
+    private initialErrorPresentation: V2ErrorPresentation | undefined;
 
     constructor(private auth: AuthService) {}
 
@@ -67,7 +78,10 @@ export class SignInV2Component implements OnInit {
         } else if (this.autoStart) {
             await this.startSignIn();
         }
-        this.ready.emit(this.error || undefined);
+        this.ready.emit(
+            this.initialErrorPresentation ??
+                (this.error ? createV2ErrorPresentation(this.error) : undefined),
+        );
     }
 
     get passwordState(): PasswordRequiredStateV2 | null {
@@ -112,7 +126,7 @@ export class SignInV2Component implements OnInit {
             });
 
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.initialErrorPresentation = this.applyV2Error(result.error);
             } else if (
                 result.isState("passwordRequired") ||
                 result.isState("codeRequired") ||
@@ -140,11 +154,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.submitPassword(password);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
@@ -167,11 +182,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.submitCode(this.code);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
@@ -201,11 +217,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else {
                 this.code = "";
                 this.state = result.state;
@@ -225,11 +242,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.loading = true;
         try {
             const result = await state.submitChallenge(this.code);
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else {
@@ -250,11 +268,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.resendLoading = true;
         try {
             const result = await state.resendCode();
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else {
                 this.code = "";
                 this.state = result.state;
@@ -275,11 +294,12 @@ export class SignInV2Component implements OnInit {
         }
 
         this.error = "";
+        this.fieldErrors = {};
         this.resendLoading = true;
         try {
             const result = await state.resendChallenge();
             if (result.isFailed()) {
-                this.error = getV2ErrorMessage(result.error);
+                this.applyV2Error(result.error);
             } else {
                 this.code = "";
                 this.state = result.state;
@@ -301,9 +321,33 @@ export class SignInV2Component implements OnInit {
         this.resetFlow();
     }
 
+    onPasswordChange(password: string): void {
+        this.password = password;
+        this.clearFieldError("password");
+    }
+
+    clearFieldError(name: string): void {
+        const normalizedName = name.toLowerCase();
+        if (!this.fieldErrors[normalizedName]) {
+            return;
+        }
+
+        const next = { ...this.fieldErrors };
+        delete next[normalizedName];
+        this.fieldErrors = next;
+    }
+
+    private applyV2Error(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
+        const presentation = getV2ErrorPresentation(error);
+        this.error = formatV2ErrorPresentation(presentation);
+        this.fieldErrors = getV2FieldErrors(presentation);
+        return presentation;
+    }
+
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
         this.state = state;
         this.code = "";
+        this.fieldErrors = {};
         this.userData = account;
         this.completed.emit(account);
     }
@@ -313,7 +357,9 @@ export class SignInV2Component implements OnInit {
         this.userData = undefined;
         this.code = "";
         this.error = "";
+        this.fieldErrors = {};
         this.resendCountdown = 0;
+        this.initialErrorPresentation = undefined;
     }
 
     private startResendCountdown(): void {
