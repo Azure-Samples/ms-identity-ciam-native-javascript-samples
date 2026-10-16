@@ -4,6 +4,8 @@ interface PasswordFormProps {
     noValidate?: boolean;
     passwordLabel?: string;
     passwordPattern?: string;
+    passwordError?: string;
+    onPasswordChange?: () => void;
     submitButtonText?: string;
     submitButtonLoadingText?: string;
     children?: React.ReactNode;
@@ -15,6 +17,8 @@ export function PasswordForm({
     loading,
     passwordLabel = "Password",
     passwordPattern,
+    passwordError,
+    onPasswordChange,
     submitButtonText = "Submit Password",
     submitButtonLoadingText = "Submitting...",
     children,
@@ -31,7 +35,7 @@ export function PasswordForm({
         form: { display: "flex" as const, flexDirection: "column" as const, gap: "15px" },
         input: {
             padding: "8px",
-            border: "1px solid #ccc",
+            border: passwordError ? "1px solid #d13438" : "1px solid #ccc",
             borderRadius: "4px",
             fontSize: "16px",
         },
@@ -48,17 +52,26 @@ export function PasswordForm({
 
     return (
         <form onSubmit={handleSubmit} style={formStyles.form} noValidate={noValidate}>
-            <label>
+            <label htmlFor="auth-password">
                 {passwordLabel} *
                 <input
+                    id="auth-password"
                     type="password"
                     name="password"
                     placeholder="Password"
                     autoComplete="current-password"
                     pattern={passwordPattern}
                     style={formStyles.input}
+                    onChange={onPasswordChange}
+                    aria-invalid={passwordError ? true : undefined}
+                    aria-describedby={passwordError ? "auth-password-error" : undefined}
                     required
                 />
+                {passwordError && (
+                    <span id="auth-password-error" className="auth-field-error" role="alert">
+                        {passwordError}
+                    </span>
+                )}
             </label>
             {children}
             <button type="submit" style={formStyles.button} disabled={loading}>

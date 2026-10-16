@@ -100,6 +100,22 @@ The app will be available at http://localhost:3000.
 
 When users open the Next.js sample, they can choose Native Auth V1 or V2 before starting sign-in, sign-up, or password reset. After a flow starts, the app displays the form required by the current SDK state.
 
+### V2 request and state handling
+
+- V2 sign-in, sign-up, and password reset start with the scopes and claims configured in `src/config/v2-request-config.ts`. Required OpenID scopes are normalized by the SDK.
+- Continuation sign-in after sign-up or password reset is argument-free. The SDK retains the original authorization context and uses the entry scopes only when the token response omits its `scope` value.
+- If a supplied password cannot be used with the authentication methods returned by the service, the SDK can continue with an offered email-code challenge.
+- Method-selection results are rendered from the state returned by `selectAuthMethod()`. The sample does not infer the next password, primary-code, or MFA state from the selected method.
+- Verification-code inputs are checked for a non-empty value. The service remains responsible for enforcing the expected code length.
+
+### V2 error and attribute handling
+
+- Known failures are presented through `AuthFlowErrorV2` classifiers, including browser-required, invalid credentials, invalid code, invalid password, invalid username, missing user, and existing-user cases.
+- OAuth `subError` and HAL `innerErrorCode` remain distinct diagnostics. The correlation ID is also displayed when available.
+- `requiredAttributes` and `invalidAttributes` are mapped to the initial username/password fields and the active sign-up attribute form. Required and invalid fields receive inline messages and `aria-invalid="true"`.
+- Non-password attribute values remain available after service validation failures. Password fields are cleared after submission.
+- A browser-required failure displays guidance to continue in a browser. The V2 state does not expose an automatic redirect or popup continuation, so the sample does not attempt one.
+
 ## Project Structure
 
 ```

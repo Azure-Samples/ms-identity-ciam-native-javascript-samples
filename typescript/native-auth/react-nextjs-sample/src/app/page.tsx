@@ -10,7 +10,12 @@ import { useAuth } from "./auth/AuthProvider";
 import { AuthStartForm } from "./auth/components/forms/AuthStartForm";
 import type { ActiveFlow, AuthFlowProps, AuthStartRequest, AuthVersion } from "./auth/types";
 import { startV1AuthFlow, V1AuthEntryFlow } from "./auth/v1/V1AuthEntryFlow";
-import { startV2AuthFlow, V2AuthEntryFlow } from "./auth/v2/V2AuthEntryFlow";
+import {
+    startV2AuthFlow,
+    V2AuthEntryFlow,
+    V2AuthFlowStartError,
+} from "./auth/v2/V2AuthEntryFlow";
+import { getV2FieldErrors } from "./auth/v2/utils/getV2ErrorMessage";
 import { UserInfo } from "./auth/components/account/UserInfo";
 import { customAuthConfig } from "../config/auth-config";
 
@@ -23,6 +28,7 @@ export default function Home() {
     const [version, setVersion] = useState<AuthVersion>("v2");
     const [username, setUsername] = useState("");
     const [activeFlow, setActiveFlow] = useState<ActiveFlow>();
+    const [startFieldErrors, setStartFieldErrors] = useState<Readonly<Record<string, string>>>({});
 
     useEffect(() => {
         const params = `${window.location.hash}${window.location.search}`;
@@ -43,6 +49,7 @@ export default function Home() {
         setActiveFlow(undefined);
         setUsername("");
         setError("");
+        setStartFieldErrors({});
     }, [setError]);
 
     const completeFlow = useCallback((authenticatedAccount?: CustomAuthAccountData) => {
@@ -67,6 +74,7 @@ export default function Home() {
         }
 
         setError("");
+        setStartFieldErrors({});
         setLoading(true);
 
         try {
@@ -81,7 +89,12 @@ export default function Home() {
 
             setActiveFlow(flow);
         } catch (caughtError) {
-            setError(getThrownErrorMessage(caughtError));
+            if (caughtError instanceof V2AuthFlowStartError) {
+                setStartFieldErrors(getV2FieldErrors(caughtError.presentation));
+                setError(caughtError.message);
+            } else {
+                setError(getThrownErrorMessage(caughtError));
+            }
         } finally {
             setLoading(false);
         }
@@ -90,7 +103,21 @@ export default function Home() {
     const changeVersion = (nextVersion: AuthVersion) => {
         setActiveFlow(undefined);
         setError("");
+        setStartFieldErrors({});
         setVersion(nextVersion);
+    };
+
+    const clearStartFieldError = (name: string) => {
+        const normalizedName = name.toLowerCase();
+        setStartFieldErrors((current) => {
+            if (!current[normalizedName]) {
+                return current;
+            }
+
+            const next = { ...current };
+            delete next[normalizedName];
+            return next;
+        });
     };
 
     const continueWithProvider = async (domainHint: string) => {
@@ -178,9 +205,11 @@ export default function Home() {
                     version={version}
                     username={username}
                     error={error}
+                    fieldErrors={startFieldErrors}
                     loading={loading}
                     onVersionChange={changeVersion}
                     onUsernameChange={setUsername}
+                    onFieldChange={clearStartFieldError}
                     onStart={startAuthFlow}
                     onSocialSelect={continueWithProvider}
                 />

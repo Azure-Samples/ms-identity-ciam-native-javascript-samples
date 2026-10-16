@@ -6,9 +6,11 @@ interface AuthStartFormProps {
     version: AuthVersion;
     username: string;
     error: string;
+    fieldErrors?: Readonly<Record<string, string>>;
     loading: boolean;
     onVersionChange: (version: AuthVersion) => void;
     onUsernameChange: (username: string) => void;
+    onFieldChange?: (name: string) => void;
     onStart: (request: AuthStartRequest) => Promise<void>;
     onSocialSelect: (domainHint: string) => Promise<void>;
 }
@@ -17,13 +19,17 @@ export function AuthStartForm({
     version,
     username,
     error,
+    fieldErrors,
     loading,
     onVersionChange,
     onUsernameChange,
+    onFieldChange,
     onStart,
     onSocialSelect,
 }: AuthStartFormProps) {
     const passwordInputRef = useRef<HTMLInputElement>(null);
+    const usernameError = fieldErrors?.username;
+    const passwordError = fieldErrors?.password;
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -61,22 +67,42 @@ export function AuthStartForm({
                 ))}
             </div>
             <input
+                id="auth-start-username"
                 type="text"
                 name="username"
                 placeholder="Email or Username"
                 value={username}
-                onChange={(event) => onUsernameChange(event.target.value)}
+                onChange={(event) => {
+                    onFieldChange?.("username");
+                    onUsernameChange(event.target.value);
+                }}
                 className="auth-input"
+                aria-invalid={usernameError ? true : undefined}
+                aria-describedby={usernameError ? "auth-start-username-error" : undefined}
                 required
             />
+            {usernameError && (
+                <p id="auth-start-username-error" className="auth-field-error" role="alert">
+                    {usernameError}
+                </p>
+            )}
             <input
+                id="auth-start-password"
                 ref={passwordInputRef}
                 type="password"
                 name="password"
                 placeholder="Password (optional)"
                 autoComplete="current-password"
                 className="auth-input"
+                onChange={() => onFieldChange?.("password")}
+                aria-invalid={passwordError ? true : undefined}
+                aria-describedby={passwordError ? "auth-start-password-error" : undefined}
             />
+            {passwordError && (
+                <p id="auth-start-password-error" className="auth-field-error" role="alert">
+                    {passwordError}
+                </p>
+            )}
             <p className="auth-helper-text">
                 Password is optional for Sign In and Sign Up. Reset Password uses only the email address.
             </p>
