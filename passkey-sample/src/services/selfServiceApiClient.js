@@ -71,6 +71,15 @@ async function listPasskeyMethods(token) {
     return response.json();
 }
 
+/** Delete a passkey through the signed-in user's Self Service API. */
+export async function deleteSelfServicePasskey(instance, account, passkeyId) {
+    if (typeof passkeyId !== 'string' || !passkeyId.trim()) {
+        throw new Error('A passkey ID is required for Self Service deletion');
+    }
+    const token = await getSelfServiceAccessToken(instance, account);
+    await requestMethod(`${METHODS_PATH}/fido/${encodeURIComponent(passkeyId)}`, 'DELETE', token);
+}
+
 /** List the signed-in user's FIDO methods in the existing passkey UI format. */
 export async function fetchSelfServicePasskeys(instance, account) {
     const token = await getSelfServiceAccessToken(instance, account);
@@ -113,7 +122,11 @@ async function activatePasskeyEnrollment(activateHref, enrollment, token) {
 }
 
 /** Register a FIDO credential using Self Service API start and activation responses. */
-export async function registerSelfServicePasskey(instance, account) {
+export async function registerSelfServicePasskey(instance, account, displayName = '') {
+    if (typeof displayName !== 'string') {
+        throw new Error('Passkey name must be a string');
+    }
+    const passkeyName = displayName.trim() || generateUniquePasskeyName();
     const token = await getSelfServiceAccessToken(instance, account);
     const start = await beginPasskeyEnrollment(token);
     if (start?.state !== 'interactionRequired' || start.type !== 'fido' ||
@@ -146,7 +159,7 @@ export async function registerSelfServicePasskey(instance, account) {
 
     const method = await activatePasskeyEnrollment(start._links.activate.href, {
         continuationToken: start.continuationToken,
-        displayName: generateUniquePasskeyName(),
+        displayName: passkeyName,
         publicKeyCredential: {
             id: credential.id,
             attestationObject: bufferToBase64url(credential.response.attestationObject),

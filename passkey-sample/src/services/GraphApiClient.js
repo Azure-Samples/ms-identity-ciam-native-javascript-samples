@@ -3,6 +3,9 @@
  * Handles authentication, error parsing, and common request patterns
  */
 
+import { routingQueryParameters } from '../authConfig';
+import { withDcParameter } from '../utils/requestRouting.js';
+
 const msGraphDomain = "graph.microsoft.com/beta";
 
 /**
@@ -11,42 +14,27 @@ const msGraphDomain = "graph.microsoft.com/beta";
  * @throws {Error} - Formatted error with detailed message
  */
 export async function parseGraphApiError(response) {
+    const text = await response.text();
+    let errorJson;
     try {
-        const errorJson = await response.json();
-        
-        if (errorJson.error) {
-            let errorMessage = errorJson.error.code || 'Unknown error';
-            
-            if (errorJson.error.message) {
-                try {
-                    const nestedError = JSON.parse(errorJson.error.message);
-                    if (nestedError["odata.error"]?.message?.value) {
-                        errorMessage = `${errorMessage}: ${nestedError["odata.error"].message.value}`;
-                    }
-                } catch (parseError) {
-                    errorMessage = `${errorMessage}: ${errorJson.error.message}`;
-                }
-            }
-            
-            throw new Error(errorMessage);
-        }
-        
-        throw new Error('Unknown API error');
-        
-    } catch (error) {
-        // If it's already one of our formatted errors, re-throw it
-        if (error.message && (error.message.includes('badRequest:') || error.message.includes('unauthorized:') || error.message.includes('forbidden:'))) {
-            throw error;
-        }
-        
-        // Fallback for JSON parsing failures
-        try {
-            const textError = await response.text();
-            throw new Error(`HTTP ${response.status}: ${textError}`);
-        } catch (textError) {
-            throw new Error(`HTTP ${response.status}: Unable to parse error response`);
-        }
+        errorJson = JSON.parse(text);
+    } catch {
+        throw new Error(`HTTP ${response.status}: ${text || 'Empty API error response'}`);
     }
+
+    const graphError = errorJson?.error;
+    let errorMessage = graphError?.code || `HTTP ${response.status}`;
+    if (graphError?.message) {
+        let detail = graphError.message;
+        try {
+            const nestedError = JSON.parse(detail);
+            detail = nestedError?.["odata.error"]?.message?.value || detail;
+        } catch {
+            // Graph normally returns the message as plain text.
+        }
+        errorMessage = `${errorMessage}: ${detail}`;
+    }
+    throw new Error(errorMessage);
 }
 
 /**
@@ -61,6 +49,9 @@ export async function parseGraphApiError(response) {
  * @throws {Error} - Formatted error if request fails
  */
 export async function makeGraphRequest(endpoint, options = {}, appToken) {
+    if (typeof appToken !== 'string' || !appToken.trim()) {
+        throw new Error('A Microsoft Graph application access token is required. Check the app-token error and VITE_APP_SECRET configuration.');
+    }
     const defaultHeaders = {
         "Content-Type": "application/json",
         "Accept-Encoding": "gzip, deflate, br",
@@ -80,7 +71,7 @@ export async function makeGraphRequest(endpoint, options = {}, appToken) {
         },
     };
 
-    const response = await fetch(`https://${msGraphDomain}${endpoint}`, requestOptions);
+    const response = await fetch(withDcParameter(`https://${msGraphDomain}${endpoint}`, routingQueryParameters.dc), requestOptions);
 
     if (!response.ok) {
         await parseGraphApiError(response);

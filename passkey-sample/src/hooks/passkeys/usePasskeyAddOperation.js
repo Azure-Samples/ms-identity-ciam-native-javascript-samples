@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { registerSelfServicePasskey } from '../../services/selfServiceApiClient';
 import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
@@ -14,10 +15,13 @@ export const usePasskeyAddOperation = ({
     fetchPasskeys,
     currentPasskeys 
 }) => {
+    const [showNameModal, setShowNameModal] = useState(false);
+    const [passkeyName, setPasskeyName] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
     const { isTokenExpired, handleReAuthentication, cacheOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
-    const requestVerification = async () => {
-        cacheOperation({ action: 'add' });
+    const requestVerification = async (displayName) => {
+        cacheOperation({ action: 'add', displayName });
         if (!onShowToast) {
             await redirectForSelfServiceAccess(instance, account);
             return;
@@ -32,8 +36,10 @@ export const usePasskeyAddOperation = ({
         }));
     };
 
-    const performAddPasskey = async () => {
+    const performAddPasskey = async (displayName = '') => {
+        if (isAdding) return;
         const currentCount = currentPasskeys.length;
+        setIsAdding(true);
         
         try {
             if (!account) {
@@ -41,12 +47,12 @@ export const usePasskeyAddOperation = ({
             }
 
             if (isTokenExpired(ngcmfaExpiry)) {
-                cacheOperation({ action: 'add' });
+                cacheOperation({ action: 'add', displayName });
                 await handleReAuthentication();
                 return;
             }
 
-            await registerSelfServicePasskey(instance, account);
+            await registerSelfServicePasskey(instance, account, displayName);
             
             if (onShowToast) {
                 onShowToast(createToastMessages.passkeyAdded());
@@ -64,7 +70,7 @@ export const usePasskeyAddOperation = ({
 
         } catch (err) {
             if (err instanceof InteractionRequiredAuthError) {
-                await requestVerification();
+                await requestVerification(displayName);
                 return;
             }
             if (onShowToast) {
@@ -75,6 +81,8 @@ export const usePasskeyAddOperation = ({
                 }
             }
             await fetchPasskeys();
+        } finally {
+            setIsAdding(false);
         }
     };
 
@@ -83,11 +91,23 @@ export const usePasskeyAddOperation = ({
             onShowToast?.(createToastMessages.errorAdding('Sign in before adding a passkey'));
             return;
         }
-        await performAddPasskey();
+        setPasskeyName('');
+        setShowNameModal(true);
     };
 
     return {
         handleAddPasskey,
-        performAddPasskey
+        performAddPasskey,
+        isAdding,
+        nameModalProps: {
+            show: showNameModal,
+            name: passkeyName,
+            onNameChange: setPasskeyName,
+            onCancel: () => setShowNameModal(false),
+            onConfirm: async () => {
+                setShowNameModal(false);
+                await performAddPasskey(passkeyName.trim());
+            },
+        },
     };
 };

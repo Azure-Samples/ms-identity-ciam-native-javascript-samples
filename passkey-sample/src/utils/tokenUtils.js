@@ -1,6 +1,8 @@
 /**
  * Token utility functions for JWT parsing and token management
  */
+import { routingQueryParameters } from '../authConfig';
+import { withDcParameter } from './requestRouting.js';
 
 /**
  * Decode JWT token
@@ -64,6 +66,7 @@ export const calculateNgcmfaExpiration = (decodedToken, expiryMinutes = 10, seco
 export const getAccessToken = async (instance, accounts, loginRequest, forceRefresh = false) => {
     if (accounts.length > 0) {
         const request = {
+            ...loginRequest,
             claims: loginRequest.extraQueryParameters?.claims,
             account: accounts[0],
             forceRefresh,
@@ -108,11 +111,15 @@ export const getAccessToken = async (instance, accounts, loginRequest, forceRefr
  * @param {string} proxyDomain - Proxy domain URL
  * @param {string} appId - Application ID
  * @param {string} appSecret - Application secret
- * @returns {Promise<string|null>} - App token or null if failed
+ * @returns {Promise<string>} - Application access token
+ * @throws {Error} - Configuration or token acquisition error
  */
 export const getAppToken = async (proxyDomain, appId, appSecret) => {
     try {
-        const tokenEndpoint = `${proxyDomain}/oauth2/v2.0/token`;
+        if (typeof appSecret !== 'string' || !appSecret.trim()) {
+            throw new Error('Set VITE_APP_SECRET to a valid client secret value for the configured app registration.');
+        }
+        const tokenEndpoint = withDcParameter(`${proxyDomain}/oauth2/v2.0/token`, routingQueryParameters.dc);
 
         const params = new URLSearchParams();
         params.append('client_id', appId);
@@ -128,15 +135,17 @@ export const getAppToken = async (proxyDomain, appId, appSecret) => {
             }
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
         const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error_description || data.error || `HTTP error! status: ${response.status}`);
+        }
+        if (typeof data.access_token !== 'string' || !data.access_token.trim()) {
+            throw new Error('Application token endpoint returned no access token.');
+        }
         return data.access_token;
     } catch (error) {
         console.error('Error acquiring app token:', error);
-        return null;
+        throw error;
     }
 };
 
@@ -146,7 +155,7 @@ export const getAppToken = async (proxyDomain, appId, appSecret) => {
  * @param {string} proxyDomain - Proxy domain URL
  * @param {string} appId - Application ID
  * @param {string} appSecret - Application secret
- * @returns {Promise<string|null>} - App token or null if failed
+ * @returns {Promise<string>} - Application access token
  */
 export const getCachedAppToken = async (instance, proxyDomain, appId, appSecret) => {
     const cacheKey = 'app_token_cache';
@@ -159,41 +168,38 @@ export const getCachedAppToken = async (instance, proxyDomain, appId, appSecret)
         const cached = storage.getItem(cacheKey);
         if (cached) {
             const { token, expiresAt } = JSON.parse(cached);
-            if (Date.now() < expiresAt) {
+            const claims = parseJwt(token);
+            const hasApplicationRoles = !claims || (Array.isArray(claims.roles) && claims.roles.length > 0);
+            if (typeof token === 'string' && token.trim() && Date.now() < expiresAt && hasApplicationRoles) {
                 console.log('Using cached app token');
                 return token;
             } else {
-                console.log('Cached app token expired, removing from cache');
+                console.log('Cached app token expired or unusable, removing from cache');
                 storage.removeItem(cacheKey);
             }
         }
-        
-        console.log('Fetching new app token');
-        const newToken = await getAppToken(proxyDomain, appId, appSecret);
-        
-        if (newToken) {
-            const decodedToken = parseJwt(newToken);
-            let expiresAt = Date.now() + (3600 * 1000);
-            
-            if (decodedToken && decodedToken.exp) {
-                expiresAt = (decodedToken.exp * 1000) - (5 * 60 * 1000);
-            }
-            
-            storage.setItem(cacheKey, JSON.stringify({
-                token: newToken,
-                expiresAt: expiresAt,
-                fetchedAt: Date.now()
-            }));
-            
-            console.log('App token cached until:', new Date(expiresAt));
-        }
-        
-        return newToken;
     } catch (error) {
-        console.error('Error with cached app token:', error);
-        storage.removeItem(cacheKey);
-        return await getAppToken(proxyDomain, appId, appSecret);
+        console.warn('Could not read the application token cache; requesting a fresh token:', error);
     }
+
+    console.log('Fetching new app token');
+    const newToken = await getAppToken(proxyDomain, appId, appSecret);
+    const decodedToken = parseJwt(newToken);
+    const expiresAt = decodedToken?.exp
+        ? (decodedToken.exp * 1000) - (5 * 60 * 1000)
+        : Date.now() + (3600 * 1000);
+
+    try {
+        storage.setItem(cacheKey, JSON.stringify({
+            token: newToken,
+            expiresAt,
+            fetchedAt: Date.now()
+        }));
+    } catch (error) {
+        console.warn('Could not cache the application token:', error);
+    }
+
+    return newToken;
 };
 
 /**

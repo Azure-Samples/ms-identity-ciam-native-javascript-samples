@@ -1,6 +1,18 @@
 import http from "http";
 import https from "https";
+import fs from "fs";
+import { loadEnv } from "vite";
 import { proxyConfig } from "./proxy.config.js";
+import { routingQueryParameters } from "./src/authConfig.js";
+import { withDcParameter } from "./src/utils/requestRouting.js";
+
+const env = loadEnv("development", process.cwd(), "VITE_");
+const certPath = env.VITE_SSL_CERT || "auth-cert.pem";
+const keyPath = env.VITE_SSL_KEY || "auth-key.pem";
+const hasSSL = fs.existsSync(certPath) && fs.existsSync(keyPath);
+const httpsOptions = hasSSL
+    ? { cert: fs.readFileSync(certPath), key: fs.readFileSync(keyPath) }
+    : null;
 
 const extraHeaders = [
     "x-client-SKU",
@@ -29,7 +41,7 @@ function forwardRequest(req, res, targetUrl, corsHeaders, pathname) {
     }
 
     const proxyReq = https.request(
-        targetUrl, // CodeQL [SM04580] Targets are built from configured, fixed upstream hosts.
+        withDcParameter(targetUrl, routingQueryParameters.dc), // CodeQL [SM04580] Targets are built from configured, fixed upstream hosts.
         {
             method: req.method,
             headers: {
@@ -55,7 +67,7 @@ function forwardRequest(req, res, targetUrl, corsHeaders, pathname) {
     req.pipe(proxyReq);
 }
 
-http.createServer((req, res) => {
+const requestHandler = (req, res) => {
     const reqUrl = new URL(req.url, `http://localhost:${proxyConfig.port}`);
 
     // Set CORS headers for all responses including OPTIONS
@@ -79,19 +91,19 @@ http.createServer((req, res) => {
 
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else if (reqUrl.pathname.startsWith(`${proxyConfig.selfServicePrefix}/`)) {
-        if (req.method === "DELETE") {
-            forwardRequest(req, res, null, corsHeaders, reqUrl.pathname);
-            return;
-        }
-
         const targetUrl = proxyConfig.selfServiceAuthority + reqUrl.pathname.slice(proxyConfig.selfServicePrefix.length) + (reqUrl.search || "");
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else {
         res.writeHead(404, { "Content-Type": "text/plain" });
         res.end("Not Found");
     }
-}).listen(proxyConfig.port, () => {
-    console.log("CORS proxy running on http://localhost:3001");
+};
+
+const server = httpsOptions
+    ? https.createServer(httpsOptions, requestHandler)
+    : http.createServer(requestHandler);
+server.listen(proxyConfig.port, () => {
+    console.log(`CORS proxy running on ${httpsOptions ? "https" : "http"}://localhost:${proxyConfig.port}`);
     console.log("Proxying from " + proxyConfig.localApiPath + " ===> " + proxyConfig.tokenAuthority);
     console.log("Proxying from " + proxyConfig.selfServicePrefix + " ===> " + proxyConfig.selfServiceAuthority);
 });

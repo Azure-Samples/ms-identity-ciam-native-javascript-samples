@@ -4,6 +4,7 @@ import { Card } from 'react-bootstrap';
 import PasskeysHeader from './components/PasskeysHeader';
 import PasskeysList from './components/PasskeysList';
 import DeleteModal from './components/DeleteModal';
+import AddPasskeyModal from './components/AddPasskeyModal';
 import { PASSKEY_CONSTANTS } from '../../utils/passkeyUtils';
 import { 
     usePasskeyFetcher, 
@@ -21,7 +22,7 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
     // Custom hooks handle all the complex logic
     const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ instance, account, ngcmfaExpiry, onShowToast });
     
-    const { handleAddPasskey, performAddPasskey } = usePasskeyAddOperation({ 
+    const { handleAddPasskey, performAddPasskey, isAdding, nameModalProps } = usePasskeyAddOperation({
         instance,
         account,
         ngcmfaExpiry,
@@ -31,6 +32,8 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
     });
     
     const { initiate: initiateDelete, showConfirmationModal, modalProps } = usePasskeyDeleteOperation({ 
+        instance,
+        account,
         appToken, 
         userId, 
         ngcmfaExpiry, 
@@ -69,10 +72,11 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
 
         if (operation.action === 'add') {
             clearCachedOperation();
-            performAddPasskey().catch(console.error);
-        } else if (operation.action === 'delete' && operation.passkey && appToken && userId) {
+            performAddPasskey(operation.displayName).catch(console.error);
+        } else if (operation.action === 'delete' && operation.passkey &&
+            (operation.api === 'selfService' || (appToken && userId))) {
             clearCachedOperation();
-            showConfirmationModal(operation.passkey);
+            showConfirmationModal(operation.passkey, operation.api);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accountId, appToken, userId, ngcmfaExpiry]);
@@ -85,17 +89,19 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
                         count={passkeys.length} 
                         maxCount={maxPasskeys}
                         onAddClick={handleAddPasskey}
-                        isLoading={isLoading}
+                        isLoading={isLoading || isAdding}
                     />
                     <PasskeysList 
                         passkeys={passkeys} 
                         onDelete={initiateDelete}
+                        onSelfServiceDelete={passkey => initiateDelete(passkey, 'selfService')}
                         isLoading={isLoading}
                         error={error}
                     />
                 </Card.Body>
             </Card>
             
+            <AddPasskeyModal {...nameModalProps} />
             <DeleteModal {...modalProps} />
         </>
     );

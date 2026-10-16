@@ -11,7 +11,7 @@ import PasskeyItem from './PasskeyItem';
  * @param {string|null} [props.error=null] - Error message to display if any
  * @returns {JSX.Element} Rendered passkeys list
  */
-const PasskeysList = ({ passkeys, onDelete, isLoading = false, error = null }) => {
+const PasskeysList = ({ passkeys, onDelete, onSelfServiceDelete, isLoading = false, error = null }) => {
     if (error) {
         return (
             <Alert variant="danger" className="mb-0">
@@ -58,6 +58,7 @@ const PasskeysList = ({ passkeys, onDelete, isLoading = false, error = null }) =
                     key={passkey.id} 
                     passkey={passkey} 
                     onDelete={onDelete}
+                    onSelfServiceDelete={onSelfServiceDelete}
                     isLoading={isLoading}
                 />
             ))}

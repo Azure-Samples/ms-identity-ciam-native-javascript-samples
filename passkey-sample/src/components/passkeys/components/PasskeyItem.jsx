@@ -13,7 +13,7 @@ import { parseDeviceModel } from './utils';
  * @param {boolean} [props.isLoading=false] - Whether component is in loading state
  * @returns {JSX.Element} Rendered passkey item
  */
-const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
+const PasskeyItem = ({ passkey, onDelete, onSelfServiceDelete, isLoading = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     const handleToggleExpand = () => {
@@ -30,7 +30,8 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                 <div className="flex-grow-1">
                     <Row className="g-2 mb-1">
                         <Col xs={6} className="text-start">
-                            <strong>Passkey ({passkey.passkeyType})</strong>
+                            <strong>{passkey.name || 'Passkey'}</strong>
+                            <small className="text-muted ms-1">({passkey.passkeyType})</small>
                         </Col>
                         <Col xs={6} className="text-start">
                             <span className="text-muted small">{deviceDetails.authenticatorDevice} - {deviceDetails.method}</span>
@@ -51,6 +52,8 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                     <Button 
                         variant="outline-danger" 
                         size="sm"
+                        title="Delete using Microsoft Graph"
+                        aria-label="Delete passkey using Microsoft Graph"
                         onClick={(e) => {
                             e.stopPropagation(); // Prevent expanding when clicking delete
                             onDelete(passkey);
@@ -58,6 +61,20 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                         disabled={isLoading}
                     >
                         <HiOutlineTrash />
+                    </Button>
+                    <Button
+                        variant="outline-warning"
+                        size="sm"
+                        title="Test deletion using the Self Service API"
+                        aria-label="Delete passkey using Self Service API (test)"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onSelfServiceDelete(passkey);
+                        }}
+                        disabled={isLoading}
+                    >
+                        <HiOutlineTrash className="me-1" />
+                        Delete (Self Service)
                     </Button>
                     <Button 
                         variant="outline-secondary" 

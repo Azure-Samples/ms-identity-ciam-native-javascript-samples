@@ -1,6 +1,8 @@
 # Microsoft Identity Platform - React SPA with Passkeys
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. Deletion still uses the high-privilege Microsoft Graph API.
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. The red trash button deletes through the high-privilege Microsoft Graph API. The yellow **Delete (Self Service)** button tests the new delegated Self Service DELETE endpoint; both require confirmation and refresh the passkey list after success.
+
+Select **Add Passkey** to enter an optional custom name before creating the credential. The name is saved as the method's display name and shown in the passkey list. Blank names are generated automatically, and your chosen name is preserved if you need to sign in again during creation.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -26,7 +28,11 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 ## Set up locally
 
-The following instructions set up this sample app **locally**. Throughout this guide, `passkeytest.ciamlogin.com` is used as the example tenant — replace it with your own.
+The configured test tenant is `cmpasskeysoobselfservice.ciamlogin.com` (tenant ID `8d2f71d7-fbcb-4ef5-92d7-da5977cf376b`), using client ID `65f43756-4f51-4298-9483-141c9f1f6ee2`.
+
+Use `auth.cmpasskeysoobselfservice.ciamlogin.com` for the hosts mapping, trusted development certificate, and `VITE_HOST`. Register `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000/` as a SPA redirect URI. MSAL and the Self Service token request are pinned to this registered URL; open the app on port 3000. Generic hostname examples below must be replaced with this hostname.
+
+Routing is configured in `routingQueryParameters` in `src/authConfig.js`: `dc=ESTS-PUB-WEULR1-AZ1-FD001-001`. MSAL's network client adds routing to discovery and token requests and normalizes the discovered sign-in, token, and logout URLs to contain exactly one `dc`. Do not also add `dc` to MSAL's `extraQueryParameters` or `tokenQueryParameters`; that duplicates it. Self Service, Graph, and application-token requests also include `dc`, and the local proxy enforces it upstream.
 
 ### 1. Windows Domain Setup (Required for Passkey rp.id Compliance)
 
@@ -162,9 +168,9 @@ Before running the application, you need to configure your Microsoft Entra ID ap
 Set the client ID, tenant ID, and CIAM tenant subdomain in `src/authConfig.js`.
 
 ```javascript
-const clientId = '<your-client-id-here>';
-const tenantId = '<your-tenant-id>';
-const tenantName = '<your-tenant-name>';
+const clientId = '65f43756-4f51-4298-9483-141c9f1f6ee2';
+const tenantId = '8d2f71d7-fbcb-4ef5-92d7-da5977cf376b';
+const tenantName = 'cmpasskeysoobselfservice';
 
 export const msalConfig = {
     auth: {
@@ -188,7 +194,7 @@ The repository does **not** include a `.env` file — you need to create one you
 
 ```env
 # Local dev hostname — must match the auth.<tenant>.ciamlogin.com subdomain in your hosts file
-VITE_HOST=auth.passkeytest.ciamlogin.com
+VITE_HOST=auth.cmpasskeysoobselfservice.ciamlogin.com
 VITE_PORT=3000
 
 # SSL certificate filenames at the project root
@@ -234,7 +240,7 @@ Open a terminal and run the following command:
 npm run cors
 ```
 
-This starts the local proxy on port 3001.
+This starts the local proxy on port 3001 over HTTPS when the configured certificate files exist. Both the proxy and Vite use `VITE_SSL_CERT` and `VITE_SSL_KEY` from `.env`. The app calls `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3001`.
 
 #### Step 3: Start sample app
 
@@ -242,14 +248,14 @@ This starts the local proxy on port 3001.
 npm start
 ```
 
-This starts the Vite development server on `https://auth.passkeytest.ciamlogin.com:3000` (host and port from `.env`).
+This starts the Vite development server on `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000` (host and port from `.env`).
 
 ### 5. Access the Application
 
 Open your browser and navigate to:
 
 ```
-https://auth.passkeytest.ciamlogin.com:3000
+https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000
 ```
 
 **Note**: The application runs on HTTPS with a self-signed certificate. You may need to accept the security warning in your browser.
@@ -266,7 +272,7 @@ Generate these SSL certificate files locally for HTTPS development:
 ### CORS Proxy
 
 - `/api/*` → Microsoft Entra token endpoint
-- `/selfservice-api/*` → Self Service (Credential Management) API for list/get and add; deletion calls Microsoft Graph directly
+- `/selfservice-api/*` → Self Service (Credential Management) API for list/get, add, and experimental deletion at `/api/v1.0/me/methods/fido/{passkey-id}`. The red Graph delete button still calls Microsoft Graph directly.
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 

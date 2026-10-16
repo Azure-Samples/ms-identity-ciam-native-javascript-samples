@@ -10,11 +10,12 @@ import { FaExclamationTriangle } from 'react-icons/fa';
  * @param {Function} props.onCancel - Callback when user cancels deletion
  * @returns {JSX.Element} Rendered confirmation modal
  */
-const DeleteModal = ({ show, passkey, onConfirm, onCancel }) => {
+const DeleteModal = ({ show, passkey, api = 'graph', onConfirm, onCancel }) => {
+    const isSelfService = api === 'selfService';
     return (
         <Modal show={show} onHide={onCancel} centered>
             <Modal.Header closeButton>
-                <Modal.Title>Delete Passkey</Modal.Title>
+                <Modal.Title>Delete Passkey ({isSelfService ? 'Self Service test' : 'Microsoft Graph'})</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <div className="d-flex align-items-center mb-3">
@@ -22,6 +23,9 @@ const DeleteModal = ({ show, passkey, onConfirm, onCancel }) => {
                     <div>
                         <p className="mb-2">
                             Are you sure you want to delete the passkey <strong>"{passkey?.name || 'Unknown'}"</strong>?
+                        </p>
+                        <p className="small mb-2">
+                            API: {isSelfService ? 'Self Service (experimental DELETE endpoint)' : 'Microsoft Graph'}
                         </p>
                         <p className="text-muted small mb-0">
                             This action cannot be undone. You'll need to set up a new passkey if you want to use passkey authentication again.
@@ -33,8 +37,8 @@ const DeleteModal = ({ show, passkey, onConfirm, onCancel }) => {
                 <Button variant="secondary" onClick={onCancel}>
                     Cancel
                 </Button>
-                <Button variant="danger" onClick={onConfirm}>
-                    Delete Passkey
+                <Button variant={isSelfService ? 'warning' : 'danger'} onClick={onConfirm}>
+                    {isSelfService ? 'Delete (Self Service)' : 'Delete Passkey'}
                 </Button>
             </Modal.Footer>
         </Modal>

@@ -4,10 +4,13 @@
  */
 
 import { LogLevel } from '@azure/msal-browser';
+import { createDcNetworkClient } from './utils/requestRouting.js';
 
-const clientId = '<your-client-id-here>';
-const tenantId = '<your-tenant-id>';
-const tenantName = '<your-tenant-name>';
+const clientId = '65f43756-4f51-4298-9483-141c9f1f6ee2';
+const tenantId = '8d2f71d7-fbcb-4ef5-92d7-da5977cf376b';
+const tenantName = 'cmpasskeysoobselfservice';
+const appRedirectUri = `https://auth.${tenantName}.ciamlogin.com:3000/`;
+export const routingQueryParameters = { dc: 'ESTS-PUB-WEULR1-AZ1-FD001-001' };
 
 /**
  * Configuration object to be passed to MSAL instance on creation. 
@@ -19,8 +22,8 @@ export const msalConfig = {
     auth: {
         clientId,
         authority: `https://${tenantName}.ciamlogin.com/${tenantId}`,
-        redirectUri: '/',
-        postLogoutRedirectUri: '/',
+        redirectUri: appRedirectUri,
+        postLogoutRedirectUri: appRedirectUri,
         navigateToLoginRequestUrl: false,
     },
     cache: {
@@ -29,6 +32,7 @@ export const msalConfig = {
         claimsBasedCachingEnabled: true,
     },
     system: {
+        networkClient: createDcNetworkClient(routingQueryParameters.dc),
         loggerOptions: {
             loggerCallback: (level, message, containsPii) => {
                 if (containsPii) {
@@ -84,17 +88,16 @@ export const loginRequest = {
     extraQueryParameters: {
         claims: claims,
     },
+    // Discovery supplies dc on the endpoints; request parameters would duplicate it.
 };
 
-const proxyOrigin = 'http://localhost:3001';
+const proxyOrigin = `https://auth.${tenantName}.ciamlogin.com:3001`;
 
 export const selfServiceApiConfig = {
     exchangeClientId: msalConfig.auth.clientId,
     exchangeAuthority: msalConfig.auth.authority,
     scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
-    exchangeRedirectUri: typeof window === 'undefined'
-        ? ''
-        : new URL(msalConfig.auth.redirectUri, window.location.origin).href,
+    exchangeRedirectUri: appRedirectUri,
     claims: JSON.stringify({
         access_token: {
             acrs: { essential: true, values: ['urn:user:registersecurityinfo'] },
@@ -102,8 +105,7 @@ export const selfServiceApiConfig = {
         },
     }),
     authority: `${proxyOrigin}/selfservice-api`,
-    apiQueryParams: {
-    },
+    apiQueryParams: routingQueryParameters,
 };
 
 /**

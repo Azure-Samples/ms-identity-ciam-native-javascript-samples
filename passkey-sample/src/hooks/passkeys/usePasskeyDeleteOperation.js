@@ -1,9 +1,14 @@
 import { useState } from 'react';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { deleteUserPasskey } from '../../services/PasskeyService';
+import { deleteSelfServicePasskey } from '../../services/selfServiceApiClient';
+import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
 import { createToastMessages } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
 export const usePasskeyDeleteOperation = ({ 
+    instance,
+    account,
     appToken, 
     userId, 
     ngcmfaExpiry, 
@@ -13,21 +18,49 @@ export const usePasskeyDeleteOperation = ({
 }) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [passkeyToDelete, setPasskeyToDelete] = useState(null);
+    const [deleteApi, setDeleteApi] = useState('graph');
     
-    const { isTokenExpired, handleReAuthentication, cacheOperation } = useAuthentication({ onShowToast });
+    const { isTokenExpired, handleReAuthentication, cacheOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
-    const displayModal = (passkey) => {
+    const displayModal = (passkey, api = 'graph') => {
         setPasskeyToDelete(passkey);
+        setDeleteApi(api);
         setShowDeleteModal(true);
     };
 
-    const performDelete = async (passkeyId, cachedPasskeyName) => {
+    const performDelete = async (passkeyId, cachedPasskeyName, api = 'graph') => {
         const targetPasskey = currentPasskeys.find(p => p.id === passkeyId);
         const passkeyDisplayName = targetPasskey?.name || cachedPasskeyName;
 
         try {
-            await deleteUserPasskey(appToken, userId, passkeyId);
+            if (api === 'selfService') {
+                await deleteSelfServicePasskey(instance, account, passkeyId);
+            } else {
+                await deleteUserPasskey(appToken, userId, passkeyId);
+            }
         } catch (err) {
+            if (api === 'selfService' && err instanceof InteractionRequiredAuthError) {
+                cacheOperation({
+                    action: 'delete',
+                    api,
+                    passkey: { id: passkeyId, name: passkeyDisplayName }
+                });
+                const requestVerification = async () => {
+                    try {
+                        await redirectForSelfServiceAccess(instance, account);
+                    } catch (error) {
+                        clearCachedOperation();
+                        onShowToast?.(createToastMessages.errorDeleting(error.message));
+                        console.error('Self Service delete authorization failed:', error);
+                    }
+                };
+                if (onShowToast) {
+                    onShowToast(createToastMessages.sessionExpiredWithAction(requestVerification));
+                } else {
+                    await requestVerification();
+                }
+                return;
+            }
             onShowToast?.(createToastMessages.errorDeleting(err.message));
             return;
         }
@@ -47,18 +80,19 @@ export const usePasskeyDeleteOperation = ({
         }
     };
 
-    const initiate = async (passkey) => {
+    const initiate = async (passkey, api = 'graph') => {
         if (isTokenExpired(ngcmfaExpiry)) {
             const deleteOperation = { 
                 action: 'delete', 
-                passkey: passkey
+                passkey: passkey,
+                api
             };
             cacheOperation(deleteOperation);
             await handleReAuthentication();
             return;
         }
 
-        displayModal(passkey);
+        displayModal(passkey, api);
     };
 
     const confirm = async () => {
@@ -69,7 +103,7 @@ export const usePasskeyDeleteOperation = ({
         hide();
         
         try {
-            await performDelete(passkeyId, passkeyName);
+            await performDelete(passkeyId, passkeyName, deleteApi);
         } catch (error) {
             // Error already handled in performDelete
         }
@@ -87,6 +121,7 @@ export const usePasskeyDeleteOperation = ({
         modalProps: {
             show: showDeleteModal,
             passkey: passkeyToDelete,
+            api: deleteApi,
             onConfirm: confirm,
             onCancel: hide
         }
