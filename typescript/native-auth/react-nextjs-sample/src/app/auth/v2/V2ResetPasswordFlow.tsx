@@ -16,7 +16,7 @@ import { NewPasswordForm } from "../components/forms/NewPasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
-import { v2AuthorizationInputs } from "../../../config/v2-request-config";
+import { authorizationInputs } from "../../../config/authorization-request-config";
 import type { AuthFlowProps } from "../types";
 
 type V2ResetPasswordFlowProps = Omit<
@@ -31,7 +31,7 @@ function getThrownErrorMessage(error: unknown): string {
 export function startV2ResetPassword(app: AuthFlowProps["app"], username: string) {
     return app.resetPasswordV2({
         username,
-        ...v2AuthorizationInputs,
+        ...authorizationInputs,
     });
 }
 

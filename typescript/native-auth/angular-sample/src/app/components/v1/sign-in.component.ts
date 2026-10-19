@@ -24,6 +24,7 @@ import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selectio
 import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
 import { MfaAuthMethodSelectionFormComponent } from "../shared/mfa-auth-method-selection-form/mfa-auth-method-selection-form.component";
 import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-challenge-form.component";
+import { authorizationInputs } from "../../config/authorization-request-config";
 
 @Component({
     selector: "app-sign-in",
@@ -113,6 +114,7 @@ export class SignInComponent implements OnInit {
         const client = await this.auth.getClient();
         const result: SignInResult = await client.signIn({
             username: this.username,
+            ...authorizationInputs,
         });
         let currentState = result.state;
 

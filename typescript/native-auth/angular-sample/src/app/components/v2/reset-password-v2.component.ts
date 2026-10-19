@@ -10,7 +10,7 @@ import {
     SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
-import { v2AuthorizationInputs } from "../../config/v2-request-config";
+import { authorizationInputs } from "../../config/authorization-request-config";
 import { AuthService } from "../../services/auth.service";
 import { AuthStartFormComponent } from "../shared/auth-start-form/auth-start-form.component";
 import { AuthStepLayoutComponent } from "../shared/auth-step-layout/auth-step-layout.component";
@@ -113,7 +113,7 @@ export class ResetPasswordV2Component implements OnInit {
             const client = await this.auth.getClient();
             const result = await client.resetPasswordV2({
                 username: this.username,
-                ...v2AuthorizationInputs,
+                ...authorizationInputs,
             });
             if (result.isFailed()) {
                 this.initialErrorPresentation = this.applyV2Error(result.error);

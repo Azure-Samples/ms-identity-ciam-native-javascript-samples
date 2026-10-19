@@ -16,7 +16,7 @@ import { PasswordForm } from "../components/forms/PasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { V2AuthMethodFlow } from "./V2AuthMethodFlow";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
-import { v2AuthorizationInputs } from "../../../config/v2-request-config";
+import { authorizationInputs } from "../../../config/authorization-request-config";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 
 type V2SignInFlowProps = Omit<Extract<AuthFlowProps, { version: "v2"; action: "signIn" }>, "version" | "action">;
@@ -29,7 +29,7 @@ export function startV2SignIn(app: AuthFlowProps["app"], credentials: InitialCre
     return app.signInV2({
         username: credentials.username,
         password: credentials.password || undefined,
-        ...v2AuthorizationInputs,
+        ...authorizationInputs,
     });
 }
 

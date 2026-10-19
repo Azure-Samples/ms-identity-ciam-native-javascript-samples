@@ -11,7 +11,7 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { AuthService } from "../../services/auth.service";
-import { v2AuthorizationInputs } from "../../config/v2-request-config";
+import { authorizationInputs } from "../../config/authorization-request-config";
 import { AuthStartFormComponent } from "../shared/auth-start-form/auth-start-form.component";
 import { AuthStepLayoutComponent } from "../shared/auth-step-layout/auth-step-layout.component";
 import { CodeFormComponent } from "../shared/code-form/code-form.component";
@@ -122,7 +122,7 @@ export class SignInV2Component implements OnInit {
             const result = await client.signInV2({
                 username: this.username,
                 password: this.password || undefined,
-                ...v2AuthorizationInputs,
+                ...authorizationInputs,
             });
 
             if (result.isFailed()) {

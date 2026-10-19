@@ -1,6 +1,6 @@
-import type { SignInInputsV2 } from "@azure/msal-browser/custom-auth";
+import type { SignInInputs } from "@azure/msal-browser/custom-auth";
 
-export const v2AuthorizationInputs = {
+export const authorizationInputs = {
     scopes: ["openid", "profile", "offline_access"],
     claims: JSON.stringify({
         access_token: {
@@ -10,4 +10,4 @@ export const v2AuthorizationInputs = {
             },
         },
     }),
-} satisfies Pick<SignInInputsV2, "scopes" | "claims">;
+} satisfies Pick<SignInInputs, "scopes" | "claims">;

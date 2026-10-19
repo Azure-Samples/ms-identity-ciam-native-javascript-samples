@@ -16,6 +16,7 @@ import { CodeForm } from "../components/forms/CodeForm";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 import { isV1MfaOrRegistrationState, V1MfaAndRegistrationFlow } from "./V1MfaAndRegistrationFlow";
+import { authorizationInputs } from "../../../config/authorization-request-config";
 
 type V1SignUpFlowProps = Omit<Extract<AuthFlowProps, { version: "v1"; action: "signUp" }>, "version" | "action">;
 
@@ -84,7 +85,7 @@ export function V1SignUpFlow({ initialResult, onCancel, onCompleted }: V1SignUpF
         setLoading(true);
 
         try {
-            const result = await completedState.signIn();
+            const result = await completedState.signIn(authorizationInputs);
             if (hasFailed(result)) {
                 setError(result.error?.errorData.errorDescription || "An error occurred during automatic sign in.");
                 return;

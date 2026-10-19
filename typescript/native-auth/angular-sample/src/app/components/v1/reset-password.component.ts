@@ -17,6 +17,7 @@ import { AuthMethodSelectionFormComponent } from "../shared/auth-method-selectio
 import { AuthMethodChallengeFormComponent } from "../shared/auth-method-challenge-form/auth-method-challenge-form.component";
 import { MfaAuthMethodSelectionFormComponent } from "../shared/mfa-auth-method-selection-form/mfa-auth-method-selection-form.component";
 import { MfaChallengeFormComponent } from "../shared/mfa-challenge-form/mfa-challenge-form.component";
+import { authorizationInputs } from "../../config/authorization-request-config";
 
 @Component({
     selector: "app-reset-password",
@@ -203,7 +204,7 @@ export class ResetPasswordComponent {
         this.error = "";
 
         if (this.resetState instanceof ResetPasswordCompletedState) {
-            const result = await this.resetState.signIn();
+            const result = await this.resetState.signIn(authorizationInputs);
 
             if (result.isFailed()) {
                 this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";

@@ -15,6 +15,7 @@ import { CodeForm } from "../components/forms/CodeForm";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 import { isV1MfaOrRegistrationState, V1MfaAndRegistrationFlow } from "./V1MfaAndRegistrationFlow";
+import { authorizationInputs } from "../../../config/authorization-request-config";
 
 type V1SignInFlowProps = Omit<Extract<AuthFlowProps, { version: "v1"; action: "signIn" }>, "version" | "action">;
 
@@ -30,6 +31,7 @@ export function startV1SignIn(app: AuthFlowProps["app"], credentials: InitialCre
     return app.signIn({
         username: credentials.username,
         ...(credentials.password ? { password: credentials.password } : {}),
+        ...authorizationInputs,
     });
 }
 
