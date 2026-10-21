@@ -23,8 +23,11 @@ const DeleteModal = ({ show, passkey, onConfirm, onCancel }) => {
                         <p className="mb-2">
                             Are you sure you want to delete the passkey <strong>"{passkey?.name || 'Unknown'}"</strong>?
                         </p>
-                        <p className="text-muted small mb-0">
+                        <p className="text-muted small mb-2">
                             This action cannot be undone. You'll need to set up a new passkey if you want to use passkey authentication again.
+                        </p>
+                        <p className="text-muted small mb-0">
+                            If you used this passkey to sign in, deleting it means you'll need to complete multifactor authentication (MFA) again.
                         </p>
                     </div>
                 </div>
