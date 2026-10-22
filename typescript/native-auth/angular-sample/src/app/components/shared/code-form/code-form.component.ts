@@ -15,6 +15,13 @@ export class CodeFormComponent {
     @Input() placeholder = "OTP Code";
     @Input() submitButtonText = "Verify Code";
     @Input() submitButtonLoadingText = "Verifying...";
+    @Input() sentTo: string | undefined;
+    @Input() channel: string | undefined;
+    @Input() codeLength: number | undefined;
+    @Input() showDeliveryHint = false;
+    @Input() resendLoading = false;
+    @Input() noValidate = false;
+    @Input() disableResendWhileLoading = false;
 
     @Output() codeChange = new EventEmitter<string>();
     @Output() submitForm = new EventEmitter<void>();

@@ -1,0 +1,6 @@
+<div class="auth-container">
+    <h2 class="auth-heading">{{ title }}</h2>
+    <ng-content></ng-content>
+    <div class="auth-error" *ngIf="error">{{ error }}</div>
+    <button *ngIf="error" type="button" class="auth-secondary-button auth-restart-button" [disabled]="busy" (click)="restart.emit()">Start over</button>
+</div>

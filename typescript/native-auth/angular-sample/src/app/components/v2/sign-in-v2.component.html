@@ -1,0 +1,135 @@
+<app-auth-step-layout title="V2 Sign In" [error]="error" [busy]="loading || resendLoading" (restart)="restart()">
+    <div class="auth-signed-in-message" *ngIf="userData">Signed in as {{ userData.getAccount().username }}</div>
+
+    <app-auth-start-form
+        *ngIf="!state && !userData"
+        [(username)]="username"
+        [(password)]="password"
+        [loading]="loading"
+        [fieldErrors]="fieldErrors"
+        submitText="Sign In"
+        submittingText="Signing in..."
+        helperText="Password is optional. Leave it empty to use another configured authentication method."
+        (fieldChange)="clearFieldError($event)"
+        (submitForm)="startSignIn()"
+    >
+    </app-auth-start-form>
+
+    <app-password-form
+        *ngIf="passwordState"
+        [loading]="loading"
+        [password]="password"
+        [passwordError]="fieldErrors['password']"
+        [noValidate]="true"
+        submitButtonText="Sign In"
+        submitButtonLoadingText="Signing in..."
+        (submitForm)="submitPassword(password)"
+        (passwordChange)="onPasswordChange($event)"
+    >
+    </app-password-form>
+
+    <app-code-form
+        *ngIf="codeState as currentCodeState"
+        [code]="code"
+        [loading]="loading"
+        [resendLoading]="resendLoading"
+        [resendCountdown]="resendCountdown"
+        [sentTo]="currentCodeState.sentTo"
+        [channel]="currentCodeState.channel"
+        [codeLength]="currentCodeState.codeLength"
+        [showDeliveryHint]="true"
+        [noValidate]="true"
+        [disableResendWhileLoading]="true"
+        placeholder="Enter verification code"
+        (codeChange)="code = $event"
+        (submitForm)="submitCode()"
+        (resend)="resendCode()"
+    >
+    </app-code-form>
+
+    <app-method-selection-form
+        *ngIf="methodSelectionState"
+        [options]="methodOptions"
+        [loading]="loading"
+        description="Choose an authentication method:"
+        submitText="Continue"
+        submittingText="Continuing..."
+        (submitSelection)="selectAuthMethod($event)"
+    >
+    </app-method-selection-form>
+
+    <app-method-selection-form
+        *ngIf="registrationState && !selectedRegistrationMethod"
+        [options]="registrationMethodOptions"
+        [loading]="loading"
+        description="Choose an authentication method to register:"
+        submitText="Continue"
+        submittingText="Continuing..."
+        (submitSelection)="selectRegistrationMethod($event)"
+    >
+    </app-method-selection-form>
+
+    <form *ngIf="registrationState && selectedRegistrationMethod as method" class="auth-form" (ngSubmit)="enrollAuthMethod()">
+        <label for="registration-contact">
+            {{ method.type === "email" ? "Email address" : "Phone number (with country code)" }}
+        </label>
+        <input
+            id="registration-contact"
+            name="registrationContact"
+            class="auth-input"
+            [type]="method.type === 'email' ? 'email' : 'tel'"
+            [autocomplete]="method.type === 'email' ? 'email' : 'tel'"
+            [(ngModel)]="registrationContact"
+            required
+        />
+        <button type="submit" class="auth-button" [disabled]="loading || !registrationContact.trim()">
+            {{ loading ? "Registering..." : "Register method" }}
+        </button>
+        <button type="button" class="auth-secondary-button" [disabled]="loading" (click)="selectedRegistrationMethod = null">
+            Choose another method
+        </button>
+    </form>
+
+    <app-code-form
+        *ngIf="activationState as currentActivationState"
+        [code]="code"
+        [loading]="loading"
+        [resendLoading]="resendLoading"
+        [resendCountdown]="resendCountdown"
+        [sentTo]="currentActivationState.sentTo"
+        [channel]="currentActivationState.method.channels?.[0] || currentActivationState.method.type"
+        [codeLength]="currentActivationState.codeLength"
+        [showDeliveryHint]="true"
+        [noValidate]="true"
+        [disableResendWhileLoading]="true"
+        placeholder="Enter activation code"
+        submitButtonText="Activate method"
+        submitButtonLoadingText="Activating..."
+        (codeChange)="code = $event"
+        (submitForm)="submitActivationCode()"
+        (resend)="resendActivationCode()"
+    >
+    </app-code-form>
+
+    <app-code-form
+        *ngIf="mfaVerificationState as currentMfaState"
+        [code]="code"
+        [loading]="loading"
+        [resendLoading]="resendLoading"
+        [resendCountdown]="resendCountdown"
+        [sentTo]="currentMfaState.sentTo"
+        [channel]="currentMfaState.channel"
+        [codeLength]="currentMfaState.codeLength"
+        [showDeliveryHint]="true"
+        [noValidate]="true"
+        [disableResendWhileLoading]="true"
+        placeholder="Enter verification code"
+        (codeChange)="code = $event"
+        (submitForm)="submitMfaCode()"
+        (resend)="resendMfaCode()"
+    >
+    </app-code-form>
+
+    <div class="auth-signed-in-message" *ngIf="isCompleted && !userData">Sign-in completed.</div>
+    <p *ngIf="loading && !state">Starting sign-in...</p>
+</app-auth-step-layout>
