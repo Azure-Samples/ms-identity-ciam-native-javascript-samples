@@ -1,15 +1,18 @@
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import {
     type AuthFlowErrorV2,
     AuthFlowStateBase,
+    AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
     NewPasswordRequiredStateV2,
     SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
-import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import type { AuthenticationMethodRegistrationV2, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { authorizationInputs } from "../../config/authorization-request-config";
 import { AuthService } from "../../services/auth.service";
 import { AuthStartFormComponent } from "../shared/auth-start-form/auth-start-form.component";
@@ -36,6 +39,7 @@ import {
     standalone: true,
     imports: [
         CommonModule,
+        FormsModule,
         AuthStartFormComponent,
         AuthStepLayoutComponent,
         CodeFormComponent,
@@ -43,7 +47,7 @@ import {
         NewPasswordFormComponent,
     ],
 })
-export class ResetPasswordV2Component implements OnInit {
+export class ResetPasswordV2Component implements OnInit, OnDestroy {
     @Input() initialUsername = "";
     @Input() autoStart = false;
     @Input() embedded = false;
@@ -54,6 +58,8 @@ export class ResetPasswordV2Component implements OnInit {
 
     username = "";
     code = "";
+    selectedRegistrationMethod: AuthenticationMethodRegistrationV2 | null = null;
+    registrationContact = "";
     error = "";
     fieldErrors: V2FieldErrors = {};
     loading = false;
@@ -62,6 +68,7 @@ export class ResetPasswordV2Component implements OnInit {
     state: AuthFlowStateBase | null = null;
     userData: CustomAuthAccountData | undefined;
     private initialErrorPresentation: V2ErrorPresentation | undefined;
+    private resendTimer: number | undefined;
 
     constructor(private auth: AuthService) {}
 
@@ -74,6 +81,10 @@ export class ResetPasswordV2Component implements OnInit {
             this.initialErrorPresentation ??
                 (this.error ? createV2ErrorPresentation(this.error) : undefined),
         );
+    }
+
+    ngOnDestroy(): void {
+        this.stopResendCountdown();
     }
 
     get methodSelectionState(): AuthMethodSelectionRequiredStateV2 | null {
@@ -92,6 +103,14 @@ export class ResetPasswordV2Component implements OnInit {
         return this.state instanceof SignInContinuationStateV2 ? this.state : null;
     }
 
+    get registrationState(): AuthMethodRegistrationRequiredStateV2 | null {
+        return this.state instanceof AuthMethodRegistrationRequiredStateV2 ? this.state : null;
+    }
+
+    get registrationVerificationState(): AuthMethodVerificationRequiredStateV2 | null {
+        return this.state instanceof AuthMethodVerificationRequiredStateV2 ? this.state : null;
+    }
+
     get isCompleted(): boolean {
         return this.state instanceof CompletedStateV2;
     }
@@ -101,6 +120,15 @@ export class ResetPasswordV2Component implements OnInit {
             this.methodSelectionState?.methods.map((method) => ({
                 value: method.id,
                 label: `${method.type}${method.hint ? ` (${method.hint})` : ""}`,
+            })) ?? []
+        );
+    }
+
+    get registrationMethodOptions(): readonly MethodOption[] {
+        return (
+            this.registrationState?.methods.map((method) => ({
+                value: method.type,
+                label: `${method.type}${method.channels?.length ? ` (${method.channels.join(", ")})` : ""}`,
             })) ?? []
         );
     }
@@ -229,6 +257,12 @@ export class ResetPasswordV2Component implements OnInit {
             const result = await state.submitNewPassword(newPassword);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                this.state = result.state;
+                this.selectedRegistrationMethod = null;
+                this.registrationContact = "";
+                this.code = "";
+                this.stopResendCountdown();
             } else if (result.isState("signInContinuation")) {
                 await this.continueSignIn(result.state);
             } else {
@@ -238,6 +272,118 @@ export class ResetPasswordV2Component implements OnInit {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
             this.loading = false;
+        }
+    }
+
+    selectRegistrationMethod(methodType: string): void {
+        const method = this.registrationState?.methods.find((item) => item.type === methodType);
+        if (!method) {
+            this.error = "The selected registration method is no longer available.";
+            return;
+        }
+
+        this.selectedRegistrationMethod = method;
+        this.registrationContact = "";
+        this.error = "";
+        this.fieldErrors = {};
+    }
+
+    async registerAuthMethod(): Promise<void> {
+        const state = this.registrationState;
+        const selectedMethod = this.selectedRegistrationMethod;
+        if (!state || !selectedMethod) {
+            this.error = "Select an authentication method before registering.";
+            return;
+        }
+
+        const method = state.methods.find((item) => item.type === selectedMethod.type);
+        if (!method) {
+            this.error = "The selected registration method is no longer available.";
+            return;
+        }
+
+        const contact = this.registrationContact.trim();
+        if (!contact) {
+            this.error = "Enter the email address or phone number to register.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.loading = true;
+        try {
+            const result = await state.enrollAuthMethod(method, contact);
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("authMethodVerificationRequired")) {
+                this.state = result.state;
+                this.code = "";
+                this.stopResendCountdown();
+                this.selectedRegistrationMethod = null;
+                this.registrationContact = "";
+            } else {
+                this.error = "Authentication method registration returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected authentication method registration error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async submitRegistrationChallenge(): Promise<void> {
+        const state = this.registrationVerificationState;
+        if (!state) {
+            this.error = "Register an authentication method before submitting its verification code.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.loading = true;
+        try {
+            const result = await state.submitChallenge(this.code);
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("completed")) {
+                this.code = "";
+                this.registrationContact = "";
+                this.complete(result.state, result.data);
+            } else {
+                this.error = "Authentication method verification returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected authentication method verification error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async resendRegistrationChallenge(): Promise<void> {
+        const state = this.registrationVerificationState;
+        if (!state) {
+            this.error = "Register an authentication method before requesting another verification code.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.resendLoading = true;
+        try {
+            const result = await state.resendChallenge();
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("authMethodVerificationRequired")) {
+                this.state = result.state;
+                this.code = "";
+                this.startResendCountdown();
+            } else {
+                this.error = "Resending the registration code returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected registration code resend error occurred.");
+        } finally {
+            this.resendLoading = false;
         }
     }
 
@@ -290,6 +436,7 @@ export class ResetPasswordV2Component implements OnInit {
     }
 
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
+        this.stopResendCountdown();
         this.state = state;
         this.fieldErrors = {};
         this.userData = account;
@@ -297,9 +444,12 @@ export class ResetPasswordV2Component implements OnInit {
     }
 
     private resetFlow(): void {
+        this.stopResendCountdown();
         this.state = null;
         this.userData = undefined;
         this.code = "";
+        this.selectedRegistrationMethod = null;
+        this.registrationContact = "";
         this.error = "";
         this.fieldErrors = {};
         this.resendCountdown = 0;
@@ -314,12 +464,21 @@ export class ResetPasswordV2Component implements OnInit {
     }
 
     private startResendCountdown(): void {
+        this.stopResendCountdown();
         this.resendCountdown = 30;
-        const timer = window.setInterval(() => {
+        this.resendTimer = window.setInterval(() => {
             this.resendCountdown = Math.max(0, this.resendCountdown - 1);
             if (this.resendCountdown === 0) {
-                window.clearInterval(timer);
+                this.stopResendCountdown();
             }
         }, 1000);
+    }
+
+    private stopResendCountdown(): void {
+        if (this.resendTimer !== undefined) {
+            window.clearInterval(this.resendTimer);
+            this.resendTimer = undefined;
+        }
+        this.resendCountdown = 0;
     }
 }

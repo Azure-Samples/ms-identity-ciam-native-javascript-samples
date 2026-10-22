@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
+    AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
     MFAVerificationRequiredStateV2,
@@ -72,6 +74,8 @@ export function V2SignInFlow({
             setSignInState(initialResult.state);
         } else if (initialResult.isState("authMethodSelectionRequired")) {
             setSignInState(initialResult.state);
+        } else if (initialResult.isState("authMethodRegistrationRequired")) {
+            setSignInState(initialResult.state);
         } else if (initialResult.isState("completed")) {
             setSignInState(initialResult.state);
             setCode("");
@@ -97,6 +101,7 @@ export function V2SignInFlow({
     const complete = (state: CompletedStateV2, account?: CustomAuthAccountData) => {
         setSignInState(state);
         setCode("");
+        setResendCountdown(0);
         onCompletedRef.current(account);
     };
 
@@ -123,6 +128,10 @@ export function V2SignInFlow({
             if (result.isState("completed")) {
                 complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
+                setSignInState(result.state);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setResendCountdown(0);
                 setSignInState(result.state);
             } else {
                 setError("Password submission returned an unsupported state.");
@@ -155,6 +164,10 @@ export function V2SignInFlow({
                 complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
                 setCode("");
+                setSignInState(result.state);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setResendCountdown(0);
                 setSignInState(result.state);
             } else {
                 setError("Code verification returned an unsupported state.");
@@ -206,7 +219,9 @@ export function V2SignInFlow({
         );
     } else if (
         signInState instanceof AuthMethodSelectionRequiredStateV2 ||
-        signInState instanceof MFAVerificationRequiredStateV2
+        signInState instanceof MFAVerificationRequiredStateV2 ||
+        signInState instanceof AuthMethodRegistrationRequiredStateV2 ||
+        signInState instanceof AuthMethodVerificationRequiredStateV2
     ) {
         content = (
             <V2AuthMethodFlow

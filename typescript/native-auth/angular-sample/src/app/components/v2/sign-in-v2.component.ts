@@ -1,9 +1,13 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import {
     type AuthFlowErrorV2,
     AuthFlowStateBase,
+    type AuthenticationMethodRegistrationV2,
+    AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
     MFAVerificationRequiredStateV2,
@@ -36,6 +40,7 @@ import {
     standalone: true,
     imports: [
         CommonModule,
+        FormsModule,
         AuthStartFormComponent,
         AuthStepLayoutComponent,
         CodeFormComponent,
@@ -56,6 +61,8 @@ export class SignInV2Component implements OnInit {
     username = "";
     password = "";
     code = "";
+    registrationContact = "";
+    selectedRegistrationMethod: AuthenticationMethodRegistrationV2 | null = null;
     error = "";
     fieldErrors: V2FieldErrors = {};
     loading = false;
@@ -100,6 +107,14 @@ export class SignInV2Component implements OnInit {
         return this.state instanceof MFAVerificationRequiredStateV2 ? this.state : null;
     }
 
+    get registrationState(): AuthMethodRegistrationRequiredStateV2 | null {
+        return this.state instanceof AuthMethodRegistrationRequiredStateV2 ? this.state : null;
+    }
+
+    get activationState(): AuthMethodVerificationRequiredStateV2 | null {
+        return this.state instanceof AuthMethodVerificationRequiredStateV2 ? this.state : null;
+    }
+
     get isCompleted(): boolean {
         return this.state instanceof CompletedStateV2;
     }
@@ -109,6 +124,15 @@ export class SignInV2Component implements OnInit {
             this.methodSelectionState?.methods.map((method) => ({
                 value: method.id,
                 label: `${method.type}${method.hint ? ` (${method.hint})` : ""}`,
+            })) ?? []
+        );
+    }
+
+    get registrationMethodOptions(): readonly MethodOption[] {
+        return (
+            this.registrationState?.methods.map((method) => ({
+                value: method.type,
+                label: `${method.type}${method.channels?.length ? ` (${method.channels.join(", ")})` : ""}`,
             })) ?? []
         );
     }
@@ -130,7 +154,8 @@ export class SignInV2Component implements OnInit {
             } else if (
                 result.isState("passwordRequired") ||
                 result.isState("codeRequired") ||
-                result.isState("authMethodSelectionRequired")
+                result.isState("authMethodSelectionRequired") ||
+                result.isState("authMethodRegistrationRequired")
             ) {
                 this.state = result.state;
             } else if (result.isState("completed")) {
@@ -164,6 +189,8 @@ export class SignInV2Component implements OnInit {
                 this.complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
                 this.state = result.state;
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                this.state = result.state;
             } else {
                 this.error = "Password submission returned an unsupported state.";
             }
@@ -191,6 +218,9 @@ export class SignInV2Component implements OnInit {
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {
+                this.code = "";
+                this.state = result.state;
+            } else if (result.isState("authMethodRegistrationRequired")) {
                 this.code = "";
                 this.state = result.state;
             } else {
@@ -231,6 +261,110 @@ export class SignInV2Component implements OnInit {
             this.error = getThrownErrorMessage(error, "An unexpected sign-in error occurred.");
         } finally {
             this.loading = false;
+        }
+    }
+
+    selectRegistrationMethod(methodType: string): void {
+        const method = this.registrationState?.methods.find((item) => item.type === methodType);
+        if (!method) {
+            this.error = "The selected registration method is no longer available.";
+            return;
+        }
+
+        this.selectedRegistrationMethod = method;
+        this.registrationContact = "";
+        this.error = "";
+        this.fieldErrors = {};
+    }
+
+    async enrollAuthMethod(): Promise<void> {
+        const state = this.registrationState;
+        const method = this.selectedRegistrationMethod;
+        if (!state || !method) {
+            this.error = "Select an authentication method before registering.";
+            return;
+        }
+
+        const contact = this.registrationContact.trim();
+        if (!contact) {
+            this.error = "Enter the email address or phone number to register.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.loading = true;
+        try {
+            const result = await state.enrollAuthMethod(method, contact);
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("authMethodVerificationRequired")) {
+                this.code = "";
+                this.resendCountdown = 0;
+                this.state = result.state;
+                this.selectedRegistrationMethod = null;
+                this.registrationContact = "";
+            } else {
+                this.error = "Method registration returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected registration error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async submitActivationCode(): Promise<void> {
+        const state = this.activationState;
+        if (!state) {
+            this.error = "Restart sign-in before submitting an activation code.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.loading = true;
+        try {
+            const result = await state.submitChallenge(this.code);
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
+            } else {
+                this.error = "Method activation returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected activation error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async resendActivationCode(): Promise<void> {
+        const state = this.activationState;
+        if (!state) {
+            this.error = "Restart sign-in before requesting another activation code.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.resendLoading = true;
+        try {
+            const result = await state.resendChallenge();
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else if (result.isState("authMethodVerificationRequired")) {
+                this.code = "";
+                this.state = result.state;
+                this.startResendCountdown();
+            } else {
+                this.error = "Activation-code resend returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected activation-code resend error occurred.");
+        } finally {
+            this.resendLoading = false;
         }
     }
 
@@ -356,6 +490,8 @@ export class SignInV2Component implements OnInit {
         this.state = null;
         this.userData = undefined;
         this.code = "";
+        this.registrationContact = "";
+        this.selectedRegistrationMethod = null;
         this.error = "";
         this.fieldErrors = {};
         this.resendCountdown = 0;

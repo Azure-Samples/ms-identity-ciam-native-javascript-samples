@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
+    AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
     NewPasswordRequiredStateV2,
@@ -16,6 +18,7 @@ import { NewPasswordForm } from "../components/forms/NewPasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
+import { V2AuthMethodFlow } from "./V2AuthMethodFlow";
 import { authorizationInputs } from "../../../config/authorization-request-config";
 import type { AuthFlowProps } from "../types";
 
@@ -46,6 +49,7 @@ export function V2ResetPasswordFlow({
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
+    const [authMethodBusy, setAuthMethodBusy] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
 
@@ -93,6 +97,7 @@ export function V2ResetPasswordFlow({
     const complete = (state: CompletedStateV2, account?: CustomAuthAccountData) => {
         setResetState(state);
         setCode("");
+        setResendCountdown(0);
         onCompletedRef.current(account);
     };
 
@@ -219,7 +224,11 @@ export function V2ResetPasswordFlow({
                 return;
             }
 
-            if (result.isState("signInContinuation")) {
+            if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setResendCountdown(0);
+                setResetState(result.state);
+            } else if (result.isState("signInContinuation")) {
                 await continueSignIn(result.state);
             } else {
                 setError("New password submission returned an unsupported state.");
@@ -278,6 +287,19 @@ export function V2ResetPasswordFlow({
                 noValidate
             />
         );
+    } else if (
+        resetState instanceof AuthMethodRegistrationRequiredStateV2 ||
+        resetState instanceof AuthMethodVerificationRequiredStateV2
+    ) {
+        content = (
+            <V2AuthMethodFlow
+                state={resetState}
+                onStateChange={setResetState}
+                onCompleted={complete}
+                onErrorChange={setError}
+                onBusyChange={setAuthMethodBusy}
+            />
+        );
     } else if (resetState instanceof SignInContinuationStateV2) {
         content = loading ? (
             <p>Completing sign-in...</p>
@@ -296,7 +318,7 @@ export function V2ResetPasswordFlow({
         <AuthStepLayout
             title="V2 Reset Password"
             error={error}
-            busy={loading || resendLoading}
+            busy={loading || resendLoading || authMethodBusy}
             onCancel={handleCancel}
         >
             {content}

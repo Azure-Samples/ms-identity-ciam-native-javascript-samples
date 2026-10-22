@@ -14,6 +14,8 @@ interface CodeFormProps {
     resendLoading?: boolean;
     submitButtonText?: string;
     submitButtonLoadingText?: string;
+    placeholder?: string;
+    useAuthStyles?: boolean;
 }
 
 export function CodeForm({
@@ -32,6 +34,8 @@ export function CodeForm({
     resendLoading = false,
     submitButtonText = "Verify Code",
     submitButtonLoadingText = "Verifying...",
+    placeholder = "Enter verification code",
+    useAuthStyles = false,
 }: CodeFormProps) {
     const formStyles = {
         form: { display: "flex" as const, flexDirection: "column" as const, gap: "15px" },
@@ -83,18 +87,25 @@ export function CodeForm({
                     {codeLength ? ` The code contains ${codeLength} characters.` : ""}
                 </p>
             )}
-            <form onSubmit={onSubmit} style={formStyles.form} noValidate={noValidate}>
+            <form
+                onSubmit={onSubmit}
+                className={useAuthStyles ? "auth-form" : undefined}
+                style={useAuthStyles ? undefined : formStyles.form}
+                noValidate={noValidate}
+            >
                 <input
                     type="text"
-                    placeholder="Enter verification code"
+                    placeholder={placeholder}
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    style={formStyles.input}
+                    className={useAuthStyles ? "auth-input" : undefined}
+                    style={useAuthStyles ? undefined : formStyles.input}
                     required
                 />
                 <button
                     type="submit"
-                    style={formStyles.button}
+                    className={useAuthStyles ? "auth-button" : undefined}
+                    style={useAuthStyles ? undefined : formStyles.button}
                     disabled={loading || resendLoading}
                 >
                     {loading ? submitButtonLoadingText : submitButtonText}
@@ -102,10 +113,19 @@ export function CodeForm({
                 {onResendCode && (
                     <button
                         type="button"
+                        className={
+                            useAuthStyles
+                                ? resendCountdown > 0 || resendLoading || loading
+                                    ? "auth-button-disabled"
+                                    : "auth-button"
+                                : undefined
+                        }
                         style={
-                            resendCountdown > 0 || resendLoading || loading
-                                ? formStyles.buttonDisabled
-                                : formStyles.button
+                            useAuthStyles
+                                ? undefined
+                                : resendCountdown > 0 || resendLoading || loading
+                                  ? formStyles.buttonDisabled
+                                  : formStyles.button
                         }
                         onClick={onResendCode}
                         disabled={resendCountdown > 0 || resendLoading || loading}

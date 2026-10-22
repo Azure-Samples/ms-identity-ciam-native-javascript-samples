@@ -4,17 +4,24 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
+    AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CompletedStateV2,
     MFAVerificationRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
-import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import type { AuthenticationMethodRegistrationV2, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import { AuthMethodRegistrationForm } from "../components/forms/AuthMethodRegistrationForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
 
 interface V2AuthMethodFlowProps {
-    state: AuthMethodSelectionRequiredStateV2 | MFAVerificationRequiredStateV2;
+    state:
+        | AuthMethodSelectionRequiredStateV2
+        | MFAVerificationRequiredStateV2
+        | AuthMethodRegistrationRequiredStateV2
+        | AuthMethodVerificationRequiredStateV2;
     onStateChange: (state: AuthFlowStateBase) => void;
     onCompleted: (state: CompletedStateV2, account?: CustomAuthAccountData) => void;
     onErrorChange: (error: string) => void;
@@ -37,6 +44,9 @@ export function V2AuthMethodFlow({
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
+    const [selectedRegistrationMethod, setSelectedRegistrationMethod] =
+        useState<AuthenticationMethodRegistrationV2 | null>(null);
+    const [registrationContact, setRegistrationContact] = useState("");
 
     useEffect(() => {
         onErrorChange(error);
@@ -91,7 +101,10 @@ export function V2AuthMethodFlow({
 
     const handleCodeSubmit = async (event: FormEvent) => {
         event.preventDefault();
-        if (!(state instanceof MFAVerificationRequiredStateV2)) {
+        if (
+            !(state instanceof MFAVerificationRequiredStateV2) &&
+            !(state instanceof AuthMethodVerificationRequiredStateV2)
+        ) {
             setError("Restart sign-in before submitting a verification code.");
             return;
         }
@@ -106,6 +119,8 @@ export function V2AuthMethodFlow({
             }
 
             if (result.isState("completed")) {
+                setCode("");
+                setResendCountdown(0);
                 onCompleted(result.state, result.data);
             } else {
                 setError("Code verification returned an unsupported state.");
@@ -119,7 +134,10 @@ export function V2AuthMethodFlow({
 
     const handleResendCode = async (event: FormEvent) => {
         event.preventDefault();
-        if (!(state instanceof MFAVerificationRequiredStateV2)) {
+        if (
+            !(state instanceof MFAVerificationRequiredStateV2) &&
+            !(state instanceof AuthMethodVerificationRequiredStateV2)
+        ) {
             setError("Restart sign-in before requesting another code.");
             return;
         }
@@ -133,13 +151,77 @@ export function V2AuthMethodFlow({
                 return;
             }
 
-            setCode("");
-            setResendCountdown(30);
-            onStateChange(result.state);
+            if (
+                result.state instanceof MFAVerificationRequiredStateV2 ||
+                result.state instanceof AuthMethodVerificationRequiredStateV2
+            ) {
+                setCode("");
+                setResendCountdown(30);
+                onStateChange(result.state);
+            } else {
+                setError("Code resend returned an unsupported state.");
+            }
         } catch (caughtError) {
             setError(getThrownErrorMessage(caughtError));
         } finally {
             setResendLoading(false);
+        }
+    };
+
+    const handleRegistrationMethodSubmit = async (methodType: string) => {
+        if (!(state instanceof AuthMethodRegistrationRequiredStateV2)) {
+            setError("Restart registration before selecting an authentication method.");
+            return;
+        }
+
+        const method = state.methods.find((item) => item.type === methodType);
+        if (!method) {
+            setError("The selected registration method is no longer available.");
+            return;
+        }
+
+        setSelectedRegistrationMethod(method);
+        setRegistrationContact("");
+        setError("");
+    };
+
+    const handleRegistrationSubmit = async (event: FormEvent) => {
+        event.preventDefault();
+        if (!(state instanceof AuthMethodRegistrationRequiredStateV2) || !selectedRegistrationMethod) {
+            setError("Select an authentication method before registering.");
+            return;
+        }
+
+        const method = state.methods.find((item) => item.type === selectedRegistrationMethod.type);
+        if (!method) {
+            setError("The selected registration method is no longer available.");
+            return;
+        }
+        const contact = registrationContact.trim();
+        if (!contact) {
+            setError("Enter the email address or phone number to register.");
+            return;
+        }
+
+        setError("");
+        setLoading(true);
+        try {
+            const result = await state.enrollAuthMethod(method, contact);
+            if (result.isFailed()) {
+                setError(getV2ErrorMessage(result.error));
+            } else if (result.isState("authMethodVerificationRequired")) {
+                setCode("");
+                setResendCountdown(0);
+                setSelectedRegistrationMethod(null);
+                setRegistrationContact("");
+                onStateChange(result.state);
+            } else {
+                setError("Method registration returned an unsupported state.");
+            }
+        } catch (caughtError) {
+            setError(getThrownErrorMessage(caughtError));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -159,6 +241,44 @@ export function V2AuthMethodFlow({
         );
     }
 
+    if (state instanceof AuthMethodRegistrationRequiredStateV2) {
+        if (!selectedRegistrationMethod) {
+            return (
+                <MethodSelectionForm
+                    options={state.methods.map((method) => ({
+                        value: method.type,
+                        label: `${method.type}${method.channels?.length ? ` (${method.channels.join(", ")})` : ""}`,
+                    }))}
+                    onSubmit={handleRegistrationMethodSubmit}
+                    loading={loading}
+                    description="Choose an authentication method to register:"
+                    submitText="Continue"
+                    submittingText="Continuing..."
+                />
+            );
+        }
+
+        const isEmail = selectedRegistrationMethod.type === "email";
+        return (
+            <AuthMethodRegistrationForm
+                onSubmit={handleRegistrationSubmit}
+                verificationContact={registrationContact}
+                onContactChange={setRegistrationContact}
+                contactType={isEmail ? "email" : "tel"}
+                contactLabel={isEmail ? "Email address" : "Phone number (with country code)"}
+                contactAutoComplete={isEmail ? "email" : "tel"}
+                loading={loading}
+                canSubmit={Boolean(registrationContact.trim())}
+                onChooseAnotherMethod={() => {
+                    setSelectedRegistrationMethod(null);
+                    setRegistrationContact("");
+                    setError("");
+                }}
+            />
+        );
+    }
+
+    const isActivation = state instanceof AuthMethodVerificationRequiredStateV2;
     return (
         <CodeForm
             onSubmit={handleCodeSubmit}
@@ -169,10 +289,14 @@ export function V2AuthMethodFlow({
             resendCountdown={resendCountdown}
             resendLoading={resendLoading}
             sentTo={state.sentTo}
-            channel={state.channel}
+            channel={isActivation ? state.method.channels?.[0] || state.method.type : state.channel}
             codeLength={state.codeLength}
+            placeholder={isActivation ? "Enter activation code" : "Enter verification code"}
+            submitButtonText={isActivation ? "Activate method" : "Verify Code"}
+            submitButtonLoadingText={isActivation ? "Activating..." : "Verifying..."}
             showDeliveryHint
             noValidate
+            useAuthStyles={isActivation}
         />
     );
 }

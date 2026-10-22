@@ -58,6 +58,59 @@
     >
     </app-method-selection-form>
 
+    <app-method-selection-form
+        *ngIf="registrationState && !selectedRegistrationMethod"
+        [options]="registrationMethodOptions"
+        [loading]="loading"
+        description="Choose an authentication method to register:"
+        submitText="Continue"
+        submittingText="Continuing..."
+        (submitSelection)="selectRegistrationMethod($event)"
+    >
+    </app-method-selection-form>
+
+    <form *ngIf="registrationState && selectedRegistrationMethod as method" class="auth-form" (ngSubmit)="enrollAuthMethod()">
+        <label for="registration-contact">
+            {{ method.type === "email" ? "Email address" : "Phone number (with country code)" }}
+        </label>
+        <input
+            id="registration-contact"
+            name="registrationContact"
+            class="auth-input"
+            [type]="method.type === 'email' ? 'email' : 'tel'"
+            [autocomplete]="method.type === 'email' ? 'email' : 'tel'"
+            [(ngModel)]="registrationContact"
+            required
+        />
+        <button type="submit" class="auth-button" [disabled]="loading || !registrationContact.trim()">
+            {{ loading ? "Registering..." : "Register method" }}
+        </button>
+        <button type="button" class="auth-secondary-button" [disabled]="loading" (click)="selectedRegistrationMethod = null">
+            Choose another method
+        </button>
+    </form>
+
+    <app-code-form
+        *ngIf="activationState as currentActivationState"
+        [code]="code"
+        [loading]="loading"
+        [resendLoading]="resendLoading"
+        [resendCountdown]="resendCountdown"
+        [sentTo]="currentActivationState.sentTo"
+        [channel]="currentActivationState.method.channels?.[0] || currentActivationState.method.type"
+        [codeLength]="currentActivationState.codeLength"
+        [showDeliveryHint]="true"
+        [noValidate]="true"
+        [disableResendWhileLoading]="true"
+        placeholder="Enter activation code"
+        submitButtonText="Activate method"
+        submitButtonLoadingText="Activating..."
+        (codeChange)="code = $event"
+        (submitForm)="submitActivationCode()"
+        (resend)="resendActivationCode()"
+    >
+    </app-code-form>
+
     <app-code-form
         *ngIf="mfaVerificationState as currentMfaState"
         [code]="code"

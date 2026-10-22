@@ -13,7 +13,7 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
-import { AuthMethodRegistrationForm } from "./components/AuthMethodRegistrationForm";
+import { AuthMethodRegistrationForm } from "../components/forms/AuthMethodRegistrationForm";
 
 type V1MfaOrRegistrationState =
     | AuthMethodRegistrationRequiredState
@@ -309,13 +309,30 @@ export function V1MfaAndRegistrationFlow({
             {state instanceof AuthMethodRegistrationRequiredState && (
                 <AuthMethodRegistrationForm
                     onSubmit={handleRegistration}
-                    authMethods={methods}
-                    selectedAuthMethod={selectedMethod}
-                    setSelectedAuthMethod={setSelectedMethod}
+                    title="To secure your account, please add an authentication method."
+                    methodSelection={{
+                        options: methods.map((method) => ({
+                            value: method.challenge_channel,
+                            label: method.challenge_channel,
+                        })),
+                        value: selectedMethod?.challenge_channel || "",
+                        onChange: (channel) =>
+                            setSelectedMethod(methods.find((method) => method.challenge_channel === channel)),
+                    }}
                     verificationContact={verificationContact}
-                    setVerificationContact={setVerificationContact}
+                    onContactChange={setVerificationContact}
+                    contactType={
+                        selectedMethod?.challenge_channel === "email"
+                            ? "email"
+                            : selectedMethod?.challenge_channel === "sms"
+                            ? "tel"
+                            : "text"
+                    }
+                    contactPlaceholder={getPlaceholderText()}
                     loading={loading}
-                    getPlaceholderText={getPlaceholderText}
+                    canSubmit={Boolean(selectedMethod && verificationContact)}
+                    submitText="Add"
+                    submittingText="Adding..."
                 />
             )}
             {state instanceof AuthMethodVerificationRequiredState && (

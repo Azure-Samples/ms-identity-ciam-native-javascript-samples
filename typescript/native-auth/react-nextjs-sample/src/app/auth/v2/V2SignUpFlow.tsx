@@ -5,6 +5,8 @@ import type { FormEvent } from "react";
 import {
     AttributesRequiredStateV2,
     AuthFlowStateBase,
+    AuthMethodRegistrationRequiredStateV2,
+    AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
     SignInContinuationStateV2,
@@ -21,6 +23,7 @@ import { AuthStepLayout } from "../components/AuthStepLayout";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
+import { V2AuthMethodFlow } from "./V2AuthMethodFlow";
 import {
     formatV2ErrorPresentation,
     getV2ErrorPresentation,
@@ -74,6 +77,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
     const [fieldErrors, setFieldErrors] = useState<V2FieldErrors>({});
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
+    const [authMethodBusy, setAuthMethodBusy] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [signUpState, setSignUpState] = useState<AuthFlowStateBase | null>(null);
 
@@ -132,6 +136,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         setCode("");
         setAttributeValues({});
         setFieldErrors({});
+        setResendCountdown(0);
         onCompletedRef.current(account);
     };
 
@@ -188,6 +193,11 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
             } else if (result.isState("signInContinuation")) {
                 setCode("");
                 await continueSignIn(result.state);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setAttributeValues({});
+                setResendCountdown(0);
+                setSignUpState(result.state);
             } else if (result.isState("completed")) {
                 complete(result.state, result.data);
             } else {
@@ -252,6 +262,11 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
             } else if (result.isState("signInContinuation")) {
                 setAttributeValues({});
                 await continueSignIn(result.state);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setAttributeValues({});
+                setResendCountdown(0);
+                setSignUpState(result.state);
             } else {
                 setError("Attribute submission returned an unsupported state.");
             }
@@ -286,6 +301,11 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
             } else if (result.isState("signInContinuation")) {
                 setAttributeValues({});
                 await continueSignIn(result.state);
+            } else if (result.isState("authMethodRegistrationRequired")) {
+                setCode("");
+                setAttributeValues({});
+                setResendCountdown(0);
+                setSignUpState(result.state);
             } else {
                 setError("Password submission returned an unsupported state.");
             }
@@ -364,6 +384,19 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
                 noValidate
             />
         );
+    } else if (
+        signUpState instanceof AuthMethodRegistrationRequiredStateV2 ||
+        signUpState instanceof AuthMethodVerificationRequiredStateV2
+    ) {
+        content = (
+            <V2AuthMethodFlow
+                state={signUpState}
+                onStateChange={setSignUpState}
+                onCompleted={complete}
+                onErrorChange={setError}
+                onBusyChange={setAuthMethodBusy}
+            />
+        );
     } else if (signUpState instanceof SignInContinuationStateV2) {
         content = loading ? (
             <p>Completing sign-in...</p>
@@ -379,7 +412,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
     }
 
     return (
-        <AuthStepLayout title="V2 Sign Up" error={error} busy={loading || resendLoading} onCancel={handleCancel}>
+        <AuthStepLayout title="V2 Sign Up" error={error} busy={loading || resendLoading || authMethodBusy} onCancel={handleCancel}>
             {content}
         </AuthStepLayout>
     );
