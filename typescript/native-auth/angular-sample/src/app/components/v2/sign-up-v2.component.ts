@@ -347,7 +347,7 @@ export class SignUpV2Component implements OnInit {
         this.fieldErrors = {};
         this.loading = true;
         try {
-            const result = await state.enrollAuthMethod(method, contact);
+            const result = await state.selectAuthMethod(method, contact);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
             } else if (result.isState("authMethodVerificationRequired")) {

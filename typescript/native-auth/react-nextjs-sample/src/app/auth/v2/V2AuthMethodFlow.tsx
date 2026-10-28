@@ -206,7 +206,7 @@ export function V2AuthMethodFlow({
         setError("");
         setLoading(true);
         try {
-            const result = await state.enrollAuthMethod(method, contact);
+            const result = await state.selectAuthMethod(method, contact);
             if (result.isFailed()) {
                 setError(getV2ErrorMessage(result.error));
             } else if (result.isState("authMethodVerificationRequired")) {
@@ -289,7 +289,7 @@ export function V2AuthMethodFlow({
             resendCountdown={resendCountdown}
             resendLoading={resendLoading}
             sentTo={state.sentTo}
-            channel={isActivation ? state.method.channels?.[0] || state.method.type : state.channel}
+            channel={isActivation ? state.type : state.channel}
             codeLength={state.codeLength}
             placeholder={isActivation ? "Enter activation code" : "Enter verification code"}
             submitButtonText={isActivation ? "Activate method" : "Verify Code"}
