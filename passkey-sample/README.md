@@ -1,0 +1,341 @@
+# Microsoft Identity Platform - React SPA with Passkeys
+
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. The red trash button deletes through the high-privilege Microsoft Graph API. The yellow **Delete (Self Service)** button tests the new delegated Self Service DELETE endpoint; both require confirmation and refresh the passkey list after success.
+
+Select **Add Passkey** to enter an optional custom name before creating the credential. The name is saved as the method's display name and shown in the passkey list. Blank names are generated automatically, and your chosen name is preserved if you need to sign in again during creation.
+
+**⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+#### App Setup
+
+- **[Node.js](https://nodejs.org/en/download)** (version 20 or higher)
+- **Windows Administrator access** (needed to edit the hosts file)
+- **[Git for Windows](https://git-scm.com/download/win)** (includes OpenSSL, used to generate a local SSL certificate)
+
+#### Tenant Setup
+
+- Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
+- User account with MFA enforcement
+- Client application registered under the CIAM tenant with the Self Service delegated permission and the Microsoft Graph application permission described below, with admin consent
+
+#### Device
+
+- Yubikey supported FIDO2
+
+## Set up locally
+
+The configured test tenant is `cmpasskeysoobselfservice.ciamlogin.com` (tenant ID `8d2f71d7-fbcb-4ef5-92d7-da5977cf376b`), using client ID `65f43756-4f51-4298-9483-141c9f1f6ee2`.
+
+Use `auth.cmpasskeysoobselfservice.ciamlogin.com` for the hosts mapping, trusted development certificate, and `VITE_HOST`. Register `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000/` as a SPA redirect URI. MSAL and the Self Service token request are pinned to this registered URL; open the app on port 3000. Generic hostname examples below must be replaced with this hostname.
+
+Routing is configured in `routingQueryParameters` in `src/authConfig.js`: `dc=ESTS-PUB-WEULR1-AZ1-FD001-001`. MSAL's network client adds routing to discovery and token requests and normalizes the discovered sign-in, token, and logout URLs to contain exactly one `dc`. Do not also add `dc` to MSAL's `extraQueryParameters` or `tokenQueryParameters`; that duplicates it. Self Service, Graph, and application-token requests also include `dc`, and the local proxy enforces it upstream.
+
+### 1. Windows Domain Setup (Required for Passkey rp.id Compliance)
+
+**⚠️ Critical for Passkeys**: WebAuthn requires the `rp.id` (Relying Party ID) to match the domain or subdomain where passkey creation occurs. This setup ensures proper domain matching.
+
+#### Step 1: Update Windows Hosts File
+
+1. **Open Command Prompt as Administrator**:
+   - Press `Win + R`, type `cmd`
+   - Press `Ctrl + Shift + Enter` (opens as admin)
+
+2. **Edit the hosts file**:
+
+   ```cmd
+   notepad C:\Windows\System32\drivers\etc\hosts
+   ```
+
+3. **Add domain mapping** (replace with your actual CIAM domain, locally we need to use **subdomain** of your ciam tenant domain):
+
+For example, for the example authority `passkeytest.ciamlogin.com`, locally use the subdomain `auth.passkeytest.ciamlogin.com` in order to not impact the login flow.
+
+   ```
+   127.0.0.1    auth.passkeytest.ciamlogin.com
+   ```
+
+4. **Save and close** the file
+
+#### Step 2: Generate SSL Certificate for Proper Domain
+
+1. **Install OpenSSL** (if not already installed):
+   - Download from: https://slproweb.com/products/Win32OpenSSL.html
+   - Or use Git Bash if you have Git installed
+
+2. **Open PowerShell as Administrator**:
+   - Press `Win + X`, select "Windows PowerShell (Admin)"
+   - Or right-click Start button → "Windows PowerShell (Admin)"
+
+3. **Generate certificate for your domain**:
+
+   ```powershell
+   # Navigate to the sample folder (the folder that contains package.json)
+   cd "<path-to-sample-folder>"
+
+   # Step 1: Create the certificate (replace with your actual CIAM domain)
+   New-SelfSignedCertificate -DnsName "auth.passkeytest.ciamlogin.com" -CertStoreLocation "cert:\LocalMachine\My" -NotAfter (Get-Date).AddYears(1) -FriendlyName "authCiamCert"
+
+   # Step 2: Set password for certificate export
+   $pwd = ConvertTo-SecureString -String '<your-password>' -Force -AsPlainText
+
+   # Step 3: Get the certificate from the store
+   $cert = Get-ChildItem -Path "cert:\LocalMachine\My" | Where-Object { $_.Subject -eq "CN=auth.passkeytest.ciamlogin.com" }
+
+   # Step 4: Export certificate to PFX format in the project root
+   Export-PfxCertificate -Cert $cert -FilePath ".\auth-cert.pfx" -Password $pwd
+   ```
+
+3. **Convert PFX to PEM format using OpenSSL**:
+
+   ```bash
+   # Extract certificate (PEM format)
+   openssl pkcs12 -in auth-cert.pfx -out auth-cert.pem -clcerts -nokeys
+
+   # Extract private key (PEM format)
+   openssl pkcs12 -in auth-cert.pfx -out auth-key.pem -nocerts -nodes
+   ```
+
+4. **Install certificate in Trusted Root Certification Authorities**:
+
+   ```powershell
+   # Import PFX certificate to Trusted Root store to avoid browser security warnings
+   Import-PfxCertificate -FilePath ".\auth-cert.pfx" -CertStoreLocation "Cert:\LocalMachine\Root" -Password $pwd
+   ```
+
+5. **Confirm file names**: the generated files must be named `auth-cert.pem` and `auth-key.pem` at the project root — `vite.config.js` will detect them automatically and serve the app over HTTPS. (If you rename them, update `VITE_SSL_CERT` / `VITE_SSL_KEY` in your `.env`.)
+
+### 2. Tenant Configuration
+
+#### Step 1: Use a Test Tenant and Single-Tenant App Registration
+
+**⚠️ Critical**:
+
+- Register and run this sample **only against a test tenant**. Do not register it in a production tenant and the sample is intended for demo/testing only.
+- Configure the app registration as **Single tenant**. In **App registrations** → your app → **Authentication** → **Supported account types**, select **Accounts in this organizational directory only**.
+
+#### Step 2: Register Redirect URI in Entra Portal
+
+**⚠️ Critical Step**: You must register your redirect URI in the Entra portal for authentication to work.
+
+**Navigate to App Registration:**
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Navigate to **Microsoft Entra ID** → **App registrations**
+3. Select your application registration
+
+**Configure Single Page Application Platform:**
+1. In the left sidebar, click **Authentication**
+2. Under **Platform configurations**, click **+ Add a platform**
+3. Select **Single-page application (SPA)**
+4. In the **Redirect URIs** section, add your application URL:
+   ```
+   https://auth.passkeytest.ciamlogin.com:3000
+   ```
+   Replace the host with your own subdomain (the one you set as `VITE_HOST` in `.env`).
+5. Click **Configure** to save
+
+#### Step 3: Verify Required Permissions
+
+Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
+
+Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal with Graph Explorer while signed in as a tenant administrator.
+
+Configure both APIs under **App registrations** → your app → **API permissions**:
+
+**Self Service (Credential Management) API — delegated permission for listing/getting and registering passkeys:**
+
+1. Click **Add a permission** → **APIs my organization uses**.
+2. Search for `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9` and select **Me-CredentialProfileManagement**.
+3. Select **Delegated permissions** → `Me.UserAuthenticationMethod.ReadWrite`.
+4. Click **Add permissions**.
+
+**Microsoft Graph — application permission for deleting passkeys:**
+
+1. Click **Add a permission** → **Microsoft Graph** → **Application permissions**.
+2. Select `UserAuthMethod-Passkey.ReadWrite.All` and click **Add permissions**.
+
+Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Graph application permission is used only for deletion; the Self Service permission is delegated to the signed-in user for list/get and add.
+
+### 3. Application Configuration
+
+Before running the application, you need to configure your Microsoft Entra ID application registration and update the MSAL configuration.
+
+#### Step 1: Configure MSAL Authentication Settings
+
+Set the client ID, tenant ID, and CIAM tenant subdomain in `src/authConfig.js`.
+
+```javascript
+const clientId = '65f43756-4f51-4298-9483-141c9f1f6ee2';
+const tenantId = '8d2f71d7-fbcb-4ef5-92d7-da5977cf376b';
+const tenantName = 'cmpasskeysoobselfservice';
+
+export const msalConfig = {
+    auth: {
+        clientId, // Application (client) ID from app registration
+        authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace tenantName with your tenant subdomain
+        redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
+    },
+    // ... rest of configuration
+};
+```
+
+**How to get these values:**
+
+1. **Client ID**: Found in your app registration overview page
+2. **Tenant ID and subdomain**: Found in your tenant overview and CIAM tenant URL
+3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
+
+#### Step 2: Environment Configuration (.env file)
+
+The repository does **not** include a `.env` file — you need to create one yourself. Copy `.env.example` to a new file named `.env` in the same `passkey-sample/` folder and fill in your values. `.env` is gitignored, so your local copy stays on your machine.
+
+```env
+# Local dev hostname — must match the auth.<tenant>.ciamlogin.com subdomain in your hosts file
+VITE_HOST=auth.cmpasskeysoobselfservice.ciamlogin.com
+VITE_PORT=3000
+
+# SSL certificate filenames at the project root
+VITE_SSL_CERT=auth-cert.pem
+VITE_SSL_KEY=auth-key.pem
+
+# Client secret from your Entra app registration (do NOT commit your real .env)
+VITE_APP_SECRET=your-client-secret
+```
+
+#### Step 3: Application Configuration (authConfig.js)
+
+The Self Service API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
+
+```javascript
+export const selfServiceApiConfig = {
+    scope: 'api://6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9/Me.UserAuthenticationMethod.ReadWrite',
+    // ... other API settings
+};
+```
+
+The client secret is **not** stored here. It is read from `VITE_APP_SECRET` in your local `.env` file (see **Step 2** above) and consumed directly by the SPA at runtime. `.env` is gitignored, so your secret stays on your machine.
+
+**SECURITY WARNING**: This configuration is for local development only. Never expose the **appSecret** in production environments. Store secrets securely using:
+
+- Environment variables
+- Azure Key Vault
+- Other secure secret management systems
+
+### 4. Start the Application
+
+#### Step 1: Install Dependencies
+
+```bash
+npm install
+```
+
+#### Step 2: Start CORS Proxy Server
+
+Open a terminal and run the following command:
+
+```bash
+npm run cors
+```
+
+This starts the local proxy on port 3001 over HTTPS when the configured certificate files exist. Both the proxy and Vite use `VITE_SSL_CERT` and `VITE_SSL_KEY` from `.env`. The app calls `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3001`.
+
+#### Step 3: Start sample app
+
+```bash
+npm start
+```
+
+This starts the Vite development server on `https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000` (host and port from `.env`).
+
+### 5. Access the Application
+
+Open your browser and navigate to:
+
+```
+https://auth.cmpasskeysoobselfservice.ciamlogin.com:3000
+```
+
+**Note**: The application runs on HTTPS with a self-signed certificate. You may need to accept the security warning in your browser.
+
+## 🔧 Configuration Details
+
+### SSL Certificates
+
+Generate these SSL certificate files locally for HTTPS development:
+
+- `auth-cert.pem` - SSL certificate
+- `auth-key.pem` - SSL private key
+
+### CORS Proxy
+
+- `/api/*` → Microsoft Entra token endpoint
+- `/selfservice-api/*` → Self Service (Credential Management) API for list/get, add, and experimental deletion at `/api/v1.0/me/methods/fido/{passkey-id}`. The red Graph delete button still calls Microsoft Graph directly.
+
+For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
+
+### Authentication Configuration
+
+The app uses Microsoft Authentication Library (MSAL) for:
+
+- User authentication with Microsoft Identity Platform
+- Delegated Self Service (Credential Management) API access for passkey listing/getting and registration
+- Multi-factor authentication (MFA) enforcement for passkey operations
+
+## 🔐 Features
+
+### Authentication
+
+- Sign in/out with Microsoft Identity Platform
+- Session management with NGCMFA (Next Generation Credentials Multi-Factor Authentication)
+
+### Passkey Management
+
+- View existing passkeys/FIDO2 credentials
+- Add new passkeys
+- Delete existing passkeys
+
+### Security Features
+
+- MFA enforcement for passkey operations
+- Automatic re-authentication when tokens expire
+- Enhanced error handling and user feedback
+- Toast notifications for user actions
+
+## 🛠️ Development
+
+### Project Structure
+
+```text
+passkey-sample/
+├── public/                 # Site assets
+├── src/
+│   ├── components/
+│   │   ├── common/         # Shared UI
+│   │   └── passkeys/       # Passkey UI
+│   ├── hooks/passkeys/     # Passkey operations
+│   ├── services/           # Credential Management and Graph API clients
+│   ├── styles/
+│   ├── utils/              # Token and passkey helpers
+│   ├── App.jsx
+│   ├── authConfig.js
+│   └── index.jsx
+├── .env.example
+├── cors.js                 # Local proxy
+├── proxy.config.js         # Proxy routes and upstreams
+├── index.html
+├── vite.config.js
+├── package.json
+└── README.md
+```
+
+## 📚 Additional Resources
+
+- [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
+- [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
+- [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
+- [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)
+- [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
+- [Set up a reverse proxy for a single-page app using Azure Function App](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-test-environment)

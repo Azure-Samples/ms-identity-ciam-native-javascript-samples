@@ -1,0 +1,10 @@
+<form (ngSubmit)="onSubmit()">
+    <h3>{{ title }}</h3>
+    <div class="form-field">
+        <input type="text" [value]="challenge || ''" (input)="onChallengeChange($any($event.target).value)"
+            [placeholder]="placeholder" [disabled]="loading" required />
+    </div>
+    <button type="submit" [disabled]="loading || !challenge">
+        {{ loading ? submitButtonLoadingText : submitButtonText }}
+    </button>
+</form>

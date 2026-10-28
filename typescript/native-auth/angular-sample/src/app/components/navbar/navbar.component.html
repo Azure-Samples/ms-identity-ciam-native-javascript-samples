@@ -1,0 +1,12 @@
+<nav class="navbar">
+  <a class="navbar-logo" routerLink="/">
+    <span>MSAL <span class="navbar-logo-bold">Auth</span></span>
+  </a>
+  <div class="navbar-links">
+    <a routerLink="/sign-in" routerLinkActive="active">Sign In</a>
+    <a routerLink="/sign-up" routerLinkActive="active">Sign Up</a>
+    <a routerLink="/reset-password" routerLinkActive="active">Reset Password</a>
+    <a class="navbar-signout" (click)="logout()">Sign Out</a>
+  </div>
+</nav>
+<hr class="navbar-divider" />

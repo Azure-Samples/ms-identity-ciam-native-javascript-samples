@@ -1,0 +1,18 @@
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #f9fafb;
+  color: #111827;
+  min-height: 100vh;
+}
+
+main.container {
+  padding: 20px;
+}
+
+.container { max-width: 500px; margin: 2rem auto; }

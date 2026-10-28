@@ -1,0 +1,11 @@
+<form (ngSubmit)="onSubmit()">
+    <input type="text" [ngModel]="code" (ngModelChange)="onCodeChange($event)" name="code" [placeholder]="placeholder"
+        required />
+    <button type="submit" [disabled]="loading">
+        {{ loading ? submitButtonLoadingText : submitButtonText }}
+    </button>
+    <button type="button" (click)="onResendClick()" [disabled]="resendCountdown > 0"
+        [class.resend-disabled]="resendCountdown > 0">
+        {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
+    </button>
+</form>

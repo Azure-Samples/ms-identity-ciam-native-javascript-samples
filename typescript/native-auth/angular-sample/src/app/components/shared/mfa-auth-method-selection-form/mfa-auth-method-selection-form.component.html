@@ -1,0 +1,14 @@
+<form (ngSubmit)="onSubmit()">
+    <h3>{{ title }}</h3>
+    <div class="auth-methods">
+        <select class="auth-method-select" [ngModel]="selectedAuthMethod" (ngModelChange)="onAuthMethodChange($event)"
+            name="authMethod" required>
+            <option *ngFor="let authMethod of authMethods" [ngValue]="authMethod">
+                {{ authMethod.challenge_channel }}
+            </option>
+        </select>
+    </div>
+    <button type="submit" [disabled]="loading || !selectedAuthMethod">
+        {{ loading ? submitButtonLoadingText : submitButtonText }}
+    </button>
+</form>

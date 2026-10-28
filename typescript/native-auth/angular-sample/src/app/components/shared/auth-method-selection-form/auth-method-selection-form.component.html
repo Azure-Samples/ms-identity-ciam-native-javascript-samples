@@ -1,0 +1,16 @@
+<form (ngSubmit)="onSubmit()">
+    <h3>{{ title }}</h3>
+    <div class="auth-methods">
+        <select class="auth-method-select" [ngModel]="selectedAuthMethod" (ngModelChange)="onAuthMethodChange($event)"
+            name="authMethod" required>
+            <option *ngFor="let authMethod of authMethods" [ngValue]="authMethod">
+                {{ authMethod.challenge_channel }}
+            </option>
+        </select>
+    </div>
+    <input [type]="getInputType()" [ngModel]="verificationContact" (ngModelChange)="onContactChange($event)"
+        name="verificationContact" [placeholder]="getPlaceholderText()" required />
+    <button type="submit" [disabled]="loading || !selectedAuthMethod || !verificationContact">
+        {{ loading ? submitButtonLoadingText : submitButtonText }}
+    </button>
+</form>

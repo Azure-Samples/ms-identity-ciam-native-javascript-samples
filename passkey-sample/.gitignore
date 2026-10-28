@@ -1,0 +1,10 @@
+# Build files
+build/
+
+node_modules/
+
+*.pem
+*.pfx
+
+.env
+.env.local
