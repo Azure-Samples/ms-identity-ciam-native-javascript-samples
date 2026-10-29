@@ -152,7 +152,7 @@ export class SignInV2Component implements OnInit {
             if (result.isFailed()) {
                 this.initialErrorPresentation = this.applyV2Error(result.error);
             } else if (
-                result.isState("passwordRequired") ||
+                result.isPasswordRequired() ||
                 result.isState("codeRequired") ||
                 result.isState("authMethodSelectionRequired") ||
                 result.isState("authMethodRegistrationRequired")

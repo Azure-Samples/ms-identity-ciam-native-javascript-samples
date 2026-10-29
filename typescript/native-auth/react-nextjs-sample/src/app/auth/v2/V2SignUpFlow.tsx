@@ -10,7 +10,7 @@ import {
     CodeRequiredStateV2,
     CompletedStateV2,
     SignInContinuationStateV2,
-    SignUpPasswordRequiredStateV2,
+    PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type {
     AuthFlowErrorV2,
@@ -39,7 +39,7 @@ function getThrownErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : "An unexpected sign-up error occurred.";
 }
 
-function getAttributeFields(state: AttributesRequiredStateV2 | SignUpPasswordRequiredStateV2): AttributeField[] {
+function getAttributeFields(state: AttributesRequiredStateV2 | PasswordRequiredStateV2): AttributeField[] {
     return state.attributes.map((attribute) => ({
         name: attribute.attributeId,
         label: attribute.label || attribute.attributeId,
@@ -180,7 +180,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
                 return;
             }
 
-            if (result.isState("passwordRequired") || result.isState("attributesRequired")) {
+            if (result.isPasswordRequired() || result.isState("attributesRequired")) {
                 setCode("");
                 setAttributeValues({});
                 setFieldErrors({});
@@ -273,7 +273,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
     };
 
     const handlePasswordSubmit = async (password: string) => {
-        if (!(signUpState instanceof SignUpPasswordRequiredStateV2)) {
+        if (!(signUpState instanceof PasswordRequiredStateV2)) {
             setError("Restart sign-up before submitting a password.");
             return;
         }
@@ -347,12 +347,12 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
                 noValidate
             />
         );
-    } else if (signUpState instanceof SignUpPasswordRequiredStateV2) {
+    } else if (signUpState instanceof PasswordRequiredStateV2) {
         content = (
             <PasswordForm
                 onSubmit={handlePasswordSubmit}
-                passwordLabel={signUpState.requiredPasswordAttribute.label || "Password"}
-                passwordPattern={signUpState.requiredPasswordAttribute.regex}
+                passwordLabel={signUpState.requiredPasswordAttribute?.label || "Password"}
+                passwordPattern={signUpState.requiredPasswordAttribute?.regex}
                 passwordError={fieldErrors.password}
                 onPasswordChange={() => clearFieldError("password")}
                 submitButtonText="Submit Password"

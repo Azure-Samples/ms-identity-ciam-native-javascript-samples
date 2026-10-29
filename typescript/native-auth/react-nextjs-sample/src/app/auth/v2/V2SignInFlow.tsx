@@ -68,7 +68,7 @@ export function V2SignInFlow({
 
         if (initialResult.isFailed()) {
             setError(getV2ErrorMessage(initialResult.error));
-        } else if (initialResult.isState("passwordRequired")) {
+        } else if (initialResult.isPasswordRequired()) {
             setSignInState(initialResult.state);
         } else if (initialResult.isState("codeRequired")) {
             setSignInState(initialResult.state);

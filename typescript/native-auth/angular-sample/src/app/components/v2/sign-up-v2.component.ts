@@ -11,7 +11,7 @@ import {
     CodeRequiredStateV2,
     CompletedStateV2,
     SignInContinuationStateV2,
-    SignUpPasswordRequiredStateV2,
+    PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { CustomAuthAccountData, UserAccountAttributes } from "@azure/msal-browser/custom-auth";
 import { AuthService } from "../../services/auth.service";
@@ -104,8 +104,8 @@ export class SignUpV2Component implements OnInit {
         return this.state instanceof CodeRequiredStateV2 ? this.state : null;
     }
 
-    get passwordState(): SignUpPasswordRequiredStateV2 | null {
-        return this.state instanceof SignUpPasswordRequiredStateV2 ? this.state : null;
+    get passwordState(): PasswordRequiredStateV2 | null {
+        return this.state instanceof PasswordRequiredStateV2 ? this.state : null;
     }
 
     get attributesState(): AttributesRequiredStateV2 | null {
@@ -186,7 +186,7 @@ export class SignUpV2Component implements OnInit {
             const result = await state.submitCode(this.code);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("passwordRequired") || result.isState("attributesRequired")) {
+            } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
                 this.code = "";
                 this.attributeValues = {};
                 this.fieldErrors = {};
