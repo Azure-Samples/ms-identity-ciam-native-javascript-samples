@@ -7,9 +7,13 @@ import {
     AuthFlowStateBase,
     type AuthenticationMethodRegistrationV2,
     AuthMethodRegistrationRequiredStateV2,
+    AuthMethodSelectionRequiredStateV2,
     AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
+    ExistingAccountCodeRequiredStateV2,
+    ExistingAccountPasswordRequiredStateV2,
+    MFAVerificationRequiredStateV2,
     SignInContinuationStateV2,
     PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
@@ -100,16 +104,34 @@ export class SignUpV2Component implements OnInit {
         );
     }
 
-    get codeState(): CodeRequiredStateV2 | null {
-        return this.state instanceof CodeRequiredStateV2 ? this.state : null;
+    get codeState(): CodeRequiredStateV2 | ExistingAccountCodeRequiredStateV2 | null {
+        return this.state instanceof CodeRequiredStateV2 || this.state instanceof ExistingAccountCodeRequiredStateV2
+            ? this.state
+            : null;
+    }
+
+    get existingAccountCodeState(): ExistingAccountCodeRequiredStateV2 | null {
+        return this.state instanceof ExistingAccountCodeRequiredStateV2 ? this.state : null;
     }
 
     get passwordState(): PasswordRequiredStateV2 | null {
         return this.state instanceof PasswordRequiredStateV2 ? this.state : null;
     }
 
+    get existingAccountPasswordState(): ExistingAccountPasswordRequiredStateV2 | null {
+        return this.state instanceof ExistingAccountPasswordRequiredStateV2 ? this.state : null;
+    }
+
     get attributesState(): AttributesRequiredStateV2 | null {
         return this.state instanceof AttributesRequiredStateV2 ? this.state : null;
+    }
+
+    get methodSelectionState(): AuthMethodSelectionRequiredStateV2 | null {
+        return this.state instanceof AuthMethodSelectionRequiredStateV2 ? this.state : null;
+    }
+
+    get mfaVerificationState(): MFAVerificationRequiredStateV2 | null {
+        return this.state instanceof MFAVerificationRequiredStateV2 ? this.state : null;
     }
 
     get registrationState(): AuthMethodRegistrationRequiredStateV2 | null {
@@ -120,6 +142,10 @@ export class SignUpV2Component implements OnInit {
         return this.state instanceof AuthMethodVerificationRequiredStateV2 ? this.state : null;
     }
 
+    get verificationState(): AuthMethodVerificationRequiredStateV2 | MFAVerificationRequiredStateV2 | null {
+        return this.activationState ?? this.mfaVerificationState;
+    }
+
     get continuationState(): SignInContinuationStateV2 | null {
         return this.state instanceof SignInContinuationStateV2 ? this.state : null;
     }
@@ -128,12 +154,17 @@ export class SignUpV2Component implements OnInit {
         return this.state instanceof CompletedStateV2;
     }
 
-    get passwordAttributeFields(): readonly AttributeField[] {
-        return this.toAttributeFields(this.passwordState?.attributes ?? []);
-    }
-
     get attributeFields(): readonly AttributeField[] {
         return this.toAttributeFields(this.attributesState?.attributes ?? []);
+    }
+
+    get methodOptions(): readonly MethodOption[] {
+        return (
+            this.methodSelectionState?.methods.map((method) => ({
+                value: method.id,
+                label: `${method.type}${method.hint ? ` (${method.hint})` : ""}`,
+            })) ?? []
+        );
     }
 
     get registrationMethodOptions(): readonly MethodOption[] {
@@ -159,7 +190,12 @@ export class SignUpV2Component implements OnInit {
 
             if (result.isFailed()) {
                 this.initialErrorPresentation = this.applyV2Error(result.error);
-            } else if (result.isState("codeRequired")) {
+            } else if (
+                result.isState("codeRequired") ||
+                result.isState("existingAccountCodeRequired") ||
+                result.isState("existingAccountPasswordRequired") ||
+                result.isState("authMethodSelectionRequired")
+            ) {
                 this.state = result.state;
             } else {
                 this.error = "Sign-up returned an unsupported state.";
@@ -194,8 +230,13 @@ export class SignUpV2Component implements OnInit {
             } else if (result.isState("signInContinuation")) {
                 this.code = "";
                 await this.continueSignIn(result.state);
-            } else if (result.isState("authMethodRegistrationRequired")) {
+            } else if (
+                result.isState("authMethodSelectionRequired") ||
+                result.isState("authMethodRegistrationRequired")
+            ) {
                 this.code = "";
+                this.attributeValues = {};
+                this.resendCountdown = 0;
                 this.state = result.state;
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
@@ -236,7 +277,7 @@ export class SignUpV2Component implements OnInit {
     }
 
     async submitPassword(): Promise<void> {
-        const state = this.passwordState;
+        const state = this.passwordState ?? this.existingAccountPasswordState;
         if (!state) {
             this.error = "Restart sign-up before submitting a password.";
             return;
@@ -246,10 +287,10 @@ export class SignUpV2Component implements OnInit {
         this.fieldErrors = {};
         this.loading = true;
         try {
-            const result = await state.submitPassword(this.password, this.buildAttributes());
+            const result = await state.submitPassword(this.password);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("codeRequired")) {
+            } else if (result.isState("attributesRequired")) {
                 this.password = "";
                 this.attributeValues = {};
                 this.fieldErrors = {};
@@ -259,11 +300,17 @@ export class SignUpV2Component implements OnInit {
                 this.attributeValues = {};
                 this.fieldErrors = {};
                 await this.continueSignIn(result.state);
-            } else if (result.isState("authMethodRegistrationRequired")) {
+            } else if (
+                result.isState("authMethodSelectionRequired") ||
+                result.isState("authMethodRegistrationRequired")
+            ) {
                 this.password = "";
                 this.attributeValues = {};
                 this.fieldErrors = {};
+                this.resendCountdown = 0;
                 this.state = result.state;
+            } else if (result.isState("completed")) {
+                this.complete(result.state, result.data);
             } else {
                 this.error = "Password submission returned an unsupported state.";
             }
@@ -288,7 +335,7 @@ export class SignUpV2Component implements OnInit {
             const result = await state.submitAttributes(this.buildAttributes());
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("codeRequired")) {
+            } else if (result.isState("attributesRequired")) {
                 this.attributeValues = {};
                 this.code = "";
                 this.fieldErrors = {};
@@ -303,6 +350,39 @@ export class SignUpV2Component implements OnInit {
                 this.state = result.state;
             } else {
                 this.error = "Attribute submission returned an unsupported state.";
+            }
+        } catch (error) {
+            this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async selectAuthMethod(methodId: string): Promise<void> {
+        const state = this.methodSelectionState;
+        if (!state) {
+            this.error = "Restart sign-up before selecting an authentication method.";
+            return;
+        }
+
+        const method = state.methods.find((item) => item.id === methodId);
+        if (!method) {
+            this.error = "The selected authentication method is no longer available.";
+            return;
+        }
+
+        this.error = "";
+        this.fieldErrors = {};
+        this.loading = true;
+        try {
+            const result = await state.selectAuthMethod(method);
+            if (result.isFailed()) {
+                this.applyV2Error(result.error);
+            } else {
+                this.code = "";
+                this.password = "";
+                this.resendCountdown = 0;
+                this.state = result.state;
             }
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
@@ -361,10 +441,10 @@ export class SignUpV2Component implements OnInit {
         }
     }
 
-    async submitActivationCode(): Promise<void> {
-        const state = this.activationState;
+    async submitVerificationCode(): Promise<void> {
+        const state = this.verificationState;
         if (!state) {
-            this.error = "Restart sign-up before submitting an activation code.";
+            this.error = "Restart sign-up before submitting a verification code.";
             return;
         }
 
@@ -378,19 +458,19 @@ export class SignUpV2Component implements OnInit {
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else {
-                this.error = "Method activation returned an unsupported state.";
+                this.error = "Code verification returned an unsupported state.";
             }
         } catch (error) {
-            this.error = getThrownErrorMessage(error, "An unexpected activation error occurred.");
+            this.error = getThrownErrorMessage(error, "An unexpected verification error occurred.");
         } finally {
             this.loading = false;
         }
     }
 
-    async resendActivationCode(): Promise<void> {
-        const state = this.activationState;
+    async resendVerificationCode(): Promise<void> {
+        const state = this.verificationState;
         if (!state) {
-            this.error = "Restart sign-up before requesting another activation code.";
+            this.error = "Restart sign-up before requesting another verification code.";
             return;
         }
 
@@ -401,15 +481,18 @@ export class SignUpV2Component implements OnInit {
             const result = await state.resendChallenge();
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("authMethodVerificationRequired")) {
+            } else if (
+                result.state instanceof AuthMethodVerificationRequiredStateV2 ||
+                result.state instanceof MFAVerificationRequiredStateV2
+            ) {
                 this.code = "";
                 this.state = result.state;
                 this.startResendCountdown();
             } else {
-                this.error = "Activation-code resend returned an unsupported state.";
+                this.error = "Verification-code resend returned an unsupported state.";
             }
         } catch (error) {
-            this.error = getThrownErrorMessage(error, "An unexpected activation-code resend error occurred.");
+            this.error = getThrownErrorMessage(error, "An unexpected verification-code resend error occurred.");
         } finally {
             this.resendLoading = false;
         }
@@ -514,11 +597,13 @@ export class SignUpV2Component implements OnInit {
 
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
         this.state = state;
+        this.password = "";
         this.code = "";
         this.selectedRegistrationMethod = null;
         this.registrationContact = "";
         this.attributeValues = {};
         this.fieldErrors = {};
+        this.resendCountdown = 0;
         this.userData = account;
         this.completed.emit(account);
     }

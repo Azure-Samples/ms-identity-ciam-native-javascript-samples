@@ -16,6 +16,10 @@
     >
     </app-auth-start-form>
 
+    <p *ngIf="existingAccountCodeState" class="auth-helper-text">
+        This account already exists. Verify its email code to sign in.
+    </p>
+
     <app-code-form
         *ngIf="codeState as currentCodeState"
         [code]="code"
@@ -41,25 +45,33 @@
         [loading]="loading"
         [passwordError]="fieldErrors['password']"
         [noValidate]="true"
-        [passwordLabel]="currentPasswordState.requiredPasswordAttribute?.label || 'Password'"
-        [passwordPattern]="currentPasswordState.requiredPasswordAttribute?.regex"
+        [passwordLabel]="currentPasswordState.requestedPasswordAttribute?.label || 'Password'"
+        [passwordPattern]="currentPasswordState.requestedPasswordAttribute?.regex"
         submitButtonText="Submit Password"
         autocomplete="new-password"
         (passwordChange)="onPasswordChange($event)"
         (submitForm)="submitPassword()"
     >
         <p class="auth-helper-text">
-            Choose your sign-up password here. The password entered on the initial form is not used.
+            Choose your sign-up password. Profile attributes are collected separately when requested.
         </p>
-        <app-dynamic-attributes-form
-            *ngIf="currentPasswordState.attributes.length > 0"
-            [fields]="passwordAttributeFields"
-            [values]="attributeValues"
-            [fieldErrors]="fieldErrors"
-            [fieldsOnly]="true"
-            (valueChange)="onAttributeValueChange($event)"
-        >
-        </app-dynamic-attributes-form>
+    </app-password-form>
+
+    <app-password-form
+        *ngIf="existingAccountPasswordState"
+        [password]="password"
+        [loading]="loading"
+        [passwordError]="fieldErrors['password']"
+        [noValidate]="true"
+        submitButtonText="Sign In"
+        submitButtonLoadingText="Signing in..."
+        autocomplete="current-password"
+        (passwordChange)="onPasswordChange($event)"
+        (submitForm)="submitPassword()"
+    >
+        <p class="auth-helper-text">
+            This account already exists. Enter its current password to sign in.
+        </p>
     </app-password-form>
 
     <app-dynamic-attributes-form
@@ -72,6 +84,17 @@
         (submitForm)="submitAttributes()"
     >
     </app-dynamic-attributes-form>
+
+    <app-method-selection-form
+        *ngIf="methodSelectionState"
+        [options]="methodOptions"
+        [loading]="loading"
+        description="Choose an authentication method:"
+        submitText="Continue"
+        submittingText="Continuing..."
+        (submitSelection)="selectAuthMethod($event)"
+    >
+    </app-method-selection-form>
 
     <app-method-selection-form
         *ngIf="registrationState && !selectedRegistrationMethod"
@@ -106,23 +129,23 @@
     </form>
 
     <app-code-form
-        *ngIf="activationState as currentActivationState"
+        *ngIf="verificationState as currentVerificationState"
         [code]="code"
         [loading]="loading"
         [resendLoading]="resendLoading"
         [resendCountdown]="resendCountdown"
-        [sentTo]="currentActivationState.sentTo"
-        [channel]="currentActivationState.type"
-        [codeLength]="currentActivationState.codeLength"
+        [sentTo]="currentVerificationState.sentTo"
+        [channel]="activationState ? activationState.type : mfaVerificationState?.channel"
+        [codeLength]="currentVerificationState.codeLength"
         [showDeliveryHint]="true"
         [noValidate]="true"
         [disableResendWhileLoading]="true"
-        placeholder="Enter activation code"
-        submitButtonText="Activate method"
-        submitButtonLoadingText="Activating..."
+        [placeholder]="activationState ? 'Enter activation code' : 'Enter verification code'"
+        [submitButtonText]="activationState ? 'Activate method' : 'Verify Code'"
+        [submitButtonLoadingText]="activationState ? 'Activating...' : 'Verifying...'"
         (codeChange)="code = $event"
-        (submitForm)="submitActivationCode()"
-        (resend)="resendActivationCode()"
+        (submitForm)="submitVerificationCode()"
+        (resend)="resendVerificationCode()"
     >
     </app-code-form>
 
