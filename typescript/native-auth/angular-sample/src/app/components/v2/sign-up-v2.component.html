@@ -10,7 +10,7 @@
         usernamePlaceholder="Email"
         submitText="Sign Up"
         submittingText="Signing up..."
-        helperText="Password is optional. The service will request it later when required."
+        helperText="The password entered here is ignored. The service will request it later when required."
         (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignUp()"
     >
@@ -43,12 +43,16 @@
         [noValidate]="true"
         [passwordLabel]="currentPasswordState.requiredPasswordAttribute.label || 'Password'"
         [passwordPattern]="currentPasswordState.requiredPasswordAttribute.regex"
-        submitButtonText="Submit"
+        submitButtonText="Submit Password"
         autocomplete="new-password"
         (passwordChange)="onPasswordChange($event)"
         (submitForm)="submitPassword()"
     >
+        <p class="auth-helper-text">
+            Choose your sign-up password here. The password entered on the initial form is not used.
+        </p>
         <app-dynamic-attributes-form
+            *ngIf="currentPasswordState.attributes.length > 0"
             [fields]="passwordAttributeFields"
             [values]="attributeValues"
             [fieldErrors]="fieldErrors"

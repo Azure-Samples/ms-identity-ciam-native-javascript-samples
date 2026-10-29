@@ -104,7 +104,9 @@ export function AuthStartForm({
                 </p>
             )}
             <p className="auth-helper-text">
-                Password is optional for Sign In and Sign Up. Reset Password uses only the email address.
+                {version === "v2"
+                    ? "Password is optional for Sign In and ignored for Sign Up. Reset Password uses only the email address."
+                    : "Password is optional for Sign In and Sign Up. Reset Password uses only the email address."}
             </p>
             <div className="auth-actions">
                 <button

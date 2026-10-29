@@ -134,7 +134,13 @@
                 [attr.aria-describedby]="initialFieldErrors['password'] ? 'unified-auth-password-error' : null"
             />
             <p *ngIf="initialFieldErrors['password']" id="unified-auth-password-error" class="auth-field-error" role="alert">{{ initialFieldErrors["password"] }}</p>
-            <p class="auth-helper-text">Password is optional for Sign In and Sign Up. Reset Password uses only the email address.</p>
+            <p class="auth-helper-text">
+                {{
+                    version === "v2"
+                        ? "Password is optional for Sign In and ignored for Sign Up. Reset Password uses only the email address."
+                        : "Password is optional for Sign In and Sign Up. Reset Password uses only the email address."
+                }}
+            </p>
 
             <div class="auth-actions">
                 <button type="button" class="auth-button" [disabled]="loading || flowStarting" (click)="startFlow('signIn')">

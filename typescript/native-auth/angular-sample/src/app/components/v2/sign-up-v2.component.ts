@@ -153,18 +153,13 @@ export class SignUpV2Component implements OnInit {
             const client = await this.auth.getClient();
             const result = await client.signUpV2({
                 username: this.username,
-                ...(this.password ? { password: this.password } : {}),
                 attributes: {},
                 ...authorizationInputs,
             });
 
             if (result.isFailed()) {
                 this.initialErrorPresentation = this.applyV2Error(result.error);
-            } else if (
-                result.isState("codeRequired") ||
-                result.isState("passwordRequired") ||
-                result.isState("attributesRequired")
-            ) {
+            } else if (result.isState("codeRequired")) {
                 this.state = result.state;
             } else {
                 this.error = "Sign-up returned an unsupported state.";

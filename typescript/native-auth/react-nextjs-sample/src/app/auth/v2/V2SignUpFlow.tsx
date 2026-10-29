@@ -62,7 +62,6 @@ function buildAttributes(values: Readonly<AttributeValues>): UserAccountAttribut
 export function startV2SignUp(app: AuthFlowProps["app"], credentials: InitialCredentials) {
     return app.signUpV2({
         username: credentials.username,
-        ...(credentials.password ? { password: credentials.password } : {}),
         attributes: {},
         ...authorizationInputs,
     });
@@ -108,10 +107,6 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         if (initialResult.isFailed()) {
             applyV2Error(initialResult.error);
         } else if (initialResult.isState("codeRequired")) {
-            setSignUpState(initialResult.state);
-        } else if (initialResult.isState("passwordRequired")) {
-            setSignUpState(initialResult.state);
-        } else if (initialResult.isState("attributesRequired")) {
             setSignUpState(initialResult.state);
         } else {
             setError("Sign-up returned an unsupported state.");
@@ -360,16 +355,21 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
                 passwordPattern={signUpState.requiredPasswordAttribute.regex}
                 passwordError={fieldErrors.password}
                 onPasswordChange={() => clearFieldError("password")}
-                submitButtonText="Submit"
+                submitButtonText="Submit Password"
                 loading={loading}
                 noValidate
             >
-                <DynamicAttributeFields
-                    fields={getAttributeFields(signUpState)}
-                    values={attributeValues}
-                    fieldErrors={fieldErrors}
-                    onChange={handleAttributeChange}
-                />
+                <p className="auth-helper-text">
+                    Choose your sign-up password here. The password entered on the initial form is not used.
+                </p>
+                {signUpState.attributes.length > 0 && (
+                    <DynamicAttributeFields
+                        fields={getAttributeFields(signUpState)}
+                        values={attributeValues}
+                        fieldErrors={fieldErrors}
+                        onChange={handleAttributeChange}
+                    />
+                )}
             </PasswordForm>
         );
     } else if (signUpState instanceof AttributesRequiredStateV2) {
