@@ -126,7 +126,11 @@ async function activatePasskeyEnrollment(activateHref, enrollment, token) {
 }
 
 /** Register a FIDO credential using Self Service API start and activation responses. */
-export async function registerSelfServicePasskey(instance, account) {
+export async function registerSelfServicePasskey(instance, account, displayName = '') {
+    if (typeof displayName !== 'string') {
+        throw new Error('Passkey name must be a string');
+    }
+    const passkeyName = displayName.trim() || generateUniquePasskeyName();
     const token = await getSelfServiceAccessToken(instance, account);
     const start = await beginPasskeyEnrollment(token);
     if (start?.state !== 'interactionRequired' || start.type !== 'fido' ||
@@ -138,6 +142,7 @@ export async function registerSelfServicePasskey(instance, account) {
     const options = start.publicKey;
     const publicKey = {
         ...options,
+        authenticatorSelection: { ...options.authenticatorSelection },
         challenge: base64urlToBuffer(options.challenge),
         user: { ...options.user, id: base64urlToBuffer(options.user.id) },
         ...(options.excludeCredentials && {
@@ -148,6 +153,8 @@ export async function registerSelfServicePasskey(instance, account) {
         }),
         timeout: options.timeout || 120000,
     };
+    // Offer local and external authenticators without changing other requirements.
+    delete publicKey.authenticatorSelection.authenticatorAttachment;
     if (publicKey.extensions?.enforceCredentialProtectionPolicy) {
         publicKey.extensions = { ...publicKey.extensions, enforceCredentialProtectionPolicy: false };
     }
@@ -159,7 +166,7 @@ export async function registerSelfServicePasskey(instance, account) {
 
     const method = await activatePasskeyEnrollment(start._links.activate.href, {
         continuationToken: start.continuationToken,
-        displayName: generateUniquePasskeyName(),
+        displayName: passkeyName,
         publicKeyCredential: {
             id: credential.id,
             attestationObject: bufferToBase64url(credential.response.attestationObject),

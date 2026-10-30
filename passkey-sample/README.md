@@ -165,7 +165,7 @@ export const msalConfig = {
     auth: {
         clientId, // Application (client) ID from app registration
         authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace tenantName with your tenant subdomain
-        redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
+        redirectUri: '/', // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
 };
@@ -311,7 +311,6 @@ passkey-sample/
 
 ## 📚 Additional Resources
 
-- [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
 - [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
