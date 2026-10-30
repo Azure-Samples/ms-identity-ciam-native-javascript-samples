@@ -4,6 +4,7 @@ import { Card } from 'react-bootstrap';
 import PasskeysHeader from './components/PasskeysHeader';
 import PasskeysList from './components/PasskeysList';
 import DeleteModal from './components/DeleteModal';
+import AddPasskeyModal from './components/AddPasskeyModal';
 import { PASSKEY_CONSTANTS } from '../../utils/passkeyUtils';
 import { 
     usePasskeyFetcher, 
@@ -21,7 +22,7 @@ const PasskeysSection = ({ onShowToast }) => {
     // Custom hooks handle all the complex logic
     const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ instance, account, onShowToast });
     
-    const { handleAddPasskey, performAddPasskey } = usePasskeyAddOperation({ 
+    const { handleAddPasskey, performAddPasskey, isAdding, nameModalProps } = usePasskeyAddOperation({
         instance,
         account,
         onShowToast, 
@@ -61,7 +62,7 @@ const PasskeysSection = ({ onShowToast }) => {
 
         if (operation.action === 'add') {
             clearCachedOperation();
-            performAddPasskey().catch(console.error);
+            performAddPasskey(operation.displayName).catch(console.error);
         } else if (operation.action === 'delete' && operation.passkey) {
             clearCachedOperation();
             showConfirmationModal(operation.passkey);
@@ -77,7 +78,7 @@ const PasskeysSection = ({ onShowToast }) => {
                         count={passkeys.length} 
                         maxCount={maxPasskeys}
                         onAddClick={handleAddPasskey}
-                        isLoading={isLoading}
+                        isLoading={isLoading || isAdding}
                     />
                     <PasskeysList 
                         passkeys={passkeys} 
@@ -88,6 +89,7 @@ const PasskeysSection = ({ onShowToast }) => {
                 </Card.Body>
             </Card>
             
+            <AddPasskeyModal {...nameModalProps} />
             <DeleteModal {...modalProps} />
         </>
     );

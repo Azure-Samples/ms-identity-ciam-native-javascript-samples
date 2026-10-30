@@ -30,7 +30,8 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                 <div className="flex-grow-1">
                     <Row className="g-2 mb-1">
                         <Col xs={6} className="text-start">
-                            <strong>Passkey ({passkey.passkeyType})</strong>
+                            <strong>{passkey.name || 'Passkey'}</strong>
+                            <small className="text-muted ms-1">({passkey.passkeyType})</small>
                         </Col>
                         <Col xs={6} className="text-start">
                             <span className="text-muted small">{deviceDetails.authenticatorDevice} - {deviceDetails.method}</span>
