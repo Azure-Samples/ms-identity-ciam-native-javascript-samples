@@ -135,16 +135,7 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
 
-In Graph Explorer, sign in to your external tenant as an administrator. Follow the permission and role requirements in [Create servicePrincipal](https://learn.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals?view=graph-rest-1.0), then send this request:
-
-```http
-POST https://graph.microsoft.com/v1.0/servicePrincipals
-Content-Type: application/json
-
-{
-  "appId": "6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9"
-}
-```
+Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal while signed in as a tenant administrator.
 
 Configure the delegated permission under **App registrations** → your app → **API permissions**:
 
