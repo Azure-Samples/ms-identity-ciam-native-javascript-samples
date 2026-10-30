@@ -142,6 +142,7 @@ export async function registerSelfServicePasskey(instance, account, displayName 
     const options = start.publicKey;
     const publicKey = {
         ...options,
+        authenticatorSelection: { ...options.authenticatorSelection },
         challenge: base64urlToBuffer(options.challenge),
         user: { ...options.user, id: base64urlToBuffer(options.user.id) },
         ...(options.excludeCredentials && {
@@ -152,6 +153,8 @@ export async function registerSelfServicePasskey(instance, account, displayName 
         }),
         timeout: options.timeout || 120000,
     };
+    // Offer local and external authenticators without changing other requirements.
+    delete publicKey.authenticatorSelection.authenticatorAttachment;
     if (publicKey.extensions?.enforceCredentialProtectionPolicy) {
         publicKey.extensions = { ...publicKey.extensions, enforceCredentialProtectionPolicy: false };
     }
