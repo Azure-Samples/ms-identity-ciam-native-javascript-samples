@@ -1,31 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { CustomAuthPublicClientApplication } from "@azure/msal-browser/custom-auth";
-import { customAuthConfig } from "../config/auth-config";
+import { useAuth } from "../app/auth/AuthProvider";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
-    const router = useRouter();
-
-    const handleLogout = async () => {
-        try {
-            const app = await CustomAuthPublicClientApplication.create(customAuthConfig);
-            const account = app.getCurrentAccount();
-            if (account.data) {
-                await account.data.signOut();
-                console.log("User signed out successfully.");
-            } else {
-                console.log("No user currently signed in.");
-            }
-            // Clear any local session/state if necessary (MSAL handles its own cache)
-            router.push("/"); // Redirect to home page after logout
-        } catch (error) {
-            console.error("Logout failed:", error);
-            // Optionally, show an error message to the user
-        }
-    };
+    const { loading, signOut } = useAuth();
 
     return (
         <nav className={styles.navbar}>
@@ -33,16 +13,11 @@ export default function Navbar() {
                 <Link href="/">MSAL Auth</Link>
             </div>
             <div className={styles.links}>
-                <Link href="/sign-in" className={styles.link}>
-                    Sign In
-                </Link>
-                <Link href="/sign-up" className={styles.link}>
-                    Sign Up
-                </Link>
-                <Link href="/reset-password" className={styles.link}>
-                    Reset Password
-                </Link>
-                <button onClick={handleLogout} className={styles.link} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit', textDecoration: 'underline' }}>
+                <button
+                    onClick={() => void signOut()}
+                    className={styles.link}
+                    disabled={loading}
+                >
                     Sign Out
                 </button>
             </div>

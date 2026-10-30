@@ -1,11 +1,29 @@
-<form (ngSubmit)="onSubmit()">
-    <input type="text" [ngModel]="code" (ngModelChange)="onCodeChange($event)" name="code" [placeholder]="placeholder"
-        required />
-    <button type="submit" [disabled]="loading">
+<p *ngIf="showDeliveryHint || sentTo || channel || codeLength">
+    A verification code was sent<span *ngIf="sentTo"> to {{ sentTo }}</span
+    ><span *ngIf="channel"> by {{ channel }}</span
+    >.<span *ngIf="codeLength"> The code contains {{ codeLength }} characters.</span>
+</p>
+<form class="auth-form" (ngSubmit)="onSubmit()" [attr.novalidate]="noValidate ? '' : null">
+    <input
+        type="text"
+        class="auth-input"
+        [ngModel]="code"
+        (ngModelChange)="onCodeChange($event)"
+        name="code"
+        [placeholder]="placeholder"
+        [attr.maxlength]="codeLength || null"
+        inputmode="numeric"
+        required
+    />
+    <button type="submit" class="auth-button" [disabled]="loading || resendLoading">
         {{ loading ? submitButtonLoadingText : submitButtonText }}
     </button>
-    <button type="button" (click)="onResendClick()" [disabled]="resendCountdown > 0"
-        [class.resend-disabled]="resendCountdown > 0">
-        {{ resendCountdown > 0 ? 'Resend Code (' + resendCountdown + 's)' : 'Resend Code' }}
+    <button
+        type="button"
+        [class]="resendLoading || resendCountdown > 0 || (disableResendWhileLoading && loading) ? 'auth-button-disabled' : 'auth-button'"
+        (click)="onResendClick()"
+        [disabled]="resendLoading || resendCountdown > 0 || (disableResendWhileLoading && loading)"
+    >
+        {{ resendLoading ? "Resending..." : resendCountdown > 0 ? "Resend Code (" + resendCountdown + "s)" : "Resend Code" }}
     </button>
 </form>

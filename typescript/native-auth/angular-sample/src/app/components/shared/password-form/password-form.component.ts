@@ -12,6 +12,11 @@ export class PasswordFormComponent {
     @Input() password = "";
     @Input() loading = false;
     @Input() placeholder = "Password";
+    @Input() passwordLabel = "Password";
+    @Input() passwordPattern: string | undefined;
+    @Input() passwordError: string | undefined;
+    @Input() autocomplete = "current-password";
+    @Input() noValidate = false;
     @Input() submitButtonText = "Submit Password";
     @Input() submitButtonLoadingText = "Submitting...";
 
@@ -24,5 +29,6 @@ export class PasswordFormComponent {
 
     onSubmit() {
         this.submitForm.emit();
+        this.passwordChange.emit("");
     }
 }

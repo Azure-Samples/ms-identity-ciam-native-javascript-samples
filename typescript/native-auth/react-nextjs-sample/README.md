@@ -1,17 +1,20 @@
 # React Next.js Native Auth Sample
 
-This folder contains a sample project demonstrating Microsoft Identity CIAM (Customer Identity and Access Management) integration using Next.js (React) with native authentication and a CORS proxy.
+This folder contains a sample project demonstrating Microsoft Identity CIAM (Customer Identity and Access Management) integration using Next.js (React) with native authentication and a CORS proxy. The home page provides a unified launcher for Native Auth V1 and V2.
 
 ## Features
 
 ### Native Authentication with MSAL Custom Auth SDK
 This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement secure, standards-based native authentication flows with Microsoft Identity CIAM. All authentication logic is handled on the client side, and API calls are securely proxied to the backend using a CORS proxy.
 
+The V2 sample requires `@azure/msal-browser` `^5.23.0`. Users can select V1 or V2 before starting sign-in, sign-up, or self-service password reset.
+
 #### Sign-in
 - Supports both password-based and passwordless authentication.
 - Users sign in with their email as the username.
 - Password-based: Enter email and password to authenticate.
 - Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
+- **Primary method selection (V2)**: If multiple first-factor methods are available, users explicitly select the method to continue with.
 - **Multi-Factor Authentication (MFA)**: If MFA is required, users select a verification method and complete a second factor challenge.
 - **Just-In-Time (JIT) Authentication Method Registration**: If no authentication method is registered, users can add one during sign-in.
 - Handles authentication errors and displays appropriate messages.
@@ -28,11 +31,11 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 
 #### Self-Service Password Reset (SSPR)
 - Users can initiate a self-serve password reset if they forget their password.
-- The password reset flow uses email OTP for authentication and verification.
+- In V1, the service selects the password-reset verification channel. In V2, users can select email or SMS when multiple first-factor methods are available.
 - Guides users through requesting a reset code, verifying their identity, and setting a new password.
 - After successful password reset, the app automatically continues to sign in the user.
 - During the automatic sign-in after password reset, users can add authentication methods if no strong auth method is registered.
-- Also, during the automatic sign-in after password reset, users may be requried to complete additional verification if MFA is enabled.
+- Also, during the automatic sign-in after password reset, users may be required to complete additional verification if MFA is enabled.
 - Handles errors such as invalid or expired reset codes.
 
 For more details on the SDK, see the official Microsoft documentation.
@@ -63,7 +66,8 @@ npm install
 1. Open `src/config/auth-config.ts` and replace the following with the values obtained from the Microsoft Entra admin center:
    - `Enter_the_Application_Id_Here` → Application (client) ID
    - `Enter_the_Tenant_Subdomain_Here` → Tenant Subdomain
-2. Save the file.
+2. If needed, open `src/config/v2-request-config.ts` to customize the scopes and claims sent by the V2 flows.
+3. Save the files.
 
 ## Native Auth APIs with Cross-Origin Resource Sharing
 The Native Auth APIs [currently don't support ](https://learn.microsoft.com/en-us/entra/identity-platform/reference-native-authentication-api?tabs=emailOtp) Cross-Origin Resource Sharing [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) so a proxy server must be setup between the web app and the APIs.
@@ -92,6 +96,26 @@ npm run dev
 
 The app will be available at http://localhost:3000.
 
+## Unified V1/V2 Flow
+
+When users open the Next.js sample, they can choose Native Auth V1 or V2 before starting sign-in, sign-up, or password reset. After a flow starts, the app displays the form required by the current SDK state.
+
+### V2 request and state handling
+
+- V2 sign-in, sign-up, and password reset start with the scopes and claims configured in `src/config/v2-request-config.ts`. Required OpenID scopes are normalized by the SDK.
+- Continuation sign-in after sign-up or password reset is argument-free. The SDK retains the original authorization context and uses the entry scopes only when the token response omits its `scope` value.
+- If a supplied password cannot be used with the authentication methods returned by the service, the SDK can continue with an offered email-code challenge.
+- Method-selection results are rendered from the state returned by `selectAuthMethod()`. The sample does not infer the next password, primary-code, or MFA state from the selected method.
+- Verification-code inputs are checked for a non-empty value. The service remains responsible for enforcing the expected code length.
+
+### V2 error and attribute handling
+
+- Known failures are presented through `AuthFlowErrorV2` classifiers, including browser-required, invalid credentials, invalid code, invalid password, invalid username, missing user, and existing-user cases.
+- OAuth `subError` and HAL `innerErrorCode` remain distinct diagnostics. The correlation ID is also displayed when available.
+- `requiredAttributes` and `invalidAttributes` are mapped to the initial username/password fields and the active sign-up attribute form. Required and invalid fields receive inline messages and `aria-invalid="true"`.
+- Non-password attribute values remain available after service validation failures. Password fields are cleared after submission.
+- A browser-required failure displays guidance to continue in a browser. The V2 state does not expose an automatic redirect or popup continuation, so the sample does not attempt one.
+
 ## Project Structure
 
 ```
@@ -103,55 +127,62 @@ react-nextjs-sample/
 ├── tsconfig.json          # TypeScript configuration
 ├── src/
 │   ├── app/               # Next.js App Router directory
-│   │   ├── shared/        # Shared components and types
+│   │   ├── auth/
+│   │   │   ├── AuthProvider.tsx        # SDK and shared account state
+│   │   │   ├── types.ts                 # Shared flow types
 │   │   │   ├── components/
-│   │   │   │   ├── AuthMethodRegistrationForm.tsx           # JIT auth method registration
-│   │   │   │   ├── AuthMethodRegistrationChallengeForm.tsx  # JIT challenge verification
-│   │   │   │   ├── MfaAuthMethodSelectionForm.tsx           # MFA method selection
-│   │   │   │   ├── MfaChallengeForm.tsx                     # MFA challenge verification
-│   │   │   │   ├── CodeForm.tsx                             # Reusable OTP code input
-│   │   │   │   └── PasswordForm.tsx                         # Reusable password input
-│   │   │   └── types/
-│   │   │       └── formProperties.ts  # Shared TypeScript interfaces
-│   │   ├── sign-in/       # Sign-in route and logic
-│   │   │   ├── page.tsx               # Sign-in page with MFA and JIT support
-│   │   │   ├── components/            # Sign-in specific components
-│   │   │   └── types/                 # Sign-in specific types
-│   │   ├── sign-up/       # Sign-up route and logic
-│   │   │   ├── page.tsx               # Sign-up page with MFA and JIT support
-│   │   │   ├── components/            # Sign-up specific components
-│   │   │   └── types/                 # Sign-up specific types
-│   │   ├── reset-password/# Password reset route and logic
-│   │   │   ├── page.tsx               # Reset password page with JIT support
-│   │   │   ├── components/            # Reset password specific components
-│   │   │   └── types/                 # Reset password specific types
+│   │   │   │   ├── AuthStepLayout.tsx
+│   │   │   │   ├── SocialProviderButtons.tsx
+│   │   │   │   ├── account/
+│   │   │   │   │   └── UserInfo.tsx
+│   │   │   │   └── forms/
+│   │   │   │       ├── AuthStartForm.tsx
+│   │   │   │       ├── CodeForm.tsx
+│   │   │   │       ├── DynamicAttributesForm.tsx
+│   │   │   │       ├── MethodSelectionForm.tsx
+│   │   │   │       ├── NewPasswordForm.tsx
+│   │   │   │       └── PasswordForm.tsx
+│   │   │   ├── v1/
+│   │   │   │   ├── V1AuthEntryFlow.tsx
+│   │   │   │   ├── V1MfaAndRegistrationFlow.tsx
+│   │   │   │   ├── V1ResetPasswordFlow.tsx
+│   │   │   │   ├── V1SignInFlow.tsx
+│   │   │   │   └── V1SignUpFlow.tsx
+│   │   │   └── v2/
+│   │   │       ├── V2AuthEntryFlow.tsx
+│   │   │       ├── V2AuthMethodFlow.tsx
+│   │   │       ├── V2ResetPasswordFlow.tsx
+│   │   │       ├── V2SignInFlow.tsx
+│   │   │       └── V2SignUpFlow.tsx
 │   │   ├── layout.tsx     # Root layout with navigation
-│   │   ├── page.tsx       # Home page
+│   │   ├── page.tsx       # Unified launcher and active flow
 │   │   └── globals.css    # Global styles
-│   └── components/        # Additional shared React components (e.g., Navbar)
-│       └── ...
+│   ├── components/
+│   │   ├── Navbar.tsx
+│   │   └── Navbar.module.css
+│   └── config/
+│       ├── auth-config.ts        # MSAL/CIAM authentication configuration
+│       └── v2-request-config.ts  # V2 scopes and claims
 └── ...other config and support files
 ```
 
-- All authentication flows and UI are implemented in the `src/app/` directory.
-- Shared components for JIT and MFA are consolidated in `src/app/shared/components/` to promote code reuse.
-- Flow-specific logic is organized in dedicated route directories (`sign-in/`, `sign-up/`, `reset-password/`).
-- The CORS proxy and configuration files are at the project root.
+The unified page starts each flow and renders the active SDK state. Version-specific flow components handle transitions, while shared forms and account components provide the reusable UI.
+
+- Authentication flows and UI are organized into separate V1 and V2 flow areas.
+- Shared components consolidate reusable account, code, password, method-selection, and attribute UI.
+- The authentication provider initializes the SDK and maintains shared account state.
+- The CORS proxy and its configuration remain at the project root.
 
 ## Development
-- `src/app/page.tsx` - Main landing page
-- `src/app/layout.tsx` - Root layout with navigation
-- Authentication routes:
-  - `src/app/sign-in/page.tsx` - Sign-in page with MFA and JIT support
-  - `src/app/sign-up/page.tsx` - Sign-up page with MFA and JIT support
-  - `src/app/reset-password/page.tsx` - Password reset page with JIT support
-- Shared components:
-  - `src/app/shared/components/` - Reusable form components for JIT and MFA flows
+
+- The `app/` folder contains the unified launcher and active-flow host.
+- The `auth/` folder contains the authentication provider and shared flow types.
+- The `auth/v1/` and `auth/v2/` folders orchestrate version-specific sign-in, sign-up, and password-reset transitions.
+- The `auth/components/` folder contains reusable forms, layouts, social-provider controls, and account UI.
+- The `components/` folder contains the navbar and sign-out UI.
 
 ## Notes
 - Ensure the CORS proxy is running if your frontend needs to communicate with a backend API that does not allow cross-origin requests.
-- Update `proxy.config.js` as needed for your environment.
-- See the project `README.md` for more specific details.
 
 ## Learn More
 - [Next.js Documentation](https://nextjs.org/docs)
