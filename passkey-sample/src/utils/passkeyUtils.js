@@ -60,30 +60,8 @@ export const validateExpectedChange = (passkeys, expectedChange) => {
     return true;
 };
 
-/**
- * Check if NGCMFA token has expired
- * @param {number} ngcmfaExpiry - NGCMFA expiration timestamp in seconds
- * @returns {boolean} - True if expired, false if still valid
- */
-export const checkNgcmfaExpiration = (ngcmfaExpiry) => {
-    if (!ngcmfaExpiry) {
-        console.log('NGCMFA check: No expiry time available - considering expired');
-        return true; // Consider expired if no expiry time available
-    }
-    
-    const currentTimeInSeconds = Math.floor(Date.now() / 1000);
-    const isExpired = currentTimeInSeconds > ngcmfaExpiry;
-    const timeUntilExpiry = ngcmfaExpiry - currentTimeInSeconds;
-    
-    console.log('NGCMFA expiration check:', {
-        currentTime: currentTimeInSeconds,
-        expiryTime: ngcmfaExpiry,
-        timeUntilExpiry: timeUntilExpiry,
-        isExpired: isExpired
-    });
-    
-    return isExpired;
-};
+export const requiresFullReauthentication = (error) =>
+    error?.status === 401 || error?.message?.includes('AADSTS7006105') === true;
 
 /**
  * Factory object for creating standardized toast notification messages

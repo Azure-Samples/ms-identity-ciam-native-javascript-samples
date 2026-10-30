@@ -27,6 +27,11 @@ const PasskeyDetails = ({ passkey }) => {
                         </div>
                     </Col>
                 </Row>
+                {typeof passkey.canDelete === 'boolean' && (
+                    <small className="text-muted">
+                        canDelete: {passkey.canDelete ? 'Yes' : 'No'}
+                    </small>
+                )}
             </div>
         </div>
     );

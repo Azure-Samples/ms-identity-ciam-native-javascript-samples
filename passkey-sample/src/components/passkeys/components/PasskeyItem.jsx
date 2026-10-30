@@ -55,7 +55,7 @@ const PasskeyItem = ({ passkey, onDelete, isLoading = false }) => {
                             e.stopPropagation(); // Prevent expanding when clicking delete
                             onDelete(passkey);
                         }}
-                        disabled={isLoading}
+                        disabled={isLoading || !passkey.canDelete}
                     >
                         <HiOutlineTrash />
                     </Button>

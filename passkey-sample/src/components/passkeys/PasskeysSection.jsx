@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useMsal } from '@azure/msal-react';
 import { Card } from 'react-bootstrap';
 import PasskeysHeader from './components/PasskeysHeader';
 import PasskeysList from './components/PasskeysList';
@@ -11,27 +12,26 @@ import {
     useAuthentication
 } from '../../hooks/passkeys';
 
-const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
+const PasskeysSection = ({ onShowToast }) => {
+    const { instance, accounts } = useMsal();
+    const account = instance.getActiveAccount() || accounts[0];
+    const accountId = account?.homeAccountId;
     const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
 
     // Custom hooks handle all the complex logic
-    const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ 
-        appToken, userId, onShowToast 
-    });
+    const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ instance, account, onShowToast });
     
     const { handleAddPasskey, performAddPasskey } = usePasskeyAddOperation({ 
-        appToken, 
-        userId, 
-        ngcmfaExpiry, 
+        instance,
+        account,
         onShowToast, 
         fetchPasskeys,
         currentPasskeys: passkeys
     });
     
     const { initiate: initiateDelete, showConfirmationModal, modalProps } = usePasskeyDeleteOperation({ 
-        appToken, 
-        userId, 
-        ngcmfaExpiry, 
+        instance,
+        account,
         onShowToast, 
         fetchPasskeys,
         currentPasskeys: passkeys
@@ -41,27 +41,33 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
 
     // Handle initial fetch
     useEffect(() => {
-        if (appToken && userId) {
-            fetchPasskeys().catch(console.error);
+        if (!account) return;
+
+        const operation = getCachedOperation();
+        if (operation?.action === 'add' || operation?.action === 'delete') {
+            return;
         }
+        fetchPasskeys().then(result => {
+            if (result != null && getCachedOperation()?.action === 'list') {
+                clearCachedOperation();
+            }
+        }).catch(console.error);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appToken, userId]); // Only depend on appToken and userId, not fetchPasskeys
+    }, [accountId]); // Account objects may be recreated when MSAL reads its cache.
 
     useEffect(() => {
-        if (appToken && userId) {
-            const operation = getCachedOperation();
-            if (operation) {
-                clearCachedOperation();
-                
-                if (operation.action === "add") {
-                    performAddPasskey();
-                } else if (operation.action === "delete" && operation.passkey) {
-                    showConfirmationModal(operation.passkey);
-                }
-            }
+        const operation = getCachedOperation();
+        if (!operation || operation.action === 'list' || !account) return;
+
+        if (operation.action === 'add') {
+            clearCachedOperation();
+            performAddPasskey().catch(console.error);
+        } else if (operation.action === 'delete' && operation.passkey) {
+            clearCachedOperation();
+            showConfirmationModal(operation.passkey);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [appToken, userId]);
+    }, [accountId]);
 
     return (
         <>
