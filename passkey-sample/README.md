@@ -135,7 +135,16 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
 
-Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal while signed in as a tenant administrator.
+In Graph Explorer, sign in to your external tenant as an administrator. Follow the permission and role requirements in [Create servicePrincipal](https://learn.microsoft.com/en-us/graph/api/serviceprincipal-post-serviceprincipals?view=graph-rest-1.0), then send this request:
+
+```http
+POST https://graph.microsoft.com/v1.0/servicePrincipals
+Content-Type: application/json
+
+{
+  "appId": "6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9"
+}
+```
 
 Configure the delegated permission under **App registrations** → your app → **API permissions**:
 
@@ -165,7 +174,7 @@ export const msalConfig = {
     auth: {
         clientId, // Application (client) ID from app registration
         authority: `https://${tenantName}.ciamlogin.com/${tenantId}`, // Replace tenantName with your tenant subdomain
-        redirectUri: '/',                                // Resolved at runtime to the registered redirect URI
+        redirectUri: '/', // Resolved at runtime to the registered redirect URI
     },
     // ... rest of configuration
 };
@@ -311,7 +320,6 @@ passkey-sample/
 
 ## 📚 Additional Resources
 
-- [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
 - [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
