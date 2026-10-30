@@ -79,11 +79,6 @@ http.createServer((req, res) => {
 
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else if (reqUrl.pathname.startsWith(`${proxyConfig.selfServicePrefix}/`)) {
-        if (req.method === "DELETE") {
-            forwardRequest(req, res, null, corsHeaders, reqUrl.pathname);
-            return;
-        }
-
         const targetUrl = proxyConfig.selfServiceAuthority + reqUrl.pathname.slice(proxyConfig.selfServicePrefix.length) + (reqUrl.search || "");
         forwardRequest(req, res, targetUrl, corsHeaders, reqUrl.pathname);
     } else {

@@ -12,42 +12,39 @@ import {
     useAuthentication
 } from '../../hooks/passkeys';
 
-const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
+const PasskeysSection = ({ onShowToast }) => {
     const { instance, accounts } = useMsal();
     const account = instance.getActiveAccount() || accounts[0];
     const accountId = account?.homeAccountId;
     const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
 
     // Custom hooks handle all the complex logic
-    const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ instance, account, ngcmfaExpiry, onShowToast });
+    const { passkeys, isLoading, error, fetchPasskeys } = usePasskeyFetcher({ instance, account, onShowToast });
     
     const { handleAddPasskey, performAddPasskey } = usePasskeyAddOperation({ 
         instance,
         account,
-        ngcmfaExpiry,
         onShowToast, 
         fetchPasskeys,
         currentPasskeys: passkeys
     });
     
     const { initiate: initiateDelete, showConfirmationModal, modalProps } = usePasskeyDeleteOperation({ 
-        appToken, 
-        userId, 
-        ngcmfaExpiry, 
+        instance,
+        account,
         onShowToast, 
         fetchPasskeys,
         currentPasskeys: passkeys
     });
 
-    const { getCachedOperation, clearCachedOperation, isTokenExpired, handleReAuthentication } = useAuthentication({ onShowToast });
+    const { getCachedOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
     // Handle initial fetch
     useEffect(() => {
         if (!account) return;
 
         const operation = getCachedOperation();
-        if (operation?.action === 'add' ||
-            (operation?.action === 'delete' && isTokenExpired(ngcmfaExpiry))) {
+        if (operation?.action === 'add' || operation?.action === 'delete') {
             return;
         }
         fetchPasskeys().then(result => {
@@ -56,26 +53,21 @@ const PasskeysSection = ({ onShowToast, appToken, userId, ngcmfaExpiry }) => {
             }
         }).catch(console.error);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [accountId, ngcmfaExpiry]); // Account objects may be recreated when MSAL reads its cache.
+    }, [accountId]); // Account objects may be recreated when MSAL reads its cache.
 
     useEffect(() => {
         const operation = getCachedOperation();
         if (!operation || operation.action === 'list' || !account) return;
 
-        if (isTokenExpired(ngcmfaExpiry)) {
-            handleReAuthentication();
-            return;
-        }
-
         if (operation.action === 'add') {
             clearCachedOperation();
             performAddPasskey().catch(console.error);
-        } else if (operation.action === 'delete' && operation.passkey && appToken && userId) {
+        } else if (operation.action === 'delete' && operation.passkey) {
             clearCachedOperation();
             showConfirmationModal(operation.passkey);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [accountId, appToken, userId, ngcmfaExpiry]);
+    }, [accountId]);
 
     return (
         <>

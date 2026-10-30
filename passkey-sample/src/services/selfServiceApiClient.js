@@ -61,7 +61,9 @@ async function requestMethod(path, method, token, body) {
                 // Keep the HTTP status if the response is not a JSON API error.
             }
         }
-        throw new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
     }
     return response;
 }
@@ -94,8 +96,19 @@ export async function fetchSelfServicePasskeys(instance, account) {
             aaGuid: method.aaGuid,
             passkeyType: formatPasskeyType(method.passkeyType),
             canDelete: Boolean(method._links?.delete?.href),
+            deleteHref: method._links?.delete?.href,
         };
     });
+}
+
+/** Delete a FIDO method using the action returned by the Self Service API. */
+export async function deleteSelfServicePasskey(instance, account, deleteHref) {
+    if (typeof deleteHref !== 'string' || !deleteHref) {
+        throw new Error('This passkey cannot be deleted with the Self Service API');
+    }
+
+    const token = await getSelfServiceAccessToken(instance, account);
+    await requestMethod(deleteHref, 'DELETE', token);
 }
 
 async function beginPasskeyEnrollment(token) {

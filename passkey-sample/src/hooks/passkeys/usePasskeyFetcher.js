@@ -2,29 +2,22 @@ import { useState, useCallback } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { fetchSelfServicePasskeys } from '../../services/selfServiceApiClient';
 import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
-import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages } from '../../utils/passkeyUtils';
+import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
-
-const DOWNSTREAM_TOKEN_ERROR_CODE = 'AADSTS7006105';
-
-const requiresFullReauthentication = (error) => {
-    return error?.message?.includes(DOWNSTREAM_TOKEN_ERROR_CODE);
-};
 
 /**
  * Hook for managing passkey data fetching with retry logic
  * @param {Object} params - Hook parameters
  * @param {Object} params.instance - MSAL instance
  * @param {Object} params.account - Signed-in account
- * @param {number|null} params.ngcmfaExpiry - Expiration derived from the user token iat
  * @param {Function} params.onShowToast - Toast notification function
  * @returns {Object} Passkey data and fetching utilities
  */
-export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast }) => {
+export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
     const [passkeys, setPasskeys] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { isTokenExpired, handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
+    const { handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
 
     const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
         const { 
@@ -44,16 +37,6 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
             setError('Sign in to view your passkeys');
             if (setLoadingState) setIsLoading(false);
             return;
-        }
-
-        if (isTokenExpired(ngcmfaExpiry)) {
-            cacheListOperation();
-            const expiryError = new Error('The 15-minute verification has expired. Sign in again to view your passkeys.');
-            setError(expiryError.message);
-            if (setLoadingState) setIsLoading(false);
-            await handleReAuthentication();
-            if (expectedChange) throw expiryError;
-            return null;
         }
 
         let lastError;
@@ -157,7 +140,7 @@ export const usePasskeyFetcher = ({ instance, account, ngcmfaExpiry, onShowToast
         }
         
         return null;
-    }, [instance, account, ngcmfaExpiry, onShowToast]);
+    }, [instance, account, onShowToast]);
 
     const refetch = useCallback(() => {
         return fetchPasskeys();

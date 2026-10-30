@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { deleteUserPasskey } from '../../services/PasskeyService';
-import { createToastMessages } from '../../utils/passkeyUtils';
+import { InteractionRequiredAuthError } from '@azure/msal-browser';
+import { deleteSelfServicePasskey } from '../../services/selfServiceApiClient';
+import { createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
+const DELETION_PROPAGATION_DELAY = 2000;
+
 export const usePasskeyDeleteOperation = ({ 
-    appToken, 
-    userId, 
-    ngcmfaExpiry, 
+    instance,
+    account,
     onShowToast, 
     fetchPasskeys,
     currentPasskeys 
@@ -14,20 +16,37 @@ export const usePasskeyDeleteOperation = ({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [passkeyToDelete, setPasskeyToDelete] = useState(null);
     
-    const { isTokenExpired, handleReAuthentication, cacheOperation } = useAuthentication({ onShowToast });
+    const { requestVerification } = useAuthentication({ onShowToast });
 
     const displayModal = (passkey) => {
         setPasskeyToDelete(passkey);
         setShowDeleteModal(true);
     };
 
-    const performDelete = async (passkeyId, cachedPasskeyName) => {
+    const performDelete = async (passkeyId, cachedPasskeyName, cachedDeleteHref) => {
         const targetPasskey = currentPasskeys.find(p => p.id === passkeyId);
         const passkeyDisplayName = targetPasskey?.name || cachedPasskeyName;
+        const deleteHref = targetPasskey?.deleteHref || cachedDeleteHref;
 
         try {
-            await deleteUserPasskey(appToken, userId, passkeyId);
+            await deleteSelfServicePasskey(instance, account, deleteHref);
         } catch (err) {
+            const fullSignIn = requiresFullReauthentication(err);
+            if (fullSignIn) {
+                onShowToast?.(createToastMessages.errorDeleting(err.message));
+            }
+            if (fullSignIn || err instanceof InteractionRequiredAuthError) {
+                await requestVerification({
+                    action: 'delete',
+                    passkey: {
+                        ...targetPasskey,
+                        id: passkeyId,
+                        name: passkeyDisplayName,
+                        deleteHref,
+                    },
+                }, account, fullSignIn, createToastMessages.errorDeleting);
+                return;
+            }
             onShowToast?.(createToastMessages.errorDeleting(err.message));
             return;
         }
@@ -35,6 +54,8 @@ export const usePasskeyDeleteOperation = ({
         onShowToast?.(createToastMessages.passkeyDeleted(passkeyDisplayName || 'Unknown'));
 
         try {
+            await new Promise(resolve => setTimeout(resolve, DELETION_PROPAGATION_DELAY));
+
             await fetchPasskeys({
                 type: 'delete',
                 passkeyId: passkeyId
@@ -48,31 +69,17 @@ export const usePasskeyDeleteOperation = ({
     };
 
     const initiate = async (passkey) => {
-        if (isTokenExpired(ngcmfaExpiry)) {
-            const deleteOperation = { 
-                action: 'delete', 
-                passkey: passkey
-            };
-            cacheOperation(deleteOperation);
-            await handleReAuthentication();
-            return;
-        }
-
         displayModal(passkey);
     };
 
     const confirm = async () => {
         if (!passkeyToDelete) return;
 
-        const { id: passkeyId, name: passkeyName } = passkeyToDelete;
+        const { id: passkeyId, name: passkeyName, deleteHref } = passkeyToDelete;
         
         hide();
         
-        try {
-            await performDelete(passkeyId, passkeyName);
-        } catch (error) {
-            // Error already handled in performDelete
-        }
+        await performDelete(passkeyId, passkeyName, deleteHref);
     };
 
     const hide = () => {

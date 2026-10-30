@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { Container, Alert, Spinner } from 'react-bootstrap';
 import { FaBell } from 'react-icons/fa';
 import { useMsal } from '@azure/msal-react';
-import { loginRequest, appConfig } from '../authConfig';
-import { calculateNgcmfaExpiration, getAccessToken, getCachedAppToken } from '../utils/tokenUtils';
+import { loginRequest } from '../authConfig';
+import { getAccessToken } from '../utils/tokenUtils';
 import {
     acquireSelfServiceTokenAfterSignIn,
     isSelfServiceTokenAcquisitionAfterSignInPending
@@ -13,19 +13,13 @@ import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
 import PasskeysSection from './passkeys/PasskeysSection';
 
-const NGCMFA_EXPIRY_MINUTES = 15;
-const SECONDS_PER_MINUTE = 60;
-
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
     const account = instance.getActiveAccount() || accounts[0];
     const accountId = account?.homeAccountId;
     const [accessToken, setAccessToken] = useState(null);
-    const [appToken, setAppToken] = useState(null);
-    const [ngcmfaExpiration, setNgcmfaExpiration] = useState(null);
     const [loading, setLoading] = useState(true);
     const [accessTokenError, setAccessTokenError] = useState(null);
-    const [appTokenError, setAppTokenError] = useState(null);
     const [selfServiceTokenError, setSelfServiceTokenError] = useState(null);
     const [toasts, setToasts] = useState([]);
 
@@ -44,12 +38,10 @@ export const SecurityPage = () => {
                 if (result.error) {
                     setAccessTokenError(result.error);
                     setAccessToken(null);
-                    setNgcmfaExpiration(null);
                     setLoading(false);
                 } else {
                     setAccessTokenError(null);
                     setAccessToken(result.decodedToken);
-                    setNgcmfaExpiration(calculateNgcmfaExpiration(result.decodedToken, NGCMFA_EXPIRY_MINUTES, SECONDS_PER_MINUTE));
                     try {
                         await acquireSelfServiceTokenAfterSignIn(instance, account);
                         setSelfServiceTokenError(null);
@@ -62,7 +54,6 @@ export const SecurityPage = () => {
             } catch (error) {
                 setAccessTokenError(`Failed to get access token: ${error.message}`);
                 setAccessToken(null);
-                setNgcmfaExpiration(null);
                 setLoading(false);
             }
         };
@@ -71,37 +62,6 @@ export const SecurityPage = () => {
     // Account objects may be recreated when MSAL reads its cache.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instance, accountId]);
-
-    useEffect(() => {
-        const fetchAppToken = async () => {
-            try {
-                const token = await getCachedAppToken(
-                    instance, 
-                    appConfig.proxyDomain, 
-                    appConfig.appId, 
-                    import.meta.env.VITE_APP_SECRET
-                );
-                
-                if (token) {
-                    setAppTokenError(null);
-                    setAppToken(token);
-                } else {
-                    throw new Error('App token request returned empty result');
-                }
-            } catch (error) {
-                setAppTokenError(`Failed to get app token: ${error.message}. Passkey functionality may be limited.`);
-                setAppToken(null);
-            }
-        };
-
-        if (instance) {
-            fetchAppToken();
-        }
-    }, [instance]);
-
-    const getUserId = () => {
-        return accessToken?.oid || account?.idTokenClaims?.oid || null;
-    };
 
     const getUserData = () => {
         const defaultUserData = {
@@ -121,7 +81,6 @@ export const SecurityPage = () => {
     };
 
     const userData = getUserData();
-    const userId = getUserId();
 
     const alerts = [
         {
@@ -180,14 +139,10 @@ export const SecurityPage = () => {
             ))}
 
             {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
-            {appTokenError && <Alert variant="warning">{appTokenError}</Alert>}
             {selfServiceTokenError && <Alert variant="warning">{selfServiceTokenError}</Alert>}
             {!selfServiceTokenError && (
                 <PasskeysSection
                     onShowToast={showToast}
-                    appToken={appToken}
-                    userId={userId}
-                    ngcmfaExpiry={ngcmfaExpiration}
                 />
             )}
 

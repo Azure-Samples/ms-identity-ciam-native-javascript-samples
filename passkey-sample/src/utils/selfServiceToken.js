@@ -42,6 +42,14 @@ export async function getSelfServiceAccessToken(instance, account, forceRefresh 
         ...selfServiceTokenRequest(account),
         forceRefresh,
     });
+    console.log('Self Service API token expiry:', {
+        expiresOn: result.expiresOn?.toISOString() ?? null,
+        secondsRemaining: result.expiresOn
+            ? Math.floor((result.expiresOn.getTime() - Date.now()) / 1000)
+            : null,
+        fromCache: result.fromCache,
+        forceRefresh,
+    });
     return result.accessToken;
 }
 

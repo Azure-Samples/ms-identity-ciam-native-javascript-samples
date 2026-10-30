@@ -1,7 +1,6 @@
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
 import { registerSelfServicePasskey } from '../../services/selfServiceApiClient';
-import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
-import { createToastMessages } from '../../utils/passkeyUtils';
+import { createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
 
 const REGISTRATION_PROPAGATION_DELAY = 2000;
@@ -9,28 +8,11 @@ const REGISTRATION_PROPAGATION_DELAY = 2000;
 export const usePasskeyAddOperation = ({ 
     instance,
     account,
-    ngcmfaExpiry,
     onShowToast, 
     fetchPasskeys,
     currentPasskeys 
 }) => {
-    const { isTokenExpired, handleReAuthentication, cacheOperation, clearCachedOperation } = useAuthentication({ onShowToast });
-
-    const requestVerification = async () => {
-        cacheOperation({ action: 'add' });
-        if (!onShowToast) {
-            await redirectForSelfServiceAccess(instance, account);
-            return;
-        }
-        onShowToast(createToastMessages.sessionExpiredWithAction(async () => {
-            try {
-                await redirectForSelfServiceAccess(instance, account);
-            } catch (error) {
-                clearCachedOperation();
-                onShowToast(createToastMessages.errorAdding(error.message));
-            }
-        }));
-    };
+    const { requestVerification } = useAuthentication({ onShowToast });
 
     const performAddPasskey = async () => {
         const currentCount = currentPasskeys.length;
@@ -40,31 +22,15 @@ export const usePasskeyAddOperation = ({
                 throw new Error('Sign in before adding a passkey');
             }
 
-            if (isTokenExpired(ngcmfaExpiry)) {
-                cacheOperation({ action: 'add' });
-                await handleReAuthentication();
-                return;
-            }
-
             await registerSelfServicePasskey(instance, account);
-            
-            if (onShowToast) {
-                onShowToast(createToastMessages.passkeyAdded());
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, REGISTRATION_PROPAGATION_DELAY));
-            
-            await fetchPasskeys({
-                type: 'add',
-                expectedCount: currentCount + 1
-            }, {
-                setLoadingState: true,
-                showToast: true
-            });
-
         } catch (err) {
-            if (err instanceof InteractionRequiredAuthError) {
-                await requestVerification();
+            const fullSignIn = requiresFullReauthentication(err);
+            if (fullSignIn) {
+                onShowToast?.(createToastMessages.errorAdding(err.message));
+            }
+            if (fullSignIn || err instanceof InteractionRequiredAuthError) {
+                await requestVerification(
+                    { action: 'add' }, account, fullSignIn, createToastMessages.errorAdding);
                 return;
             }
             if (onShowToast) {
@@ -75,6 +41,22 @@ export const usePasskeyAddOperation = ({
                 }
             }
             await fetchPasskeys();
+            return;
+        }
+
+        onShowToast?.(createToastMessages.passkeyAdded());
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, REGISTRATION_PROPAGATION_DELAY));
+            await fetchPasskeys({
+                type: 'add',
+                expectedCount: currentCount + 1
+            }, {
+                setLoadingState: true,
+                showToast: true
+            });
+        } catch (refreshError) {
+            console.warn('Passkey was added, but the passkey list could not be refreshed:', refreshError);
         }
     };
 

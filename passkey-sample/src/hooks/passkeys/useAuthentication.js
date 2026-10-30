@@ -1,8 +1,7 @@
 import { useMsal } from '@azure/msal-react';
-import { clearAppTokenCache } from '../../utils/tokenUtils';
 import { loginRequest } from '../../authConfig';
-import { requestSelfServiceTokenAfterSignIn } from '../../utils/selfServiceToken';
-import { checkNgcmfaExpiration, createToastMessages } from '../../utils/passkeyUtils';
+import { requestSelfServiceTokenAfterSignIn, redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
+import { createToastMessages } from '../../utils/passkeyUtils';
 
 export const useAuthentication = ({ onShowToast }) => {
     const { instance } = useMsal();
@@ -19,7 +18,6 @@ export const useAuthentication = ({ onShowToast }) => {
             }
 
             const account = instance.getAllAccounts()[0];
-            clearAppTokenCache(instance);
             requestSelfServiceTokenAfterSignIn();
             await instance.loginRedirect({
                 ...loginRequest,
@@ -49,10 +47,6 @@ export const useAuthentication = ({ onShowToast }) => {
         }
     };
 
-    const isTokenExpired = (ngcmfaExpiry) => {
-        return checkNgcmfaExpiration(ngcmfaExpiry);
-    };
-
     const cacheOperation = (operation) => {
         sessionStorage.setItem("postLoginAction", JSON.stringify(operation));
     };
@@ -74,10 +68,32 @@ export const useAuthentication = ({ onShowToast }) => {
         sessionStorage.removeItem("postLoginAction");
     };
 
+    const requestVerification = async (operation, account, fullSignIn, createErrorToast) => {
+        cacheOperation(operation);
+        const verify = async () => {
+            try {
+                if (fullSignIn) {
+                    await handleSignIn();
+                } else {
+                    await redirectForSelfServiceAccess(instance, account);
+                }
+            } catch (error) {
+                clearCachedOperation();
+                if (!onShowToast) throw error;
+                onShowToast(createErrorToast(error.message));
+            }
+        };
+        if (!onShowToast) {
+            await verify();
+            return;
+        }
+        onShowToast(createToastMessages.sessionExpiredWithAction(verify));
+    };
+
     return {
         handleSignIn,
         handleReAuthentication,
-        isTokenExpired,
+        requestVerification,
         cacheOperation,
         getCachedOperation,
         clearCachedOperation

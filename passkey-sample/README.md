@@ -1,6 +1,6 @@
 # Microsoft Identity Platform - React SPA with Passkeys
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing/getting and registering passkeys use the low-privilege Self Service (Credential Management) API. Deletion still uses the high-privilege Microsoft Graph API.
+This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing, registering, and deleting passkeys use the low-privilege Self Service (Credential Management) API with delegated access for the signed-in user.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -18,7 +18,7 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 - Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
 - User account with MFA enforcement
-- Client application registered under the CIAM tenant with the Self Service delegated permission and the Microsoft Graph application permission described below, with admin consent
+- Client application registered under the CIAM tenant with the Self Service delegated permission described below, with admin consent
 
 #### Device
 
@@ -135,23 +135,18 @@ For example, for the example authority `passkeytest.ciamlogin.com`, locally use 
 
 Before adding the Self Service permission, provision the Microsoft-published Credential Management API service principal (app ID `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9`) in your external tenant.
 
-Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal with Graph Explorer while signed in as a tenant administrator.
+Follow [Configure credential management API access](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api#configure-credential-management-api-access) to create the service principal while signed in as a tenant administrator.
 
-Configure both APIs under **App registrations** → your app → **API permissions**:
+Configure the delegated permission under **App registrations** → your app → **API permissions**:
 
-**Self Service (Credential Management) API — delegated permission for listing/getting and registering passkeys:**
+**Self Service (Credential Management) API — delegated permission for listing, registering, and deleting passkeys:**
 
 1. Click **Add a permission** → **APIs my organization uses**.
 2. Search for `6bf38b3c-a70f-49aa-a1d9-10e4cc74dde9` and select **Me-CredentialProfileManagement**.
 3. Select **Delegated permissions** → `Me.UserAuthenticationMethod.ReadWrite`.
 4. Click **Add permissions**.
 
-**Microsoft Graph — application permission for deleting passkeys:**
-
-1. Click **Add a permission** → **Microsoft Graph** → **Application permissions**.
-2. Select `UserAuthMethod-Passkey.ReadWrite.All` and click **Add permissions**.
-
-Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Graph application permission is used only for deletion; the Self Service permission is delegated to the signed-in user for list/get and add.
+Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Self Service permission lets the signed-in user list, register, and delete their own passkeys.
 
 ### 3. Application Configuration
 
@@ -194,9 +189,6 @@ VITE_PORT=3000
 # SSL certificate filenames at the project root
 VITE_SSL_CERT=auth-cert.pem
 VITE_SSL_KEY=auth-key.pem
-
-# Client secret from your Entra app registration (do NOT commit your real .env)
-VITE_APP_SECRET=your-client-secret
 ```
 
 #### Step 3: Application Configuration (authConfig.js)
@@ -209,14 +201,6 @@ export const selfServiceApiConfig = {
     // ... other API settings
 };
 ```
-
-The client secret is **not** stored here. It is read from `VITE_APP_SECRET` in your local `.env` file (see **Step 2** above) and consumed directly by the SPA at runtime. `.env` is gitignored, so your secret stays on your machine.
-
-**SECURITY WARNING**: This configuration is for local development only. Never expose the **appSecret** in production environments. Store secrets securely using:
-
-- Environment variables
-- Azure Key Vault
-- Other secure secret management systems
 
 ### 4. Start the Application
 
@@ -266,7 +250,7 @@ Generate these SSL certificate files locally for HTTPS development:
 ### CORS Proxy
 
 - `/api/*` → Microsoft Entra token endpoint
-- `/selfservice-api/*` → Self Service (Credential Management) API for list/get and add; deletion calls Microsoft Graph directly
+- `/selfservice-api/*` → Self Service (Credential Management) API for listing, registering, and deleting passkeys
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
@@ -275,7 +259,7 @@ For production deployment, consider using [Set up a reverse proxy for a single-p
 The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
-- Delegated Self Service (Credential Management) API access for passkey listing/getting and registration
+- Delegated Self Service (Credential Management) API access for passkey listing, registration, and deletion
 - Multi-factor authentication (MFA) enforcement for passkey operations
 
 ## 🔐 Features
@@ -294,7 +278,7 @@ The app uses Microsoft Authentication Library (MSAL) for:
 ### Security Features
 
 - MFA enforcement for passkey operations
-- Automatic re-authentication when tokens expire
+- Server-triggered verification prompts with a **Next** action
 - Enhanced error handling and user feedback
 - Toast notifications for user actions
 
@@ -310,7 +294,7 @@ passkey-sample/
 │   │   ├── common/         # Shared UI
 │   │   └── passkeys/       # Passkey UI
 │   ├── hooks/passkeys/     # Passkey operations
-│   ├── services/           # Credential Management and Graph API clients
+│   ├── services/           # Low-privilege Credential Management API client
 │   ├── styles/
 │   ├── utils/              # Token and passkey helpers
 │   ├── App.jsx
@@ -330,6 +314,5 @@ passkey-sample/
 - [Microsoft Entra External ID credential management API reference](https://learn.microsoft.com/en-us/entra/identity-platform/reference-credential-management-api)
 - [Microsoft Identity Platform Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/)
 - [MSAL.js Documentation](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
-- [Microsoft Graph API fido2AuthenticationMethod](https://learn.microsoft.com/en-gb/graph/api/resources/fido2authenticationmethod?view=graph-rest-beta)
 - [WebAuthn/FIDO2 Documentation](https://docs.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-passwordless)
 - [Set up a reverse proxy for a single-page app using Azure Function App](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-test-environment)
