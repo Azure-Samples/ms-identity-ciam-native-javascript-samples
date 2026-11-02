@@ -1,6 +1,6 @@
-# Microsoft Identity Platform - React SPA with Passkeys
+# Microsoft Identity Platform - React SPA with Credentials
 
-This is a React Single Page Application (SPA) that demonstrates authentication with Microsoft Identity Platform. Listing, registering, and deleting passkeys use the low-privilege Self Service (Credential Management) API with delegated access for the signed-in user.
+This React Single Page Application demonstrates authentication with Microsoft Identity Platform and credential management. Listing, registering, and deleting passkeys, and discovering/updating passwords, use the Self Service (Credential Management) API with delegated access for the signed-in user.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -22,7 +22,7 @@ This is a React Single Page Application (SPA) that demonstrates authentication w
 
 #### Device
 
-- Yubikey supported FIDO2
+- A supported FIDO2 authenticator for passkey registration; not required for password-only testing
 
 ## Set up locally
 
@@ -146,7 +146,9 @@ Configure the delegated permission under **App registrations** → your app → 
 3. Select **Delegated permissions** → `Me.UserAuthenticationMethod.ReadWrite`.
 4. Click **Add permissions**.
 
-Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Self Service permission lets the signed-in user list, register, and delete their own passkeys.
+For password-only testing, use the delegated `Me.UserAuthenticationMethod.Password.Read` permission to view password information, or `Me.UserAuthenticationMethod.Password.ReadWrite` to change passwords. Request only permissions that are intended for the test and have the required consent.
+
+Finally, click **Grant admin consent for [Your Tenant]** and confirm. The Self Service permission lets the signed-in user manage their own credentials.
 
 ### 3. Application Configuration
 
@@ -193,7 +195,7 @@ VITE_SSL_KEY=auth-key.pem
 
 #### Step 3: Application Configuration (authConfig.js)
 
-The Self Service API scope in `src/authConfig.js` is fixed; keep the value below unchanged:
+Choose the Self Service API scope in `src/authConfig.js` for the operation being tested. The following scope supports passkey and password management:
 
 ```javascript
 export const selfServiceApiConfig = {
@@ -201,6 +203,8 @@ export const selfServiceApiConfig = {
     // ... other API settings
 };
 ```
+
+For password-only testing, replace the permission name with `Me.UserAuthenticationMethod.Password.Read` or `Me.UserAuthenticationMethod.Password.ReadWrite`, keeping the same API resource prefix. Changing the requested scope does not revoke earlier consent grants.
 
 ### 4. Start the Application
 
@@ -250,7 +254,7 @@ Generate these SSL certificate files locally for HTTPS development:
 ### CORS Proxy
 
 - `/api/*` → Microsoft Entra token endpoint
-- `/selfservice-api/*` → Self Service (Credential Management) API for listing, registering, and deleting passkeys
+- `/selfservice-api/*` → Self Service (Credential Management) API for passkey and password management
 
 For production deployment, consider using [Set up a reverse proxy for a single-page app using Azure Front Door](https://learn.microsoft.com/en-us/entra/identity-platform/how-to-native-authentication-cors-solution-production-environment) instead of the local CORS proxy.
 
@@ -259,7 +263,7 @@ For production deployment, consider using [Set up a reverse proxy for a single-p
 The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
-- Delegated Self Service (Credential Management) API access for passkey listing, registration, and deletion
+- Delegated Self Service (Credential Management) API access for passkey and password management
 - Multi-factor authentication (MFA) enforcement for passkey operations
 
 ## 🔐 Features
@@ -274,6 +278,17 @@ The app uses Microsoft Authentication Library (MSAL) for:
 - View existing passkeys/FIDO2 credentials
 - Add new passkeys
 - Delete existing passkeys
+
+### Credentials and Password Management
+
+- Password and passkeys appear as sibling rows in one Credentials list
+- Show the password row only when the API returns a password method
+- Show its last-updated date and a Change password action when available
+- Change passwords using current, new, and confirmation fields, without storing password values
+- Follow pending password updates until the API reports completion
+- Reuse the existing MSAL token provider and verification prompts
+
+Run the feature regression tests with `npm test`.
 
 ### Security Features
 
@@ -292,6 +307,7 @@ passkey-sample/
 ├── src/
 │   ├── components/
 │   │   ├── common/         # Shared UI
+│   │   ├── credentials/    # Password row and change-password modal
 │   │   └── passkeys/       # Passkey UI
 │   ├── hooks/passkeys/     # Passkey operations
 │   ├── services/           # Low-privilege Credential Management API client
@@ -300,6 +316,7 @@ passkey-sample/
 │   ├── App.jsx
 │   ├── authConfig.js
 │   └── index.jsx
+├── test/                   # Credentials/password regression tests
 ├── .env.example
 ├── cors.js                 # Local proxy
 ├── proxy.config.js         # Proxy routes and upstreams

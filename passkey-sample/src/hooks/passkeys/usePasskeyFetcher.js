@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { fetchSelfServicePasskeys } from '../../services/selfServiceApiClient';
+import { fetchSelfServiceCredentials } from '../../services/selfServiceApiClient';
 import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
 import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
 import { useAuthentication } from './useAuthentication';
@@ -14,12 +14,21 @@ import { useAuthentication } from './useAuthentication';
  * @returns {Object} Passkey data and fetching utilities
  */
 export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
-    const [passkeys, setPasskeys] = useState([]);
+    const accountId = account?.homeAccountId;
+    const [credentials, setCredentials] = useState({ accountId: null, passkeys: [], password: null });
+    const currentAccount = useRef(accountId);
+    const latestFetch = useRef(0);
+    currentAccount.current = accountId;
+    useEffect(() => () => { latestFetch.current += 1; }, []);
+    const passkeys = credentials.accountId === accountId ? credentials.passkeys : [];
+    const password = credentials.accountId === accountId ? credentials.password : null;
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const { handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
 
     const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
+        const fetchId = ++latestFetch.current;
+        const isCurrent = () => latestFetch.current === fetchId && currentAccount.current === accountId;
         const { 
             maxRetries = expectedChange ? PASSKEY_CONSTANTS.MAX_RETRIES : 1,
             showToast = false,
@@ -47,12 +56,15 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
         }
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            if (!isCurrent()) return null;
             try {
                 if (maxRetries > 1) {
                     console.log(`Fetch attempt ${attempt}/${maxRetries}...`);
                 }
                 
-                const transformedPasskeys = await fetchSelfServicePasskeys(instance, account);
+                const result = await fetchSelfServiceCredentials(instance, account);
+                if (!isCurrent()) return null;
+                const transformedPasskeys = result.passkeys;
                 console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
                 
                 if (expectedChange) {
@@ -75,7 +87,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
                     }
                 }
                 
-                setPasskeys(transformedPasskeys);
+                setCredentials({ ...result, accountId });
                 console.log(`Successfully updated passkey list with ${transformedPasskeys.length} items`);
                 
                 if (setLoadingState) {
@@ -89,6 +101,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
                 return transformedPasskeys;
                 
             } catch (error) {
+                if (!isCurrent()) return null;
                 lastError = error;
                 if (requiresFullReauthentication(error)) {
                     cacheListOperation();
@@ -118,6 +131,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
             }
         }
 
+        if (!isCurrent()) return null;
         const requiresUserAction = lastError instanceof InteractionRequiredAuthError
             || requiresFullReauthentication(lastError);
         const errorMsg = requiresUserAction
@@ -140,7 +154,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
         }
         
         return null;
-    }, [instance, account, onShowToast]);
+    }, [instance, account, accountId, onShowToast]);
 
     const refetch = useCallback(() => {
         return fetchPasskeys();
@@ -148,6 +162,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
 
     return {
         passkeys,
+        password,
         isLoading,
         error,
         fetchPasskeys,

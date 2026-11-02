@@ -36,12 +36,13 @@ function buildMethodUrl(path) {
     return url;
 }
 
-async function requestMethod(path, method, token, body) {
+async function requestMethod(path, method, token, body, options = {}) {
     if (!token) {
         throw new Error('A user access token is required for the Self Service API');
     }
 
     const response = await fetch(buildMethodUrl(path), {
+        ...options,
         method,
         headers: {
             Authorization: `Bearer ${token}`,
@@ -68,20 +69,19 @@ async function requestMethod(path, method, token, body) {
     return response;
 }
 
-async function listPasskeyMethods(token) {
-    const response = await requestMethod(METHODS_PATH, 'GET', token);
-    return response.json();
-}
-
-/** List the signed-in user's FIDO methods in the existing passkey UI format. */
-export async function fetchSelfServicePasskeys(instance, account) {
+async function listMethods(instance, account, options) {
     const token = await getSelfServiceAccessToken(instance, account);
-    const collection = await listPasskeyMethods(token);
+    const response = await requestMethod(METHODS_PATH, 'GET', token, undefined, options);
+    const collection = await response.json();
     const methods = collection?._embedded?.methods;
     if (!Array.isArray(methods)) {
         throw new Error('Unexpected Self Service API methods response: _embedded.methods is missing');
     }
 
+    return methods;
+}
+
+function adaptPasskeys(methods) {
     return methods.filter(method => method.type === 'fido' || method.type === 'fido2').map(method => {
         if (!method.id) {
             throw new Error('Self Service API returned a FIDO method without an ID');
@@ -109,6 +109,25 @@ export async function deleteSelfServicePasskey(instance, account, deleteHref) {
 
     const token = await getSelfServiceAccessToken(instance, account);
     await requestMethod(deleteHref, 'DELETE', token);
+}
+
+/** List the signed-in user's FIDO methods in the existing passkey UI format. */
+export async function fetchSelfServicePasskeys(instance, account) {
+    return adaptPasskeys(await listMethods(instance, account));
+}
+
+export async function fetchSelfServiceCredentials(instance, account) {
+    const methods = await listMethods(instance, account, { cache: 'no-store' });
+    const password = methods.find((method) => method.type === 'password');
+    if (password && !password.id) throw new Error('The password method has no ID.');
+    return {
+        passkeys: adaptPasskeys(methods),
+        password: password ? {
+            id: password.id,
+            lastUpdatedDateTime: password.lastUpdatedDateTime,
+            updateHref: password._links?.update?.href,
+        } : null,
+    };
 }
 
 async function beginPasskeyEnrollment(token) {
@@ -177,4 +196,73 @@ export async function registerSelfServicePasskey(instance, account, displayName 
         throw new Error('Unexpected Self Service API FIDO activation response');
     }
     return method;
+}
+
+function validatePasswordLink(href, expectedPath) {
+    const url = buildMethodUrl(href);
+    if (url.pathname.slice(url.pathname.indexOf(METHODS_PATH)) !== expectedPath) {
+        throw new Error('Invalid password method link.');
+    }
+}
+
+async function requestPassword(path, method, token, body, signal) {
+    const response = await requestMethod(path, method, token, body, {
+        signal, redirect: 'error', cache: 'no-store',
+    });
+    if (response.status === 204) return null;
+    const data = await response.json().catch(() => null);
+    if (!data) throw new Error('The credential service returned an empty response.');
+    return data;
+}
+
+function waitForPoll(seconds, signal) {
+    return new Promise((resolve, reject) => {
+        const abort = () => {
+            clearTimeout(timer);
+            reject(signal.reason || new DOMException('Request cancelled.', 'AbortError'));
+        };
+        const timer = setTimeout(() => {
+            signal?.removeEventListener('abort', abort);
+            resolve();
+        }, Number.isFinite(Number(seconds)) && Number(seconds) > 0 ? Number(seconds) * 1000 : 1000);
+        if (signal?.aborted) abort();
+        else signal?.addEventListener('abort', abort, { once: true });
+    });
+}
+
+export async function updateSelfServicePassword(
+    instance, account, password, { currentPassword, newPassword }, { signal, onPending } = {}
+) {
+    if (!password?.id || !password.updateHref) throw new Error('Changing this password is not available.');
+    if (typeof currentPassword !== 'string' || !currentPassword.trim() ||
+        typeof newPassword !== 'string' || !newPassword.trim()) {
+        throw new Error('Enter your current password and a new password.');
+    }
+    const path = `${METHODS_PATH}/password/${encodeURIComponent(password.id)}`;
+    validatePasswordLink(password.updateHref, path);
+    const token = await getSelfServiceAccessToken(instance, account);
+    let result = await requestPassword(
+        password.updateHref, 'PUT', token, { currentPassword, newPassword }, signal
+    );
+    let pending = false;
+    while (result) {
+        if (result.type !== 'password' || result.id !== password.id) {
+            throw new Error('The credential service returned an unexpected password update.');
+        }
+        if (result.status === 'succeeded') return;
+        if (!['notStarted', 'running'].includes(result.status) ||
+            !result.continuationToken || !result._links?.pollUpdate?.href) {
+            throw new Error('The credential service returned an invalid password update status.');
+        }
+        const pollHref = result._links.pollUpdate.href;
+        validatePasswordLink(pollHref, `${path}/pollUpdate`);
+        if (!pending) {
+            pending = true;
+            onPending?.();
+        }
+        await waitForPoll(result.pollInterval, signal);
+        result = await requestPassword(
+            pollHref, 'POST', token, { continuationToken: result.continuationToken }, signal
+        );
+    }
 }

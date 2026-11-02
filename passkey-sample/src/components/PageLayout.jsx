@@ -13,7 +13,7 @@ export const PageLayout = (props) => {
             <br />
             <UnauthenticatedTemplate>
                 <h5>
-                    <center>Welcome to the Microsoft Authentication Library For React Passkey Tutorial</center>
+                    <center>Welcome to the Microsoft Authentication Library For React Credentials Tutorial</center>
                 </h5>
                 <br />
             </UnauthenticatedTemplate>
