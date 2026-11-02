@@ -11,7 +11,7 @@ import {
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
-import PasskeysSection from './credentials/PasskeysSection';
+import CredentialsSection from './credentials/CredentialsSection';
 
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();
@@ -141,7 +141,7 @@ export const SecurityPage = () => {
             {accessTokenError && <Alert variant="warning">{accessTokenError}</Alert>}
             {selfServiceTokenError && <Alert variant="warning">{selfServiceTokenError}</Alert>}
             {!selfServiceTokenError && (
-                <PasskeysSection
+                <CredentialsSection
                     onShowToast={showToast}
                 />
             )}

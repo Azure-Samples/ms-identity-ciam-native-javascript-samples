@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { deleteSelfServicePasskey } from '../../services/selfServiceApiClient';
-import { createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
-import { useAuthentication } from './useAuthentication';
+import { deleteSelfServicePasskey } from '../../services/passkeyService';
+import { PASSKEY_CONSTANTS, createToastMessages, validateExpectedChange } from '../../utils/passkeyUtils';
+import { requiresFullReauthentication } from '../../utils/authenticationUtils';
+import { useAuthentication } from '../common/useAuthentication';
 
 const DELETION_PROPAGATION_DELAY = 2000;
 
@@ -10,7 +11,7 @@ export const usePasskeyDeleteOperation = ({
     instance,
     account,
     onShowToast, 
-    fetchPasskeys,
+    fetchCredentials,
     currentPasskeys 
 }) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -56,12 +57,13 @@ export const usePasskeyDeleteOperation = ({
         try {
             await new Promise(resolve => setTimeout(resolve, DELETION_PROPAGATION_DELAY));
 
-            await fetchPasskeys({
-                type: 'delete',
-                passkeyId: passkeyId
-            }, {
-                setLoadingState: true,
-                showToast: false
+            await fetchCredentials({
+                maxRetries: PASSKEY_CONSTANTS.MAX_RETRIES,
+                isExpectedResult: ({ passkeys }) => validateExpectedChange(passkeys, {
+                    type: 'delete',
+                    passkeyId
+                }),
+                throwOnError: true
             });
         } catch (refreshError) {
             console.warn('Passkey was deleted, but the passkey list could not be refreshed:', refreshError);

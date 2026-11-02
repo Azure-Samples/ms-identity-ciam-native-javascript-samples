@@ -1,7 +1,7 @@
 import { useMsal } from '@azure/msal-react';
 import { loginRequest } from '../../authConfig';
 import { requestSelfServiceTokenAfterSignIn, redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
-import { createToastMessages } from '../../utils/passkeyUtils';
+import { createAuthenticationToastMessages } from '../../utils/authenticationUtils';
 
 export const useAuthentication = ({ onShowToast }) => {
     const { instance } = useMsal();
@@ -38,11 +38,11 @@ export const useAuthentication = ({ onShowToast }) => {
     const handleReAuthentication = async () => {
         try {
             if (onShowToast) {
-                onShowToast(createToastMessages.sessionExpiredWithAction(handleSignIn));
+                onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(handleSignIn));
             }
         } catch (error) {
             if (onShowToast) {
-                onShowToast(createToastMessages.authError());
+                onShowToast(createAuthenticationToastMessages.authError());
             }
         }
     };
@@ -87,7 +87,7 @@ export const useAuthentication = ({ onShowToast }) => {
             await verify();
             return;
         }
-        onShowToast(createToastMessages.sessionExpiredWithAction(verify));
+        onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(verify));
     };
 
     return {

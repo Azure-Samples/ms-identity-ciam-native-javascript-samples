@@ -41,14 +41,31 @@ async function loadSource(filename, mocks = {}, globals = {}) {
 }
 
 async function loadApi(fetch, globals = {}, tokenProvider = async () => 'test-token', apiConfig = config) {
-    return loadSource('../src/services/selfServiceApiClient.js', {
+    const token = { getSelfServiceAccessToken: tokenProvider };
+    const transport = await loadSource('../src/services/selfServiceApiClient.js', {
         '../authConfig': { selfServiceApiConfig: apiConfig },
-        '../utils/selfServiceToken': { getSelfServiceAccessToken: tokenProvider },
-        '../utils/graphServiceUtils': { formatDetailedDate: (date) => date, formatPasskeyType: (type) => type },
+        '../utils/selfServiceToken': token,
     }, { fetch, ...globals });
+    const passkeys = await loadSource('../src/services/passkeyService.js', {
+        './selfServiceApiClient': transport,
+        '../utils/selfServiceToken': token,
+        '../utils/graphServiceUtils': graphServiceUtils,
+    }, globals);
+    const password = await loadSource('../src/services/passwordService.js', {
+        './selfServiceApiClient': transport,
+        '../utils/selfServiceToken': token,
+    }, globals);
+    const credentials = await loadSource('../src/services/credentialsService.js', {
+        './selfServiceApiClient': transport,
+        './passkeyService': passkeys,
+        './passwordService': password,
+    });
+    return { ...credentials, ...passkeys, ...password };
 }
 
+const graphServiceUtils = await loadSource('../src/utils/graphServiceUtils.js');
 const passkeyUtils = await loadSource('../src/utils/passkeyUtils.js');
+const authenticationUtils = await loadSource('../src/utils/authenticationUtils.js');
 
 function pending(status = 'running', continuationToken = 'ct-1', pollInterval = '2') {
     return { id: password.id, type: 'password', status, continuationToken, pollInterval,
@@ -85,6 +102,42 @@ test('one methods request supplies password and passkeys using the existing MSAL
     assert.equal(result.password.lastUpdatedDateTime, password.lastUpdatedDateTime);
 });
 
+test('credential discovery preserves the configured scope and MFA claims in the silent token request', async () => {
+    const apiConfig = {
+        ...config,
+        scope: 'api://test-resource/Me.UserAuthenticationMethod.ReadWrite',
+        exchangeAuthority: 'https://login.example/test-tenant',
+        exchangeRedirectUri: 'http://localhost:3000/',
+        claims: JSON.stringify({ access_token: {
+            acrs: { essential: true, values: ['urn:user:registersecurityinfo'] },
+            amr: { essential: true, values: ['ngcmfa'] },
+        } }),
+    };
+    const { getSelfServiceAccessToken } = await loadSource('../src/utils/selfServiceToken.js', {
+        '../authConfig': { selfServiceApiConfig: apiConfig },
+    });
+    const tokenRequests = [];
+    const msal = {
+        acquireTokenSilent: async (request) => {
+            tokenRequests.push(request);
+            return { accessToken: 'test-token', fromCache: true };
+        },
+        acquireTokenRedirect: () => assert.fail('A successful silent request must not force verification'),
+    };
+    const api = await loadApi(async () => Response.json({ _embedded: { methods: [] } }),
+        {}, getSelfServiceAccessToken, apiConfig);
+    await api.fetchSelfServiceCredentials(msal, account);
+    assert.equal(tokenRequests.length, 1);
+    const [request] = tokenRequests;
+    assert.equal(request.account, account);
+    assert.equal(request.authority, apiConfig.exchangeAuthority);
+    assert.equal(request.redirectUri, apiConfig.exchangeRedirectUri);
+    assert.equal(request.scopes.length, 1);
+    assert.equal(request.scopes[0], apiConfig.scope);
+    assert.equal(request.claims, apiConfig.claims);
+    assert.equal(request.forceRefresh, false);
+});
+
 test('missing password methods return null; malformed collections remain errors', async () => {
     const withoutPassword = await loadApi(async () => Response.json({ _embedded: { methods: [] } }));
     assert.equal((await withoutPassword.fetchSelfServiceCredentials(instance, account)).password, null);
@@ -99,6 +152,64 @@ test('the existing passkey list API and its network defaults remain available', 
         return Response.json({ _embedded: { methods: [{ id: passkey.id, type: 'fido' }] } });
     });
     assert.equal((await api.fetchSelfServicePasskeys(instance, account))[0].id, passkey.id);
+});
+
+test('the passkey service preserves enrollment, authenticator options, and activation', async () => {
+    const requests = [];
+    let publicKey;
+    const api = await loadApi(async (url, options) => {
+        requests.push({ path: new URL(url).pathname, method: options.method,
+            body: options.body ? JSON.parse(options.body) : undefined });
+        if (requests.length === 1) {
+            return Response.json({
+                type: 'fido', state: 'interactionRequired', continuationToken: 'enrollment-token',
+                _links: { activate: { href: '/tenant/api/v1.0/me/methods/fido/new-key/activate' } },
+                publicKey: {
+                    challenge: 'aGVsbG8', user: { id: 'dXNlcg' }, rp: { id: 'test.example' },
+                    authenticatorSelection: { authenticatorAttachment: 'cross-platform', userVerification: 'required' },
+                    excludeCredentials: [{ id: 'YWJjZA2', type: 'public-key' }],
+                    extensions: { enforceCredentialProtectionPolicy: true },
+                },
+            });
+        }
+        return Response.json({ id: 'new-key', type: 'fido' });
+    }, { navigator: { credentials: { create: async (options) => {
+        publicKey = options.publicKey;
+        return { id: 'browser-key', response: {
+            attestationObject: new Uint8Array([1, 2, 3]).buffer,
+            clientDataJSON: new Uint8Array([4, 5, 6]).buffer,
+        } };
+    } } } });
+    assert.equal((await api.registerSelfServicePasskey(instance, account, ' Test key ')).id, 'new-key');
+    assert.equal(requests.length, 2);
+    assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].path, '/selfservice-api/api/v1.0/me/methods/fido');
+    assert.equal(publicKey.authenticatorSelection.authenticatorAttachment, undefined);
+    assert.equal(publicKey.authenticatorSelection.userVerification, 'required');
+    assert.deepEqual([...new Uint8Array(publicKey.challenge)], [104, 101, 108, 108, 111]);
+    assert.deepEqual([...new Uint8Array(publicKey.excludeCredentials[0].id)], [97, 98, 99, 100]);
+    assert.equal(publicKey.extensions.enforceCredentialProtectionPolicy, false);
+    assert.equal(requests[1].method, 'POST');
+    assert.equal(requests[1].path, '/selfservice-api/api/v1.0/me/methods/fido/new-key/activate');
+    assert.deepEqual(requests[1].body, {
+        continuationToken: 'enrollment-token', displayName: 'Test key',
+        publicKeyCredential: { id: 'browser-key', attestationObject: 'AQID', clientDataJSON: 'BAUG' },
+    });
+});
+
+test('the passkey service deletes only through the supplied delegated action', async () => {
+    let requests = 0;
+    const api = await loadApi(async (url, options) => {
+        requests += 1;
+        assert.equal(new URL(url).pathname, '/selfservice-api/api/v1.0/me/methods/fido/key-id');
+        assert.equal(options.method, 'DELETE');
+        assert.equal(options.body, undefined);
+        return new Response(null, { status: 204 });
+    });
+    await assert.rejects(api.deleteSelfServicePasskey(instance, account, undefined), /cannot be deleted/);
+    assert.equal(requests, 0);
+    await api.deleteSelfServicePasskey(instance, account, '/tenant/api/v1.0/me/methods/fido/key-id');
+    assert.equal(requests, 1);
 });
 
 test('password update sends current/new once and polls only with refreshed continuation tokens', async () => {
@@ -187,39 +298,77 @@ test('password writes cannot follow an HTTP redirect', async () => {
 async function fetcherFixture(read) {
     const state = [{ accountId: null, passkeys: [], password: null }, true, null];
     const refs = [];
+    const calls = { toasts: [], cachedOperation: null, reauthentications: 0, redirects: [], delays: [] };
+    const credentialUtils = await loadSource('../src/utils/credentialUtils.js', {}, {
+        setTimeout: (callback, delay) => { calls.delays.push(delay); queueMicrotask(callback); return 1; },
+    });
     let index = 0;
     let cleanup;
-    const { usePasskeyFetcher } = await loadSource('../src/hooks/passkeys/usePasskeyFetcher.js', {
+    const { useCredentialsFetcher } = await loadSource('../src/hooks/credentials/useCredentialsFetcher.js', {
         react: {
             useState: () => { const i = index++; return [state[i], (value) => { state[i] = value; }]; },
             useRef: (value) => { const ref = { current: value }; refs.push(ref); return ref; },
             useCallback: (callback) => callback,
             useEffect: (effect) => { cleanup = effect(); },
         },
-        '../../services/selfServiceApiClient': { fetchSelfServiceCredentials: read },
-        '../../utils/selfServiceToken': { redirectForSelfServiceAccess() {} },
-        '../../utils/passkeyUtils': passkeyUtils,
-        './useAuthentication': { useAuthentication: () => ({
-            getCachedOperation: () => null, cacheOperation() {},
+        '../../services/credentialsService': { fetchSelfServiceCredentials: read },
+        '../../utils/selfServiceToken': {
+            redirectForSelfServiceAccess: async (...args) => { calls.redirects.push(args); },
+        },
+        '../../utils/credentialUtils': credentialUtils,
+        '../../utils/authenticationUtils': authenticationUtils,
+        '../common/useAuthentication': { useAuthentication: () => ({
+            getCachedOperation: () => calls.cachedOperation,
+            cacheOperation: (operation) => { calls.cachedOperation = operation; },
+            handleReAuthentication: async () => { calls.reauthentications += 1; },
         }) },
     });
-    const hook = usePasskeyFetcher({ instance, account, onShowToast() {} });
-    return { state, refs, cleanup, hook };
+    const hook = useCredentialsFetcher({ instance, account, onShowToast: (toast) => calls.toasts.push(toast) });
+    return { state, refs, cleanup, hook, calls };
 }
 
-test('the existing fetch hook publishes both method types from one request', async () => {
+test('the shared fetch hook publishes both method types from one request', async () => {
     let requests = 0;
     const result = { passkeys: [passkey], password };
     const fixture = await fetcherFixture(async () => { requests += 1; return result; });
-    assert.equal((await fixture.hook.fetchPasskeys())[0], passkey);
+    assert.equal((await fixture.hook.fetchCredentials()).passkeys[0], passkey);
     assert.equal(requests, 1);
     assert.equal(fixture.state[0].password, password);
     assert.equal(fixture.state[1], false);
 });
 
+test('credential loading preserves the existing interaction and reauthentication routes', async (t) => {
+    const cases = [
+        ['interaction required', new InteractionRequiredAuthError('interaction_required'), false],
+        ['consent required', new InteractionRequiredAuthError('consent_required'), false],
+        ['expired API token', Object.assign(new Error('Expired token'), { status: 401 }), true],
+        ['reauthentication required', new Error('AADSTS7006105: Reauthentication required.'), true],
+    ];
+    for (const [name, error, fullSignIn] of cases) {
+        await t.test(name, async () => {
+            const fixture = await fetcherFixture(async () => { throw error; });
+            assert.equal(await fixture.hook.fetchCredentials(), null);
+            assert.equal(fixture.state[1], false);
+            assert.match(fixture.state[2], /Additional verification is required/);
+            assert.equal(fixture.calls.cachedOperation.action, 'list');
+            assert.equal(fixture.calls.reauthentications, fullSignIn ? 1 : 0);
+            assert.equal(fixture.calls.redirects.length, 0);
+            if (!fullSignIn) {
+                const [prompt] = fixture.calls.toasts;
+                assert.equal(fixture.calls.toasts.length, 1);
+                assert.equal(prompt.type, 'sessionExpiredWithAction');
+                await prompt.action.onClick();
+                assert.equal(fixture.calls.redirects.length, 1);
+                assert.equal(fixture.calls.redirects[0][0], instance);
+                assert.equal(fixture.calls.redirects[0][1], account);
+            }
+        });
+    }
+});
+
 test('failed initial credential loading terminates the shared loading state', async () => {
     const fixture = await fetcherFixture(async () => { throw new Error('Service unavailable'); });
-    assert.equal(await fixture.hook.fetchPasskeys(), null);
+    assert.equal(await fixture.hook.fetchCredentials(), null);
     assert.equal(fixture.state[1], false);
     assert.match(fixture.state[2], /Service unavailable/);
 });
@@ -227,16 +376,63 @@ test('failed initial credential loading terminates the shared loading state', as
 test('older requests and departed accounts cannot overwrite newer credential data', async () => {
     const requests = [];
     const fixture = await fetcherFixture(() => new Promise((resolve) => requests.push(resolve)));
-    const first = fixture.hook.fetchPasskeys();
-    const second = fixture.hook.fetchPasskeys();
+    const first = fixture.hook.fetchCredentials();
+    const second = fixture.hook.fetchCredentials();
     const latest = { passkeys: [], password: { ...password, lastUpdatedDateTime: 'new-date' } };
     requests[1](latest); await second;
     requests[0]({ passkeys: [], password }); await first;
     assert.equal(fixture.state[0].password, latest.password);
-    const leaving = fixture.hook.fetchPasskeys();
+    const leaving = fixture.hook.fetchCredentials();
     fixture.cleanup();
     requests[2]({ passkeys: [], password }); await leaving;
     assert.equal(fixture.state[0].password, latest.password);
+});
+
+test('passkey mutations retain their propagation retries without repeating the mutation', async (t) => {
+    for (const action of ['add', 'delete']) {
+        await t.test(action, async () => {
+            const key = { ...passkey, deleteHref: '/tenant/api/v1.0/me/methods/fido/passkey-id' };
+            const finalPasskeys = action === 'add' ? [key, { ...key, id: 'new-key' }] : [];
+            let reads = 0;
+            const fixture = await fetcherFixture(async () => ({
+                passkeys: ++reads === 1 ? [key] : finalPasskeys, password,
+            }));
+            const mutations = [];
+            const propagationDelays = [];
+            const operations = await loadSource(
+                action === 'add' ? '../src/hooks/passkeys/usePasskeyAddOperation.js'
+                    : '../src/hooks/passkeys/usePasskeyDeleteOperation.js', {
+                    react: { useState: (initial) => [initial, () => {}] },
+                    '../../services/passkeyService': {
+                        registerSelfServicePasskey: async (...args) => { mutations.push(args); },
+                        deleteSelfServicePasskey: async (...args) => { mutations.push(args); },
+                    },
+                    '../../utils/passkeyUtils': passkeyUtils,
+                    '../../utils/authenticationUtils': authenticationUtils,
+                    '../common/useAuthentication': { useAuthentication: () => ({}) },
+                }, {
+                    setTimeout: (callback, delay) => { propagationDelays.push(delay); queueMicrotask(callback); return 1; },
+                });
+            const useOperation = action === 'add' ? operations.usePasskeyAddOperation : operations.usePasskeyDeleteOperation;
+            const operation = useOperation({
+                instance, account, currentPasskeys: [key], fetchCredentials: fixture.hook.fetchCredentials,
+                onShowToast: (toast) => fixture.calls.toasts.push(toast),
+            });
+            if (action === 'add') await operation.performAddPasskey('Test key');
+            else await operation.performDelete(key.id, key.name, key.deleteHref);
+            assert.equal(mutations.length, 1);
+            assert.equal(mutations[0][0], instance);
+            assert.equal(mutations[0][1], account);
+            assert.equal(mutations[0][2], action === 'add' ? 'Test key' : key.deleteHref);
+            assert.equal(reads, 2);
+            assert.deepEqual(propagationDelays, [2000]);
+            assert.deepEqual(fixture.calls.delays, [500]);
+            assert.equal(fixture.state[0].password, password);
+            assert.equal(fixture.state[0].passkeys, finalPasskeys);
+            assert.equal(fixture.state[1], false);
+            assert.equal(fixture.calls.toasts.length, action === 'add' ? 2 : 1);
+        });
+    }
 });
 
 function findElement(node, predicate) {
@@ -248,37 +444,51 @@ function findElement(node, predicate) {
 async function uiFixture(data = {}, { showModal = false, isAdding = false, operation = null, runEffects = false } = {}) {
     const calls = { verifications: [], toasts: [], cleared: 0, modalStates: [] };
     const effects = [];
-    const row = await loadSource('../src/components/credentials/PasswordCredential.jsx', {
+    const hooks = { ...react, useState: () => [showModal, (value) => calls.modalStates.push(value)],
+        useEffect: (effect) => effects.push(effect) };
+    const authentication = {
+        useAuthentication: () => ({
+            getCachedOperation: () => operation,
+            clearCachedOperation: () => { calls.cleared += 1; },
+            requestVerification: async (...args) => calls.verifications.push(args),
+        }),
+    };
+    const passwordOperation = await loadSource('../src/hooks/password/usePasswordChangeOperation.js', {
+        react: hooks,
+        '../../services/passwordService': { updateSelfServicePassword: (...args) => {
+            calls.passwordUpdate = args;
+        } },
+        '../../utils/authenticationUtils': authenticationUtils,
+        '../common/useAuthentication': authentication,
+    });
+    const row = await loadSource('../src/components/password/PasswordCredential.jsx', {
         '../../utils/graphServiceUtils': { formatDetailedDate: (date) => date },
     });
-    const list = await loadSource('../src/components/credentials/components/PasskeysList.jsx', {
-        '../PasswordCredential': row,
-        './PasskeyItem': { __esModule: true, default: ({ passkey }) => (
+    const list = await loadSource('../src/components/credentials/components/CredentialsList.jsx', {
+        '../../password/PasswordCredential': row,
+        '../../passkeys/components/PasskeyItem': { __esModule: true, default: ({ passkey }) => (
             createElement(bootstrap.ListGroup.Item, null, passkey.name)
         ) },
     });
-    const header = await loadSource('../src/components/credentials/components/PasskeysHeader.jsx');
+    const header = await loadSource('../src/components/passkeys/components/PasskeysHeader.jsx');
     const Dialog = () => null;
-    const { default: Section } = await loadSource('../src/components/credentials/PasskeysSection.jsx', {
-        react: { ...react, useState: () => [showModal, (value) => calls.modalStates.push(value)],
-            useEffect: (effect) => effects.push(effect) },
+    const { default: Section } = await loadSource('../src/components/credentials/CredentialsSection.jsx', {
+        react: hooks,
         '@azure/msal-react': { useMsal: () => ({ instance, accounts: [account] }) },
-        './components/PasskeysHeader': header, './components/PasskeysList': list,
-        './components/DeleteModal': { __esModule: true, default: () => null },
-        './components/AddPasskeyModal': { __esModule: true, default: () => null },
-        './ChangePasswordModal': { __esModule: true, default: Dialog },
-        '../../services/selfServiceApiClient': { updateSelfServicePassword() {} },
+        '../passkeys/components/PasskeysHeader': header, './components/CredentialsList': list,
+        '../passkeys/components/DeleteModal': { __esModule: true, default: () => null },
+        '../passkeys/components/AddPasskeyModal': { __esModule: true, default: () => null },
+        '../password/ChangePasswordModal': { __esModule: true, default: Dialog },
         '../../utils/passkeyUtils': passkeyUtils,
+        '../../hooks/common/useAuthentication': authentication,
+        '../../hooks/password/usePasswordChangeOperation': passwordOperation,
+        '../../hooks/credentials/useCredentialsFetcher': {
+            useCredentialsFetcher: () => ({ passkeys: [], password: null, isLoading: false, error: null,
+                fetchCredentials: async () => ({ passkeys: [], password: null }), ...data }),
+        },
         '../../hooks/passkeys': {
-            usePasskeyFetcher: () => ({ passkeys: [], password: null, isLoading: false, error: null,
-                fetchPasskeys: async () => [], ...data }),
             usePasskeyAddOperation: () => ({ isAdding, nameModalProps: {} }),
             usePasskeyDeleteOperation: (options) => { calls.deletion = options; return { modalProps: {} }; },
-            useAuthentication: () => ({
-                getCachedOperation: () => operation,
-                clearCachedOperation: () => { calls.cleared += 1; },
-                requestVerification: async (...args) => calls.verifications.push(args),
-            }),
         },
     });
     const tree = Section({ onShowToast: (toast) => calls.toasts.push(toast) });
@@ -302,6 +512,17 @@ test('Credentials is one flat list; password-only accounts have no empty passkey
     assert.doesNotMatch((await uiFixture({ passkeys: [passkey] })).html, /Change password/);
 });
 
+test('password change is offered only on the password row, not beside Add Passkey', async () => {
+    const fixture = await uiFixture({ password, passkeys: [passkey] });
+    assert.ok(!findElement(fixture.tree, (node) => (
+        node.type === bootstrap.Button && node.props.children === 'Change password'
+    )));
+    assert.match(fixture.html, /aria-label="Change password"/);
+    assert.match(fixture.html, /Add Passkey/);
+    fixture.change();
+    assert.deepEqual(fixture.calls.modalStates, [true]);
+});
+
 test('failed loading shows an error rather than an indefinite password spinner', async () => {
     const failed = await uiFixture({ error: 'Service unavailable', isLoading: false });
     assert.match(failed.html, /Service unavailable/);
@@ -309,7 +530,7 @@ test('failed loading shows an error rather than an indefinite password spinner',
 });
 
 test('the existing add action still respects loading and the passkey limit', async () => {
-    const { default: Header } = await loadSource('../src/components/credentials/components/PasskeysHeader.jsx');
+    const { default: Header } = await loadSource('../src/components/passkeys/components/PasskeysHeader.jsx');
     const html = (props) => renderToStaticMarkup(createElement(Header, props));
     assert.doesNotMatch(html({ count: 1, maxCount: 10 }), /disabled/);
     assert.match(html({ count: 10, maxCount: 10 }), /disabled/);
@@ -327,6 +548,27 @@ test('password verification reuses upstream consent and delegated passkey deleti
     assert.equal(fullSignIn, false);
     assert.equal(fixture.calls.deletion.instance, instance);
     assert.equal(fixture.calls.deletion.account, account);
+});
+
+test('the password operation submits through its own service and refreshes the shared collection', async () => {
+    let refreshes = 0;
+    const fixture = await uiFixture({ password, fetchCredentials: async () => {
+        refreshes += 1;
+        return { passkeys: [], password };
+    } }, { showModal: true });
+    const submitted = { currentPassword: values.currentPassword, newPassword: values.newPassword };
+    const options = { signal: new AbortController().signal };
+    await fixture.modal.onSubmitPassword(submitted, options);
+    assert.equal(fixture.calls.passwordUpdate[0], instance);
+    assert.equal(fixture.calls.passwordUpdate[1], account);
+    assert.equal(fixture.calls.passwordUpdate[2], password);
+    assert.equal(fixture.calls.passwordUpdate[3], submitted);
+    assert.equal(fixture.calls.passwordUpdate[4], options);
+    fixture.modal.onSuccess();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(refreshes, 1);
+    assert.deepEqual(fixture.calls.modalStates, [false]);
+    assert.equal(fixture.calls.toasts[0].variant, 'success');
 });
 
 test('only authentication failures invoke the existing re-sign-in prompt', async () => {
@@ -362,7 +604,7 @@ test('cached password changes wait for fresh method details before reopening', a
 const TestModal = passthrough;
 TestModal.Header = passthrough; TestModal.Body = passthrough; TestModal.Footer = passthrough;
 TestModal.Title = ({ children }) => createElement('h2', null, children);
-const loadModal = (hooks = react) => loadSource('../src/components/credentials/ChangePasswordModal.jsx', {
+const loadModal = (hooks = react) => loadSource('../src/components/password/ChangePasswordModal.jsx', {
     react: hooks, 'react-bootstrap': { ...bootstrap, Modal: TestModal },
 });
 
@@ -416,4 +658,36 @@ test('submission rejects mismatched confirmation and clears accepted password va
             cleanup();
         }
     }
+});
+
+test('unmounting the password dialog aborts pending work and cannot report success', async () => {
+    const states = [values, {}, null, 'idle'];
+    let index = 0;
+    let cleanup;
+    let signal;
+    let complete;
+    let succeeded = false;
+    const { default: Dialog } = await loadModal({ ...react,
+        useState: () => { const i = index++; return [states[i], (value) => { states[i] = value; }]; },
+        useRef: () => ({ current: null }),
+        useEffect: (effect) => { cleanup = effect(); },
+    });
+    const tree = Dialog({
+        onSubmitPassword: (body, options) => {
+            signal = options.signal;
+            options.onPending();
+            return new Promise((resolve) => { complete = resolve; });
+        },
+        onSuccess: () => { succeeded = true; },
+    });
+    const submission = findElement(tree, (node) => node.type === bootstrap.Form).props.onSubmit({ preventDefault() {} });
+    assert.equal(states[3], 'polling');
+    assert.equal(states[0].currentPassword, '');
+    assert.equal(states[0].newPassword, '');
+    assert.equal(states[0].confirmPassword, '');
+    cleanup();
+    assert.equal(signal.aborted, true);
+    complete();
+    await submission;
+    assert.equal(succeeded, false);
 });

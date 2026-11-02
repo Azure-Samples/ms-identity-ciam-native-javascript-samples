@@ -307,15 +307,21 @@ passkey-sample/
 ├── src/
 │   ├── components/
 │   │   ├── common/         # Shared UI
-│   │   └── credentials/   # Password and passkey UI
-│   ├── hooks/passkeys/     # Passkey operations
-│   ├── services/           # Low-privilege Credential Management API client
+│   │   ├── credentials/   # Shared credentials screen and flat list
+│   │   ├── passkeys/      # Passkey-only UI
+│   │   └── password/      # Password-only UI
+│   ├── hooks/
+│   │   ├── common/        # Shared authentication and verification
+│   │   ├── credentials/   # One credential collection and shared loading state
+│   │   ├── passkeys/      # Passkey registration, deletion, and refresh conditions
+│   │   └── password/      # Password-change orchestration
+│   ├── services/           # Shared transport/discovery and separate credential services
 │   ├── styles/
-│   ├── utils/              # Token and passkey helpers
+│   ├── utils/              # Token, authentication, and credential helpers
 │   ├── App.jsx
 │   ├── authConfig.js
 │   └── index.jsx
-├── test/                   # Credentials/password regression tests
+├── test/                   # Credential integration and regression tests
 ├── .env.example
 ├── cors.js                 # Local proxy
 ├── proxy.config.js         # Proxy routes and upstreams

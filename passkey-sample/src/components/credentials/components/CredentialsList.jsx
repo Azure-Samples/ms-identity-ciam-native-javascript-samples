@@ -1,8 +1,8 @@
 import { ListGroup } from 'react-bootstrap';
-import PasskeyItem from './PasskeyItem';
-import PasswordCredential from '../PasswordCredential';
+import PasskeyItem from '../../passkeys/components/PasskeyItem';
+import PasswordCredential from '../../password/PasswordCredential';
 
-const PasskeysList = ({ password, passkeys, onChangePassword, onDelete }) => {
+const CredentialsList = ({ password, passkeys, onChangePassword, onDelete }) => {
     return (
         <ListGroup variant="flush">
             {password && <PasswordCredential password={password} onChange={onChangePassword} />}
@@ -17,4 +17,4 @@ const PasskeysList = ({ password, passkeys, onChangePassword, onDelete }) => {
     );
 };
 
-export default PasskeysList;
+export default CredentialsList;

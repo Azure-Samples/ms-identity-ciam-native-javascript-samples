@@ -1,29 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useMsal } from '@azure/msal-react';
-import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { Alert, Button, Card, Spinner } from 'react-bootstrap';
+import { Alert, Card, Spinner } from 'react-bootstrap';
 import { FaKey } from 'react-icons/fa';
-import PasskeysHeader from './components/PasskeysHeader';
-import PasskeysList from './components/PasskeysList';
-import DeleteModal from './components/DeleteModal';
-import AddPasskeyModal from './components/AddPasskeyModal';
-import ChangePasswordModal from './ChangePasswordModal';
-import { updateSelfServicePassword } from '../../services/selfServiceApiClient';
-import { PASSKEY_CONSTANTS, requiresFullReauthentication } from '../../utils/passkeyUtils';
+import PasskeysHeader from '../passkeys/components/PasskeysHeader';
+import CredentialsList from './components/CredentialsList';
+import DeleteModal from '../passkeys/components/DeleteModal';
+import AddPasskeyModal from '../passkeys/components/AddPasskeyModal';
+import ChangePasswordModal from '../password/ChangePasswordModal';
+import { PASSKEY_CONSTANTS } from '../../utils/passkeyUtils';
+import { useAuthentication } from '../../hooks/common/useAuthentication';
+import { useCredentialsFetcher } from '../../hooks/credentials/useCredentialsFetcher';
+import { usePasswordChangeOperation } from '../../hooks/password/usePasswordChangeOperation';
 import { 
-    usePasskeyFetcher, 
     usePasskeyAddOperation, 
-    usePasskeyDeleteOperation,
-    useAuthentication
+    usePasskeyDeleteOperation
 } from '../../hooks/passkeys';
 
-const PasskeysSection = ({ onShowToast }) => {
+const CredentialsSection = ({ onShowToast }) => {
     const { instance, accounts } = useMsal();
     const account = instance.getActiveAccount() || accounts[0];
     const accountId = account?.homeAccountId;
     const maxPasskeys = PASSKEY_CONSTANTS.MAX_PASSKEYS;
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const { passkeys, password, isLoading, error, fetchPasskeys } = usePasskeyFetcher({
+    const { passkeys, password, isLoading, error, fetchCredentials } = useCredentialsFetcher({
         instance, account, onShowToast,
     });
     
@@ -31,7 +29,7 @@ const PasskeysSection = ({ onShowToast }) => {
         instance,
         account,
         onShowToast, 
-        fetchPasskeys,
+        fetchCredentials,
         currentPasskeys: passkeys
     });
     
@@ -39,55 +37,15 @@ const PasskeysSection = ({ onShowToast }) => {
         instance,
         account,
         onShowToast, 
-        fetchPasskeys,
+        fetchCredentials,
         currentPasskeys: passkeys
     });
 
-    const { getCachedOperation, clearCachedOperation, requestVerification } = useAuthentication({ onShowToast });
+    const { showPasswordModal, handleChangePassword, modalProps: passwordModalProps } = usePasswordChangeOperation({
+        instance, account, password, onShowToast, fetchCredentials,
+    });
 
-    const handlePasswordChanged = () => {
-        setShowPasswordModal(false);
-        onShowToast({
-            title: 'Password updated',
-            message: 'Your password was changed successfully.',
-            variant: 'success',
-        });
-        const warnRefresh = () => onShowToast({
-            title: 'Password updated',
-            message: 'Your password was changed, but its details could not be refreshed.',
-            variant: 'warning',
-        });
-        fetchPasskeys().then((result) => {
-            if (result == null) warnRefresh();
-        }).catch(warnRefresh);
-    };
-
-    const handleChangePassword = () => setShowPasswordModal(true);
-
-    const handlePasswordAuthenticationError = async (error) => {
-        const fullSignIn = requiresFullReauthentication(error);
-        if (fullSignIn || error instanceof InteractionRequiredAuthError) {
-            setShowPasswordModal(false);
-            await requestVerification({ action: 'changePassword' }, account, fullSignIn, (message) => ({
-                title: 'Authentication error',
-                message: `Could not verify your identity: ${message}`,
-                variant: 'danger',
-            }));
-            return true;
-        }
-        return false;
-    };
-
-    const handlePasswordClose = (pending) => {
-        setShowPasswordModal(false);
-        if (pending) {
-            onShowToast({
-                title: 'Password update in progress',
-                message: 'The change may still complete. Refresh the page to check before trying again.',
-                variant: 'info',
-            });
-        }
-    };
+    const { getCachedOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
     useEffect(() => {
         if (!account) return;
@@ -95,7 +53,7 @@ const PasskeysSection = ({ onShowToast }) => {
         if (operation?.action === 'add' || operation?.action === 'delete') {
             return;
         }
-        fetchPasskeys().then((result) => {
+        fetchCredentials().then((result) => {
             if (result != null && getCachedOperation()?.action === 'list') clearCachedOperation();
         }).catch(console.error);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,7 +70,7 @@ const PasskeysSection = ({ onShowToast }) => {
             showConfirmationModal(operation.passkey);
         } else if (operation.action === 'changePassword' && !isLoading && !error) {
             clearCachedOperation();
-            if (password?.updateHref) setShowPasswordModal(true);
+            if (password?.updateHref) handleChangePassword();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accountId, isLoading, error, password]);
@@ -129,14 +87,6 @@ const PasskeysSection = ({ onShowToast }) => {
                     <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <h4 id="credentials-heading" className="mb-0">Credentials</h4>
                         <div className="d-flex flex-wrap gap-2">
-                            {password && !error && (
-                                <Button variant="primary" size="sm"
-                                    disabled={isLoading || !password.updateHref}
-                                    onClick={handleChangePassword}
-                                >
-                                    Change password
-                                </Button>
-                            )}
                             <PasskeysHeader
                                 count={passkeys.length}
                                 maxCount={maxPasskeys}
@@ -151,7 +101,7 @@ const PasskeysSection = ({ onShowToast }) => {
                             <p className="mb-0">{error}</p>
                         </Alert>
                     )}
-                    <PasskeysList
+                    <CredentialsList
                         password={visiblePassword}
                         passkeys={visiblePasskeys}
                         onChangePassword={handleChangePassword}
@@ -176,17 +126,10 @@ const PasskeysSection = ({ onShowToast }) => {
             <AddPasskeyModal {...nameModalProps} />
             <DeleteModal {...modalProps} />
             {showPasswordModal && password && (
-                <ChangePasswordModal
-                    onClose={handlePasswordClose}
-                    onSubmitPassword={(values, options) => (
-                        updateSelfServicePassword(instance, account, password, values, options)
-                    )}
-                    onSuccess={handlePasswordChanged}
-                    onAuthenticationError={handlePasswordAuthenticationError}
-                />
+                <ChangePasswordModal {...passwordModalProps} />
             )}
         </>
     );
 };
 
-export default PasskeysSection;
+export default CredentialsSection;

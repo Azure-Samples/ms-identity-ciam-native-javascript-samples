@@ -1,20 +1,9 @@
 import { selfServiceApiConfig } from '../authConfig';
 import { getSelfServiceAccessToken } from '../utils/selfServiceToken';
-import { base64urlToBuffer, bufferToBase64url, formatDetailedDate, formatPasskeyType, generateUniquePasskeyName } from '../utils/graphServiceUtils';
 
-const METHODS_PATH = '/api/v1.0/me/methods';
+export const METHODS_PATH = '/api/v1.0/me/methods';
 
-function normalizeCredentialId(id) {
-    const match = id.match(/^(.*)(\d)$/);
-    if (!match) {
-        return id;
-    }
-    const [, base, padCountStr] = match;
-    const padCount = Number(padCountStr);
-    return padCount === (4 - (base.length % 4)) % 4 ? base : id;
-}
-
-function buildMethodUrl(path) {
+export function buildMethodUrl(path) {
     const link = new URL(path, 'https://login.microsoftonline.com');
     const pathname = link.pathname;
     const methodsIndex = pathname.indexOf(METHODS_PATH);
@@ -36,7 +25,7 @@ function buildMethodUrl(path) {
     return url;
 }
 
-async function requestMethod(path, method, token, body, options = {}) {
+export async function requestMethod(path, method, token, body, options = {}) {
     if (!token) {
         throw new Error('A user access token is required for the Self Service API');
     }
@@ -69,7 +58,7 @@ async function requestMethod(path, method, token, body, options = {}) {
     return response;
 }
 
-async function listMethods(instance, account, options) {
+export async function fetchSelfServiceMethods(instance, account, options) {
     const token = await getSelfServiceAccessToken(instance, account);
     const response = await requestMethod(METHODS_PATH, 'GET', token, undefined, options);
     const collection = await response.json();
@@ -79,190 +68,4 @@ async function listMethods(instance, account, options) {
     }
 
     return methods;
-}
-
-function adaptPasskeys(methods) {
-    return methods.filter(method => method.type === 'fido' || method.type === 'fido2').map(method => {
-        if (!method.id) {
-            throw new Error('Self Service API returned a FIDO method without an ID');
-        }
-        return {
-            id: method.id,
-            name: method.displayName || 'Unnamed Passkey',
-            lastUsed: 'Never',
-            created: method.createdDateTime ? formatDetailedDate(method.createdDateTime) : 'Unknown',
-            model: method.model || 'Unknown Model',
-            attestationLevel: method.attestationLevel || 'Unknown',
-            aaGuid: method.aaGuid,
-            passkeyType: formatPasskeyType(method.passkeyType),
-            canDelete: Boolean(method._links?.delete?.href),
-            deleteHref: method._links?.delete?.href,
-        };
-    });
-}
-
-/** Delete a FIDO method using the action returned by the Self Service API. */
-export async function deleteSelfServicePasskey(instance, account, deleteHref) {
-    if (typeof deleteHref !== 'string' || !deleteHref) {
-        throw new Error('This passkey cannot be deleted with the Self Service API');
-    }
-
-    const token = await getSelfServiceAccessToken(instance, account);
-    await requestMethod(deleteHref, 'DELETE', token);
-}
-
-/** List the signed-in user's FIDO methods in the existing passkey UI format. */
-export async function fetchSelfServicePasskeys(instance, account) {
-    return adaptPasskeys(await listMethods(instance, account));
-}
-
-export async function fetchSelfServiceCredentials(instance, account) {
-    const methods = await listMethods(instance, account, { cache: 'no-store' });
-    const password = methods.find((method) => method.type === 'password');
-    if (password && !password.id) throw new Error('The password method has no ID.');
-    return {
-        passkeys: adaptPasskeys(methods),
-        password: password ? {
-            id: password.id,
-            lastUpdatedDateTime: password.lastUpdatedDateTime,
-            updateHref: password._links?.update?.href,
-        } : null,
-    };
-}
-
-async function beginPasskeyEnrollment(token) {
-    const response = await requestMethod(`${METHODS_PATH}/fido`, 'POST', token);
-    return response.json();
-}
-
-async function activatePasskeyEnrollment(activateHref, enrollment, token) {
-    const response = await requestMethod(activateHref, 'POST', token, enrollment);
-    if (response.status === 204) {
-        return null;
-    }
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
-}
-
-/** Register a FIDO credential using Self Service API start and activation responses. */
-export async function registerSelfServicePasskey(instance, account, displayName = '') {
-    if (typeof displayName !== 'string') {
-        throw new Error('Passkey name must be a string');
-    }
-    const passkeyName = displayName.trim() || generateUniquePasskeyName();
-    const token = await getSelfServiceAccessToken(instance, account);
-    const start = await beginPasskeyEnrollment(token);
-    if (start?.state !== 'interactionRequired' || start.type !== 'fido' ||
-        !start.continuationToken || !start._links?.activate?.href ||
-        !start.publicKey?.challenge || !start.publicKey?.user?.id || !start.publicKey?.rp?.id) {
-        throw new Error('Unexpected Self Service API FIDO enrollment response');
-    }
-
-    const options = start.publicKey;
-    const publicKey = {
-        ...options,
-        authenticatorSelection: { ...options.authenticatorSelection },
-        challenge: base64urlToBuffer(options.challenge),
-        user: { ...options.user, id: base64urlToBuffer(options.user.id) },
-        ...(options.excludeCredentials && {
-            excludeCredentials: options.excludeCredentials.map(item => ({
-                ...item,
-                id: base64urlToBuffer(normalizeCredentialId(item.id)),
-            })),
-        }),
-        timeout: options.timeout || 120000,
-    };
-    // Offer local and external authenticators without changing other requirements.
-    delete publicKey.authenticatorSelection.authenticatorAttachment;
-    if (publicKey.extensions?.enforceCredentialProtectionPolicy) {
-        publicKey.extensions = { ...publicKey.extensions, enforceCredentialProtectionPolicy: false };
-    }
-
-    const credential = await navigator.credentials.create({ publicKey });
-    if (!credential?.id || !credential.response?.attestationObject || !credential.response?.clientDataJSON) {
-        throw new Error('Passkey creation returned no credential or attestation');
-    }
-
-    const method = await activatePasskeyEnrollment(start._links.activate.href, {
-        continuationToken: start.continuationToken,
-        displayName: passkeyName,
-        publicKeyCredential: {
-            id: credential.id,
-            attestationObject: bufferToBase64url(credential.response.attestationObject),
-            clientDataJSON: bufferToBase64url(credential.response.clientDataJSON),
-        },
-    }, token);
-    if (method?.type !== 'fido' || !method.id) {
-        throw new Error('Unexpected Self Service API FIDO activation response');
-    }
-    return method;
-}
-
-function validatePasswordLink(href, expectedPath) {
-    const url = buildMethodUrl(href);
-    if (url.pathname.slice(url.pathname.indexOf(METHODS_PATH)) !== expectedPath) {
-        throw new Error('Invalid password method link.');
-    }
-}
-
-async function requestPassword(path, method, token, body, signal) {
-    const response = await requestMethod(path, method, token, body, {
-        signal, redirect: 'error', cache: 'no-store',
-    });
-    if (response.status === 204) return null;
-    const data = await response.json().catch(() => null);
-    if (!data) throw new Error('The credential service returned an empty response.');
-    return data;
-}
-
-function waitForPoll(seconds, signal) {
-    return new Promise((resolve, reject) => {
-        const abort = () => {
-            clearTimeout(timer);
-            reject(signal.reason || new DOMException('Request cancelled.', 'AbortError'));
-        };
-        const timer = setTimeout(() => {
-            signal?.removeEventListener('abort', abort);
-            resolve();
-        }, Number.isFinite(Number(seconds)) && Number(seconds) > 0 ? Number(seconds) * 1000 : 1000);
-        if (signal?.aborted) abort();
-        else signal?.addEventListener('abort', abort, { once: true });
-    });
-}
-
-export async function updateSelfServicePassword(
-    instance, account, password, { currentPassword, newPassword }, { signal, onPending } = {}
-) {
-    if (!password?.id || !password.updateHref) throw new Error('Changing this password is not available.');
-    if (typeof currentPassword !== 'string' || !currentPassword.trim() ||
-        typeof newPassword !== 'string' || !newPassword.trim()) {
-        throw new Error('Enter your current password and a new password.');
-    }
-    const path = `${METHODS_PATH}/password/${encodeURIComponent(password.id)}`;
-    validatePasswordLink(password.updateHref, path);
-    const token = await getSelfServiceAccessToken(instance, account);
-    let result = await requestPassword(
-        password.updateHref, 'PUT', token, { currentPassword, newPassword }, signal
-    );
-    let pending = false;
-    while (result) {
-        if (result.type !== 'password' || result.id !== password.id) {
-            throw new Error('The credential service returned an unexpected password update.');
-        }
-        if (result.status === 'succeeded') return;
-        if (!['notStarted', 'running'].includes(result.status) ||
-            !result.continuationToken || !result._links?.pollUpdate?.href) {
-            throw new Error('The credential service returned an invalid password update status.');
-        }
-        const pollHref = result._links.pollUpdate.href;
-        validatePasswordLink(pollHref, `${path}/pollUpdate`);
-        if (!pending) {
-            pending = true;
-            onPending?.();
-        }
-        await waitForPoll(result.pollInterval, signal);
-        result = await requestPassword(
-            pollHref, 'POST', token, { continuationToken: result.continuationToken }, signal
-        );
-    }
 }

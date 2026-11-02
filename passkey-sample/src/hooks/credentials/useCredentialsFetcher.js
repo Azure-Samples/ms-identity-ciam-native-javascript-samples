@@ -1,19 +1,20 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { fetchSelfServiceCredentials } from '../../services/selfServiceApiClient';
+import { fetchSelfServiceCredentials } from '../../services/credentialsService';
 import { redirectForSelfServiceAccess } from '../../utils/selfServiceToken';
-import { PASSKEY_CONSTANTS, createRetryDelay, createFetchDelay, createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
-import { useAuthentication } from './useAuthentication';
+import { createRetryDelay, createFetchDelay, createCredentialToastMessages } from '../../utils/credentialUtils';
+import { createAuthenticationToastMessages, requiresFullReauthentication } from '../../utils/authenticationUtils';
+import { useAuthentication } from '../common/useAuthentication';
 
 /**
- * Hook for managing passkey data fetching with retry logic
+ * Hook for managing shared credential discovery with retry logic
  * @param {Object} params - Hook parameters
  * @param {Object} params.instance - MSAL instance
  * @param {Object} params.account - Signed-in account
  * @param {Function} params.onShowToast - Toast notification function
- * @returns {Object} Passkey data and fetching utilities
+ * @returns {Object} Credential data and fetching utilities
  */
-export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
+export const useCredentialsFetcher = ({ instance, account, onShowToast }) => {
     const accountId = account?.homeAccountId;
     const [credentials, setCredentials] = useState({ accountId: null, passkeys: [], password: null });
     const currentAccount = useRef(accountId);
@@ -26,12 +27,13 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
     const [error, setError] = useState(null);
     const { handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
 
-    const fetchPasskeys = useCallback(async (expectedChange = null, options = {}) => {
+    const fetchCredentials = useCallback(async (options = {}) => {
         const fetchId = ++latestFetch.current;
         const isCurrent = () => latestFetch.current === fetchId && currentAccount.current === accountId;
         const { 
-            maxRetries = expectedChange ? PASSKEY_CONSTANTS.MAX_RETRIES : 1,
-            showToast = false,
+            maxRetries = 1,
+            isExpectedResult,
+            throwOnError = false,
             setLoadingState = true,
         } = options;
 
@@ -43,7 +45,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
         };
 
         if (!account) {
-            setError('Sign in to view your passkeys');
+            setError('Sign in to view your credentials');
             if (setLoadingState) setIsLoading(false);
             return;
         }
@@ -64,41 +66,20 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
                 
                 const result = await fetchSelfServiceCredentials(instance, account);
                 if (!isCurrent()) return null;
-                const transformedPasskeys = result.passkeys;
-                console.log(`Found ${transformedPasskeys.length} passkeys${maxRetries > 1 ? ` on attempt ${attempt}` : ''}`);
-                
-                if (expectedChange) {
-                    const { type, passkeyId, expectedCount } = expectedChange;
-                    
-                    if (type === 'add' && expectedCount && transformedPasskeys.length < expectedCount) {
-                        console.log(`Expected ${expectedCount} passkeys after add, but got ${transformedPasskeys.length}. Retrying...`);
-                        if (attempt < maxRetries) {
-                            await createRetryDelay(attempt);
-                            continue;
-                        }
-                    }
-                    
-                    if (type === 'delete' && passkeyId && transformedPasskeys.some(p => p.id === passkeyId)) {
-                        console.log(`Passkey ${passkeyId} still exists after delete. Retrying...`);
-                        if (attempt < maxRetries) {
-                            await createRetryDelay(attempt);
-                            continue;
-                        }
-                    }
+
+                if (isExpectedResult && !isExpectedResult(result) && attempt < maxRetries) {
+                    await createRetryDelay(attempt);
+                    continue;
                 }
                 
                 setCredentials({ ...result, accountId });
-                console.log(`Successfully updated passkey list with ${transformedPasskeys.length} items`);
+                console.log('Successfully updated credentials');
                 
                 if (setLoadingState) {
                     setIsLoading(false);
                 }
                 
-                if (showToast && transformedPasskeys.length > 0 && onShowToast) {
-                    onShowToast(createToastMessages.passkeysRefreshed(transformedPasskeys.length));
-                }
-                
-                return transformedPasskeys;
+                return result;
                 
             } catch (error) {
                 if (!isCurrent()) return null;
@@ -110,7 +91,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
                 }
                 if (error instanceof InteractionRequiredAuthError) {
                     cacheListOperation();
-                    onShowToast?.(createToastMessages.sessionExpiredWithAction(async () => {
+                    onShowToast?.(createAuthenticationToastMessages.sessionExpiredWithAction(async () => {
                         try {
                             await redirectForSelfServiceAccess(instance, account);
                         } catch (redirectError) {
@@ -122,7 +103,7 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
                 if (maxRetries > 1) {
                     console.warn(`Fetch attempt ${attempt} failed:`, error);
                 } else {
-                    console.error('Error fetching passkeys:', error);
+                    console.error('Error fetching credentials:', error);
                 }
                 
                 if (attempt < maxRetries) {
@@ -136,20 +117,20 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
             || requiresFullReauthentication(lastError);
         const errorMsg = requiresUserAction
             ? onShowToast
-                ? 'Additional verification is required. Select Next in the security prompt to view your passkeys.'
-                : 'Additional verification is required. Sign in again to view your passkeys.'
-            : `Failed to load passkeys: ${lastError?.message || 'Unknown error'}`;
+                ? 'Additional verification is required. Select Next in the security prompt to view your credentials.'
+                : 'Additional verification is required. Sign in again to view your credentials.'
+            : `Failed to load credentials: ${lastError?.message || 'Unknown error'}`;
         setError(errorMsg);
         
         if (onShowToast && !requiresUserAction) {
-            onShowToast(createToastMessages.errorLoading());
+            onShowToast(createCredentialToastMessages.errorLoading());
         }
         
         if (setLoadingState) {
             setIsLoading(false);
         }
         
-        if (expectedChange) {
+        if (throwOnError) {
             throw lastError || new Error('Max retries exceeded');
         }
         
@@ -157,15 +138,15 @@ export const usePasskeyFetcher = ({ instance, account, onShowToast }) => {
     }, [instance, account, accountId, onShowToast]);
 
     const refetch = useCallback(() => {
-        return fetchPasskeys();
-    }, [fetchPasskeys]);
+        return fetchCredentials();
+    }, [fetchCredentials]);
 
     return {
         passkeys,
         password,
         isLoading,
         error,
-        fetchPasskeys,
+        fetchCredentials,
         refetch
     };
 };
