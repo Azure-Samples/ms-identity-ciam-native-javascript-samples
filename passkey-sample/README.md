@@ -1,4 +1,4 @@
-# Microsoft Identity Platform - React SPA with Credentials
+# Microsoft Identity Platform - Credentials Management React SPA
 
 This React Single Page Application demonstrates authentication with Microsoft Identity Platform and credential management. Listing, registering, and deleting passkeys, and discovering/updating passwords, use the Self Service (Credential Management) API with delegated access for the signed-in user.
 
@@ -16,9 +16,9 @@ This React Single Page Application demonstrates authentication with Microsoft Id
 
 #### Tenant Setup
 
-- Microsoft Entra ID (Azure AD) tenant with CIAM configuration (allowlist)
-- User account with MFA enforcement
-- Client application registered under the CIAM tenant with the Self Service delegated permission described below, with admin consent
+- Microsoft Entra External ID external tenant configured for the Credential Management API
+- User account configured for multi-factor authentication
+- Client application registered in the external tenant with the delegated permission described below, with admin consent
 
 #### Device
 
@@ -156,7 +156,7 @@ Before running the application, you need to configure your Microsoft Entra ID ap
 
 #### Step 1: Configure MSAL Authentication Settings
 
-Set the client ID, tenant ID, and CIAM tenant subdomain in `src/authConfig.js`.
+Set the client ID, tenant ID, and external tenant subdomain in `src/authConfig.js`.
 
 ```javascript
 const clientId = '<your-client-id-here>';
@@ -207,6 +207,8 @@ export const selfServiceApiConfig = {
 For password-only testing, replace the permission name with `Me.UserAuthenticationMethod.Password.Read` or `Me.UserAuthenticationMethod.Password.ReadWrite`, keeping the same API resource prefix. Changing the requested scope does not revoke earlier consent grants.
 
 ### 4. Start the Application
+
+Run the following commands from the `passkey-sample` directory.
 
 #### Step 1: Install Dependencies
 
@@ -264,14 +266,16 @@ The app uses Microsoft Authentication Library (MSAL) for:
 
 - User authentication with Microsoft Identity Platform
 - Delegated Self Service (Credential Management) API access for passkey and password management
-- Multi-factor authentication (MFA) enforcement for passkey operations
+- Additional identity verification when required
+
+You may be asked to verify your identity before managing credentials. An existing sign-in session can satisfy verification, so a new prompt may not appear every time. Select **Next** when prompted to continue.
 
 ## 🔐 Features
 
 ### Authentication
 
 - Sign in/out with Microsoft Identity Platform
-- Session management with NGCMFA (Next Generation Credentials Multi-Factor Authentication)
+- Session management with MSAL
 
 ### Passkey Management
 
@@ -279,23 +283,22 @@ The app uses Microsoft Authentication Library (MSAL) for:
 - Add new passkeys
 - Delete existing passkeys
 
-### Credentials and Password Management
+### Credentials Management
 
-- Password and passkeys appear as sibling rows in one Credentials list
-- Show the password row only when the API returns a password method
-- Show its last-updated date and a Change password action when available
-- Change passwords using current, new, and confirmation fields, without storing password values
-- Follow pending password updates until the API reports completion
-- Reuse the existing MSAL token provider and verification prompts
+- View password and passkey information together in one Credentials list
+- Display password information when available for the signed-in account
+- Show the password's last-updated date when available, with a **Change** action enabled when password changes are available
+- Change passwords using current, new, and confirmation fields
+- Show progress while a password change is being processed
+- Closing the dialog does not cancel a password change that is already in progress
 
-Run the feature regression tests with `npm test`.
+Run the sample tests from `passkey-sample` with `npm test`.
 
 ### Security Features
 
-- MFA enforcement for passkey operations
-- Server-triggered verification prompts with a **Next** action
-- Enhanced error handling and user feedback
-- Toast notifications for user actions
+- Additional identity verification when required
+- Entered passwords are not persisted by the app
+- Notifications about credential operations
 
 ## 🛠️ Development
 
@@ -307,21 +310,25 @@ passkey-sample/
 ├── src/
 │   ├── components/
 │   │   ├── common/         # Shared UI
-│   │   ├── credentials/   # Shared credentials screen and flat list
+│   │   ├── credentials/   # Credentials screen and list
 │   │   ├── passkeys/      # Passkey-only UI
 │   │   └── password/      # Password-only UI
 │   ├── hooks/
-│   │   ├── common/        # Shared authentication and verification
-│   │   ├── credentials/   # One credential collection and shared loading state
-│   │   ├── passkeys/      # Passkey registration, deletion, and refresh conditions
-│   │   └── password/      # Password-change orchestration
-│   ├── services/           # Shared transport/discovery and separate credential services
+│   │   ├── common/        # Authentication
+│   │   ├── credentials/   # Credential loading
+│   │   ├── passkeys/      # Passkey operations
+│   │   └── password/      # Password changes
+│   ├── services/
+│   │   ├── selfServiceApiClient.js # Shared API requests
+│   │   ├── credentialsService.js   # Credential listing
+│   │   ├── passkeyService.js       # Passkey operations
+│   │   └── passwordService.js      # Password operations
 │   ├── styles/
 │   ├── utils/              # Token, authentication, and credential helpers
 │   ├── App.jsx
 │   ├── authConfig.js
 │   └── index.jsx
-├── test/                   # Credential integration and regression tests
+├── test/                   # Sample tests
 ├── .env.example
 ├── cors.js                 # Local proxy
 ├── proxy.config.js         # Proxy routes and upstreams
