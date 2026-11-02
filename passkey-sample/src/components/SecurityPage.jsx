@@ -11,7 +11,7 @@ import {
 
 import { UserProfileHeader, SecurityAlert } from './common/UIComponents';
 import ToastNotifications from './common/ToastNotifications';
-import PasskeysSection from './passkeys/PasskeysSection';
+import PasskeysSection from './credentials/PasskeysSection';
 
 export const SecurityPage = () => {
     const { instance, accounts } = useMsal();

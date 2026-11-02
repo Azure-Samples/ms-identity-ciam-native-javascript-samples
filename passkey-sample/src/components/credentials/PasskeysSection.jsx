@@ -7,7 +7,7 @@ import PasskeysHeader from './components/PasskeysHeader';
 import PasskeysList from './components/PasskeysList';
 import DeleteModal from './components/DeleteModal';
 import AddPasskeyModal from './components/AddPasskeyModal';
-import ChangePasswordModal from '../credentials/ChangePasswordModal';
+import ChangePasswordModal from './ChangePasswordModal';
 import { updateSelfServicePassword } from '../../services/selfServiceApiClient';
 import { PASSKEY_CONSTANTS, requiresFullReauthentication } from '../../utils/passkeyUtils';
 import { 

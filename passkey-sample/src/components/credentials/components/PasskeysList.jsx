@@ -1,6 +1,6 @@
 import { ListGroup } from 'react-bootstrap';
 import PasskeyItem from './PasskeyItem';
-import PasswordCredential from '../../credentials/PasswordCredential';
+import PasswordCredential from '../PasswordCredential';
 
 const PasskeysList = ({ password, passkeys, onChangePassword, onDelete }) => {
     return (

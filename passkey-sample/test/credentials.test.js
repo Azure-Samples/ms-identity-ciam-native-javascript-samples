@@ -251,22 +251,22 @@ async function uiFixture(data = {}, { showModal = false, isAdding = false, opera
     const row = await loadSource('../src/components/credentials/PasswordCredential.jsx', {
         '../../utils/graphServiceUtils': { formatDetailedDate: (date) => date },
     });
-    const list = await loadSource('../src/components/passkeys/components/PasskeysList.jsx', {
-        '../../credentials/PasswordCredential': row,
+    const list = await loadSource('../src/components/credentials/components/PasskeysList.jsx', {
+        '../PasswordCredential': row,
         './PasskeyItem': { __esModule: true, default: ({ passkey }) => (
             createElement(bootstrap.ListGroup.Item, null, passkey.name)
         ) },
     });
-    const header = await loadSource('../src/components/passkeys/components/PasskeysHeader.jsx');
+    const header = await loadSource('../src/components/credentials/components/PasskeysHeader.jsx');
     const Dialog = () => null;
-    const { default: Section } = await loadSource('../src/components/passkeys/PasskeysSection.jsx', {
+    const { default: Section } = await loadSource('../src/components/credentials/PasskeysSection.jsx', {
         react: { ...react, useState: () => [showModal, (value) => calls.modalStates.push(value)],
             useEffect: (effect) => effects.push(effect) },
         '@azure/msal-react': { useMsal: () => ({ instance, accounts: [account] }) },
         './components/PasskeysHeader': header, './components/PasskeysList': list,
         './components/DeleteModal': { __esModule: true, default: () => null },
         './components/AddPasskeyModal': { __esModule: true, default: () => null },
-        '../credentials/ChangePasswordModal': { __esModule: true, default: Dialog },
+        './ChangePasswordModal': { __esModule: true, default: Dialog },
         '../../services/selfServiceApiClient': { updateSelfServicePassword() {} },
         '../../utils/passkeyUtils': passkeyUtils,
         '../../hooks/passkeys': {
@@ -309,7 +309,7 @@ test('failed loading shows an error rather than an indefinite password spinner',
 });
 
 test('the existing add action still respects loading and the passkey limit', async () => {
-    const { default: Header } = await loadSource('../src/components/passkeys/components/PasskeysHeader.jsx');
+    const { default: Header } = await loadSource('../src/components/credentials/components/PasskeysHeader.jsx');
     const html = (props) => renderToStaticMarkup(createElement(Header, props));
     assert.doesNotMatch(html({ count: 1, maxCount: 10 }), /disabled/);
     assert.match(html({ count: 10, maxCount: 10 }), /disabled/);

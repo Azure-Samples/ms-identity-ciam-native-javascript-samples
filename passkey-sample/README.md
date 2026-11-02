@@ -307,8 +307,7 @@ passkey-sample/
 ├── src/
 │   ├── components/
 │   │   ├── common/         # Shared UI
-│   │   ├── credentials/    # Password row and change-password modal
-│   │   └── passkeys/       # Passkey UI
+│   │   └── credentials/   # Password and passkey UI
 │   ├── hooks/passkeys/     # Passkey operations
 │   ├── services/           # Low-privilege Credential Management API client
 │   ├── styles/
