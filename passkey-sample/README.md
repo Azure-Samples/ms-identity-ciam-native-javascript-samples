@@ -1,6 +1,6 @@
 # Microsoft Identity Platform - Credentials Management React SPA
 
-This React Single Page Application demonstrates authentication with Microsoft Identity Platform and credential management. Listing, registering, and deleting passkeys, and discovering/updating passwords, use the Self Service (Credential Management) API with delegated access for the signed-in user.
+This React Single Page Application demonstrates authentication with Microsoft Identity Platform and credential management. Listing, registering, and deleting passkeys, and discovering/updating passwords, use the low-privilege Self Service (Credential Management) API with delegated access for the signed-in user.
 
 **⚠️ This sample app is for testing purpose. Please do not deploy to production environment.**
 
@@ -277,22 +277,23 @@ You may be asked to verify your identity before managing credentials. An existin
 - Sign in/out with Microsoft Identity Platform
 - Session management with MSAL
 
-### Passkey Management
+### Credentials Management
+
+View and manage your password and passkeys in one Credentials list.
+
+#### Passkey Management
 
 - View existing passkeys/FIDO2 credentials
 - Add new passkeys
 - Delete existing passkeys
 
-### Credentials Management
+#### Password Management
 
-- View password and passkey information together in one Credentials list
 - Display password information when available for the signed-in account
 - Show the password's last-updated date when available, with a **Change** action enabled when password changes are available
 - Change passwords using current, new, and confirmation fields
 - Show progress while a password change is being processed
 - Closing the dialog does not cancel a password change that is already in progress
-
-Run the sample tests from `passkey-sample` with `npm test`.
 
 ### Security Features
 
@@ -301,6 +302,8 @@ Run the sample tests from `passkey-sample` with `npm test`.
 - Notifications about credential operations
 
 ## 🛠️ Development
+
+Run the sample tests from `passkey-sample` with `npm test`.
 
 ### Project Structure
 
