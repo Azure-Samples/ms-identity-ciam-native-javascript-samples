@@ -1,6 +1,6 @@
 {
-  "short_name": "Passkey Sample",
-  "name": "Passkey Management Sample (Microsoft Entra External ID)",
+  "short_name": "Credentials",
+  "name": "Credentials Sample (Microsoft Entra External ID)",
   "start_url": ".",
   "display": "standalone",
   "theme_color": "#000000",

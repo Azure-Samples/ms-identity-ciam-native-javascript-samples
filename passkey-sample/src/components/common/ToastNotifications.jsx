@@ -5,14 +5,20 @@ const ToastItem = ({ toast, onClose }) => {
     useEffect(() => {
         if (toast.show && toast.autoHide !== false) {
             const timer = setTimeout(() => {
+                toast.onDismiss?.();
                 onClose();
             }, 4000);
             return () => clearTimeout(timer);
         }
-    }, [toast.show, toast.autoHide, onClose]);
+    }, [toast.show, toast.autoHide, toast.onDismiss, onClose]);
+
+    const handleDismiss = () => {
+        toast.onDismiss?.();
+        onClose();
+    };
 
     return (
-        <Toast show={toast.show} onClose={onClose} className="mb-2">
+        <Toast show={toast.show} onClose={handleDismiss} className="mb-2">
             <Toast.Header closeButton={true} className="border-0">
                 <strong className="me-auto">{toast.title}</strong>
             </Toast.Header>
@@ -33,7 +39,7 @@ const ToastItem = ({ toast, onClose }) => {
                         <Button 
                             size="sm" 
                             variant="outline-secondary"
-                            onClick={onClose}
+                            onClick={handleDismiss}
                         >
                             Dismiss
                         </Button>
