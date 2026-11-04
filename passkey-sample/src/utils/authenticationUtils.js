@@ -8,12 +8,13 @@ export const createAuthenticationToastMessages = {
         variant: 'warning'
     }),
 
-    sessionExpiredWithAction: (onSignIn) => ({
+    sessionExpiredWithAction: (onSignIn, onDismiss) => ({
         title: `Let's keep your account secure`,
         message: 'You will need to complete multi-factor authentication to perform this action. You will be redirected to verify your identity securely.',
         variant: 'warning',
         autoHide: false,
         type: 'sessionExpiredWithAction',
+        onDismiss,
         action: {
             label: 'Next',
             variant: 'primary',

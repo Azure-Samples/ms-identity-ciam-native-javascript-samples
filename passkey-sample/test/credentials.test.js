@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
@@ -33,6 +34,7 @@ async function loadSource(filename, mocks = {}, globals = {}) {
     runInNewContext(code, {
         module, exports: module.exports,
         URL, URLSearchParams, AbortController, DOMException, setTimeout, clearTimeout, atob, btoa,
+        crypto: { randomUUID },
         console: { log() {}, warn() {}, error() {} },
         require: (name) => Object.hasOwn(mocks, name) ? mocks[name] : require(name),
         ...globals,
@@ -320,6 +322,7 @@ async function fetcherFixture(read) {
         '../common/useAuthentication': { useAuthentication: () => ({
             getCachedOperation: () => calls.cachedOperation,
             cacheOperation: (operation) => { calls.cachedOperation = operation; },
+            clearCachedOperation: () => { calls.cachedOperation = null; },
             handleReAuthentication: async () => { calls.reauthentications += 1; },
         }) },
     });
@@ -350,7 +353,7 @@ test('credential loading preserves the existing interaction and reauthentication
             assert.equal(await fixture.hook.fetchCredentials(), null);
             assert.equal(fixture.state[1], false);
             assert.match(fixture.state[2], /Additional verification is required/);
-            assert.equal(fixture.calls.cachedOperation.action, 'list');
+            assert.equal(fixture.calls.cachedOperation, null);
             assert.equal(fixture.calls.reauthentications, fullSignIn ? 1 : 0);
             assert.equal(fixture.calls.redirects.length, 0);
             if (!fullSignIn) {
@@ -358,6 +361,7 @@ test('credential loading preserves the existing interaction and reauthentication
                 assert.equal(fixture.calls.toasts.length, 1);
                 assert.equal(prompt.type, 'sessionExpiredWithAction');
                 await prompt.action.onClick();
+                assert.equal(fixture.calls.cachedOperation.action, 'list');
                 assert.equal(fixture.calls.redirects.length, 1);
                 assert.equal(fixture.calls.redirects[0][0], instance);
                 assert.equal(fixture.calls.redirects[0][1], account);
@@ -442,14 +446,40 @@ function findElement(node, predicate) {
 }
 
 async function uiFixture(data = {}, { showModal = false, isAdding = false, operation = null, runEffects = false } = {}) {
-    const calls = { verifications: [], toasts: [], cleared: 0, modalStates: [] };
+    const calls = { verifications: [], toasts: [], cleared: 0, modalStates: [], resumedAdds: [], resumedDeletes: [] };
+    const states = [];
+    const refs = [];
     const effects = [];
-    const hooks = { ...react, useState: () => [showModal, (value) => calls.modalStates.push(value)],
-        useEffect: (effect) => effects.push(effect) };
+    let cachedOperation = operation;
+    let stateIndex = 0;
+    let refIndex = 0;
+    let effectIndex = 0;
+    let scheduledEffects = [];
+    const hooks = { ...react,
+        useState: (initial) => {
+            const i = stateIndex++;
+            if (!(i in states)) states[i] = typeof initial === 'function' ? initial() : showModal;
+            return [states[i], (value) => {
+                states[i] = typeof value === 'function' ? value(states[i]) : value;
+                if (typeof initial !== 'function') calls.modalStates.push(states[i]);
+            }];
+        },
+        useRef: (initial) => {
+            const i = refIndex++;
+            return refs[i] ||= { current: initial };
+        },
+        useEffect: (effect, dependencies) => {
+            const i = effectIndex++;
+            if (!effects[i] || dependencies.some((value, j) => !Object.is(value, effects[i][j]))) {
+                scheduledEffects.push(effect);
+            }
+            effects[i] = dependencies;
+        },
+    };
     const authentication = {
         useAuthentication: () => ({
-            getCachedOperation: () => operation,
-            clearCachedOperation: () => { calls.cleared += 1; },
+            getCachedOperation: () => cachedOperation,
+            clearCachedOperation: () => { calls.cleared += 1; cachedOperation = null; },
             requestVerification: async (...args) => calls.verifications.push(args),
         }),
     };
@@ -487,19 +517,183 @@ async function uiFixture(data = {}, { showModal = false, isAdding = false, opera
                 fetchCredentials: async () => ({ passkeys: [], password: null }), ...data }),
         },
         '../../hooks/passkeys': {
-            usePasskeyAddOperation: () => ({ isAdding, nameModalProps: {} }),
-            usePasskeyDeleteOperation: (options) => { calls.deletion = options; return { modalProps: {} }; },
+            usePasskeyAddOperation: () => ({ isAdding, nameModalProps: {},
+                performAddPasskey: async (name) => { calls.resumedAdds.push(name); } }),
+            usePasskeyDeleteOperation: (options) => { calls.deletion = options; return { modalProps: {},
+                showConfirmationModal: (passkey) => calls.resumedDeletes.push(passkey) }; },
         },
     });
-    const tree = Section({ onShowToast: (toast) => calls.toasts.push(toast) });
-    if (runEffects) {
-        effects.forEach((effect) => effect());
-        await new Promise((resolve) => setImmediate(resolve));
-    }
-    return { calls, tree, html: renderToStaticMarkup(tree),
-        modal: findElement(tree, (node) => node.type === Dialog)?.props,
-        change: findElement(tree, (node) => node.type === list.default).props.onChangePassword };
+    const render = async (updates = {}) => {
+        Object.assign(data, updates);
+        stateIndex = 0;
+        refIndex = 0;
+        effectIndex = 0;
+        scheduledEffects = [];
+        const tree = Section({ onShowToast: (toast) => calls.toasts.push(toast) });
+        if (runEffects) {
+            scheduledEffects.forEach((effect) => effect());
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+        return { calls, tree, html: renderToStaticMarkup(tree),
+            modal: findElement(tree, (node) => node.type === Dialog)?.props,
+            change: findElement(tree, (node) => node.type === list.default).props.onChangePassword };
+    };
+    return { ...await render(), rerender: render,
+        setCachedOperation: (value) => { cachedOperation = value; },
+        getCachedOperation: () => cachedOperation };
 }
+
+async function authenticationFixture({ failRedirect = false } = {}) {
+    const storage = new Map();
+    const calls = { toasts: [], redirects: [], signIns: [] };
+    const msal = {
+        getAllAccounts: () => [account],
+        loginRedirect: async (request) => {
+            calls.signIns.push(request);
+            if (failRedirect) throw new Error('Redirect unavailable');
+        },
+    };
+    const { useAuthentication } = await loadSource('../src/hooks/common/useAuthentication.js', {
+        '@azure/msal-react': { useMsal: () => ({ instance: msal }) },
+        '../../authConfig': { loginRequest: { scopes: [] } },
+        '../../utils/selfServiceToken': {
+            requestSelfServiceTokenAfterSignIn() {},
+            redirectForSelfServiceAccess: async (...args) => {
+                calls.redirects.push(args);
+                if (failRedirect) throw new Error('Redirect unavailable');
+            },
+        },
+        '../../utils/authenticationUtils': authenticationUtils,
+    }, {
+        sessionStorage: {
+            getItem: (key) => storage.get(key) ?? null,
+            setItem: (key, value) => storage.set(key, value),
+            removeItem: (key) => storage.delete(key),
+        },
+    });
+    const authentication = useAuthentication({ onShowToast: (toast) => calls.toasts.push(toast) });
+    return { authentication, calls };
+}
+
+test('verification caches a redirect-recovery action only after Next is selected', async (t) => {
+    for (const fullSignIn of [false, true]) {
+        await t.test(fullSignIn ? 'full sign-in' : 'API authorization', async () => {
+            const { authentication, calls } = await authenticationFixture();
+            await authentication.requestVerification({ action: 'add', displayName: 'Test key' },
+                account, fullSignIn, () => ({}));
+            assert.equal(authentication.getCachedOperation(), null);
+            assert.equal(calls.redirects.length + calls.signIns.length, 0);
+            await calls.toasts[0].action.onClick();
+            const recovery = authentication.getCachedOperation();
+            assert.equal(recovery.action, 'add');
+            assert.equal(recovery.displayName, 'Test key');
+            assert.equal(typeof recovery.recoveryId, 'string');
+            assert.ok(recovery.recoveryId);
+            assert.equal(calls.signIns.length, fullSignIn ? 1 : 0);
+            assert.equal(calls.redirects.length, fullSignIn ? 0 : 1);
+        });
+    }
+});
+
+test('dismissed or failed verification clears cached intent', async (t) => {
+    await t.test('dismissal', async () => {
+        const { authentication, calls } = await authenticationFixture();
+        authentication.cacheOperation({ action: 'delete', passkey });
+        await authentication.requestVerification({ action: 'changePassword' }, account, false, () => ({}));
+        calls.toasts[0].onDismiss();
+        assert.equal(authentication.getCachedOperation(), null);
+        assert.equal(calls.redirects.length + calls.signIns.length, 0);
+    });
+    for (const fullSignIn of [false, true]) {
+        await t.test(fullSignIn ? 'failed sign-in redirect' : 'failed API redirect', async () => {
+            const { authentication, calls } = await authenticationFixture({ failRedirect: true });
+            await authentication.requestVerification({ action: 'add' }, account, fullSignIn,
+                (message) => ({ title: 'Authentication error', message }));
+            await calls.toasts[0].action.onClick();
+            assert.equal(authentication.getCachedOperation(), null);
+        });
+    }
+});
+
+test('list verification preserves an existing redirect-recovery action', async () => {
+    const { authentication, calls } = await authenticationFixture();
+    authentication.cacheOperation({ action: 'changePassword' });
+    const recovery = authentication.getCachedOperation();
+    await authentication.handleReAuthentication();
+    await calls.toasts[0].action.onClick();
+    assert.equal(authentication.getCachedOperation().action, 'changePassword');
+    assert.equal(authentication.getCachedOperation().recoveryId, recovery.recoveryId);
+});
+
+test('verification toast dismissal does not run when Next closes the toast', async (t) => {
+    const { default: Notifications } = await loadSource('../src/components/common/ToastNotifications.jsx', {
+        react: { useEffect() {} },
+    });
+    for (const action of ['header close', 'Dismiss', 'Next']) {
+        await t.test(action, () => {
+            let dismissed = 0;
+            let actions = 0;
+            let closed = 0;
+            const toast = { id: 'verification', show: true, autoHide: false, type: 'sessionExpiredWithAction',
+                onDismiss: () => { dismissed += 1; },
+                action: { label: 'Next', onClick: () => { actions += 1; } } };
+            const container = Notifications({ toasts: [toast], onCloseToast: () => { closed += 1; } });
+            const element = findElement(container, (node) => node.props?.toast === toast);
+            const item = element.type(element.props);
+            if (action === 'header close') item.props.onClose();
+            else findElement(item, (node) => node.type === bootstrap.Button && node.props.children === action).props.onClick();
+            assert.equal(actions, action === 'Next' ? 1 : 0);
+            assert.equal(dismissed, action === 'Next' ? 0 : 1);
+            assert.equal(closed, 1);
+        });
+    }
+});
+
+test('credential refreshes cannot resume newly cached actions or legacy unconfirmed intent', async (t) => {
+    for (const action of ['add', 'delete', 'changePassword']) {
+        await t.test(action, async () => {
+            const unconfirmed = { action, passkey, displayName: 'Test key' };
+            const fixture = await uiFixture({ password }, { operation: unconfirmed, runEffects: true });
+            assert.equal(fixture.calls.resumedAdds.length + fixture.calls.resumedDeletes.length + fixture.calls.modalStates.length, 0);
+            fixture.setCachedOperation({ ...unconfirmed, recoveryId: 'new-redirect' });
+            await fixture.rerender({ isLoading: true });
+            await fixture.rerender({ isLoading: false, password: { ...password } });
+            assert.equal(fixture.calls.resumedAdds.length + fixture.calls.resumedDeletes.length + fixture.calls.modalStates.length, 0);
+            assert.equal(fixture.getCachedOperation().action, action);
+        });
+    }
+});
+
+test('redirect recovery resumes each captured action only once', async (t) => {
+    for (const action of ['add', 'delete', 'changePassword']) {
+        await t.test(action, async () => {
+            const recovery = { action, passkey, displayName: 'Test key', recoveryId: 'initial-redirect' };
+            const fixture = await uiFixture({ password }, { operation: recovery, runEffects: true });
+            assert.equal(fixture.calls.resumedAdds.length + fixture.calls.resumedDeletes.length + fixture.calls.modalStates.length, 1);
+            assert.equal(fixture.calls.cleared, 1);
+            fixture.setCachedOperation({ ...recovery, recoveryId: 'new-redirect' });
+            await fixture.rerender({ isLoading: true });
+            await fixture.rerender({ isLoading: false, password: { ...password } });
+            assert.equal(fixture.calls.resumedAdds.length + fixture.calls.resumedDeletes.length + fixture.calls.modalStates.length, 1);
+            assert.equal(fixture.calls.cleared, 1);
+        });
+    }
+});
+
+test('cancelled or superseded password recovery cannot reopen on a later refresh', async (t) => {
+    for (const replacement of [null, { action: 'changePassword', recoveryId: 'new-redirect' }]) {
+        await t.test(replacement ? 'superseded' : 'cancelled', async () => {
+            const fixture = await uiFixture({ isLoading: true }, {
+                operation: { action: 'changePassword', recoveryId: 'initial-redirect' }, runEffects: true,
+            });
+            fixture.setCachedOperation(replacement);
+            await fixture.rerender({ isLoading: false, password });
+            assert.equal(fixture.calls.modalStates.length, 0);
+            assert.equal(fixture.calls.cleared, 0);
+            assert.equal(fixture.getCachedOperation(), replacement);
+        });
+    }
+});
 
 test('Credentials is one flat list; password-only accounts have no empty passkey subgroup', async () => {
     const both = await uiFixture({ password, passkeys: [passkey] });
@@ -589,7 +783,7 @@ test('the add action remains disabled during upstream passkey registration', asy
 });
 
 test('cached password changes wait for fresh method details before reopening', async () => {
-    const options = { operation: { action: 'changePassword' }, runEffects: true };
+    const options = { operation: { action: 'changePassword', recoveryId: 'password-redirect' }, runEffects: true };
     const loading = await uiFixture({ isLoading: true }, options);
     assert.equal(loading.calls.cleared, 0);
     assert.equal(loading.calls.modalStates.length, 0);

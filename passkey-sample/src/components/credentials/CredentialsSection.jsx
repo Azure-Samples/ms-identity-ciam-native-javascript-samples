@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { Alert, Card, Spinner } from 'react-bootstrap';
 import { FaKey } from 'react-icons/fa';
@@ -46,30 +46,49 @@ const CredentialsSection = ({ onShowToast }) => {
     });
 
     const { getCachedOperation, clearCachedOperation } = useAuthentication({ onShowToast });
+    // Capture redirect recovery once; refreshes must not replay newly requested actions.
+    const recoveryOperation = useRef();
+    if (recoveryOperation.current === undefined) {
+        const operation = getCachedOperation();
+        recoveryOperation.current = typeof operation?.recoveryId === 'string' ? operation : null;
+    }
 
     useEffect(() => {
         if (!account) return;
-        const operation = getCachedOperation();
-        if (operation?.action === 'add' || operation?.action === 'delete') {
+        const operation = recoveryOperation.current;
+        if ((operation?.action === 'add' || operation?.action === 'delete')
+            && getCachedOperation()?.recoveryId === operation.recoveryId) {
             return;
         }
         fetchCredentials().then((result) => {
-            if (result != null && getCachedOperation()?.action === 'list') clearCachedOperation();
+            if (result != null && operation?.action === 'list'
+                && getCachedOperation()?.recoveryId === operation.recoveryId) {
+                clearCachedOperation();
+                recoveryOperation.current = null;
+            }
         }).catch(console.error);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accountId]); // Account objects may be recreated when MSAL reads its cache.
 
     useEffect(() => {
-        const operation = getCachedOperation();
-        if (!operation || operation.action === 'list' || !account) return;
+        const operation = recoveryOperation.current;
+        if (!operation || !account) return;
+        if (getCachedOperation()?.recoveryId !== operation.recoveryId) {
+            recoveryOperation.current = null;
+            return;
+        }
+        if (operation.action === 'list') return;
         if (operation.action === 'add') {
             clearCachedOperation();
+            recoveryOperation.current = null;
             performAddPasskey(operation.displayName).catch(console.error);
         } else if (operation.action === 'delete' && operation.passkey) {
             clearCachedOperation();
+            recoveryOperation.current = null;
             showConfirmationModal(operation.passkey);
         } else if (operation.action === 'changePassword' && !isLoading && !error) {
             clearCachedOperation();
+            recoveryOperation.current = null;
             if (password?.updateHref) handleChangePassword();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps

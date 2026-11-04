@@ -25,7 +25,7 @@ export const useCredentialsFetcher = ({ instance, account, onShowToast }) => {
     const password = credentials.accountId === accountId ? credentials.password : null;
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { handleReAuthentication, cacheOperation, getCachedOperation } = useAuthentication({ onShowToast });
+    const { handleReAuthentication, cacheOperation, clearCachedOperation } = useAuthentication({ onShowToast });
 
     const fetchCredentials = useCallback(async (options = {}) => {
         const fetchId = ++latestFetch.current;
@@ -36,13 +36,6 @@ export const useCredentialsFetcher = ({ instance, account, onShowToast }) => {
             throwOnError = false,
             setLoadingState = true,
         } = options;
-
-        const cacheListOperation = () => {
-            const pendingOperation = getCachedOperation();
-            if (!pendingOperation || pendingOperation.action === 'list') {
-                cacheOperation({ action: 'list' });
-            }
-        };
 
         if (!account) {
             setError('Sign in to view your credentials');
@@ -85,19 +78,19 @@ export const useCredentialsFetcher = ({ instance, account, onShowToast }) => {
                 if (!isCurrent()) return null;
                 lastError = error;
                 if (requiresFullReauthentication(error)) {
-                    cacheListOperation();
                     await handleReAuthentication();
                     break;
                 }
                 if (error instanceof InteractionRequiredAuthError) {
-                    cacheListOperation();
                     onShowToast?.(createAuthenticationToastMessages.sessionExpiredWithAction(async () => {
                         try {
+                            cacheOperation({ action: 'list' });
                             await redirectForSelfServiceAccess(instance, account);
                         } catch (redirectError) {
+                            clearCachedOperation();
                             setError(`Could not verify your identity: ${redirectError.message}`);
                         }
-                    }));
+                    }, clearCachedOperation));
                     break;
                 }
                 if (maxRetries > 1) {

@@ -24,6 +24,7 @@ export const useAuthentication = ({ onShowToast }) => {
                 loginHint: account?.username
             });
         } catch (error) {
+            clearCachedOperation();
             console.error('Error during sign-in redirect:', error);
             if (onShowToast) {
                 onShowToast({
@@ -38,7 +39,10 @@ export const useAuthentication = ({ onShowToast }) => {
     const handleReAuthentication = async () => {
         try {
             if (onShowToast) {
-                onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(handleSignIn));
+                onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(async () => {
+                    cacheOperation({ action: 'list' });
+                    await handleSignIn();
+                }, clearCachedOperation));
             }
         } catch (error) {
             if (onShowToast) {
@@ -48,7 +52,11 @@ export const useAuthentication = ({ onShowToast }) => {
     };
 
     const cacheOperation = (operation) => {
-        sessionStorage.setItem("postLoginAction", JSON.stringify(operation));
+        const pending = getCachedOperation();
+        if (operation.action === 'list' && pending?.recoveryId && pending.action !== 'list') {
+            return;
+        }
+        sessionStorage.setItem("postLoginAction", JSON.stringify({ ...operation, recoveryId: crypto.randomUUID() }));
     };
 
     const getCachedOperation = () => {
@@ -69,9 +77,9 @@ export const useAuthentication = ({ onShowToast }) => {
     };
 
     const requestVerification = async (operation, account, fullSignIn, createErrorToast) => {
-        cacheOperation(operation);
         const verify = async () => {
             try {
+                cacheOperation(operation);
                 if (fullSignIn) {
                     await handleSignIn();
                 } else {
@@ -87,7 +95,7 @@ export const useAuthentication = ({ onShowToast }) => {
             await verify();
             return;
         }
-        onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(verify));
+        onShowToast(createAuthenticationToastMessages.sessionExpiredWithAction(verify, clearCachedOperation));
     };
 
     return {
