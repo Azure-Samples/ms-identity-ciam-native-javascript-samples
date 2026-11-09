@@ -9,6 +9,7 @@ import {
     AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
+    MFAVerificationRequiredStateV2,
     NewPasswordRequiredStateV2,
     SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
@@ -111,6 +112,14 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         return this.state instanceof AuthMethodVerificationRequiredStateV2 ? this.state : null;
     }
 
+    get mfaVerificationState(): MFAVerificationRequiredStateV2 | null {
+        return this.state instanceof MFAVerificationRequiredStateV2 ? this.state : null;
+    }
+
+    get verificationState(): AuthMethodVerificationRequiredStateV2 | MFAVerificationRequiredStateV2 | null {
+        return this.registrationVerificationState ?? this.mfaVerificationState;
+    }
+
     get isCompleted(): boolean {
         return this.state instanceof CompletedStateV2;
     }
@@ -177,9 +186,10 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
             const result = await state.selectAuthMethod(method);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("codeRequired")) {
+            } else if (result.isState("codeRequired") || result.isState("mfaVerificationRequired")) {
                 this.code = "";
                 this.state = result.state;
+                this.stopResendCountdown();
             } else {
                 this.error = "Authentication method selection returned an unsupported state.";
             }
@@ -257,7 +267,10 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
             const result = await state.submitNewPassword(newPassword);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("authMethodRegistrationRequired")) {
+            } else if (
+                result.isState("authMethodRegistrationRequired") ||
+                result.isState("authMethodSelectionRequired")
+            ) {
                 this.state = result.state;
                 this.selectedRegistrationMethod = null;
                 this.registrationContact = "";
@@ -331,10 +344,10 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         }
     }
 
-    async submitRegistrationChallenge(): Promise<void> {
-        const state = this.registrationVerificationState;
+    async submitVerificationCode(): Promise<void> {
+        const state = this.verificationState;
         if (!state) {
-            this.error = "Register an authentication method before submitting its verification code.";
+            this.error = "Restart password reset before submitting a verification code.";
             return;
         }
 
@@ -345,6 +358,11 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
             const result = await state.submitChallenge(this.code);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
+            } else if (result.isState("signInContinuation")) {
+                this.code = "";
+                this.registrationContact = "";
+                this.stopResendCountdown();
+                await this.continueSignIn(result.state);
             } else if (result.isState("completed")) {
                 this.code = "";
                 this.registrationContact = "";
@@ -359,10 +377,10 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         }
     }
 
-    async resendRegistrationChallenge(): Promise<void> {
-        const state = this.registrationVerificationState;
+    async resendVerificationCode(): Promise<void> {
+        const state = this.verificationState;
         if (!state) {
-            this.error = "Register an authentication method before requesting another verification code.";
+            this.error = "Restart password reset before requesting another verification code.";
             return;
         }
 
@@ -373,15 +391,18 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
             const result = await state.resendChallenge();
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
-            } else if (result.isState("authMethodVerificationRequired")) {
+            } else if (
+                result.state instanceof AuthMethodVerificationRequiredStateV2 ||
+                result.state instanceof MFAVerificationRequiredStateV2
+            ) {
                 this.state = result.state;
                 this.code = "";
                 this.startResendCountdown();
             } else {
-                this.error = "Resending the registration code returned an unsupported state.";
+                this.error = "Resending the verification code returned an unsupported state.";
             }
         } catch (error) {
-            this.error = getThrownErrorMessage(error, "An unexpected registration code resend error occurred.");
+            this.error = getThrownErrorMessage(error, "An unexpected verification code resend error occurred.");
         } finally {
             this.resendLoading = false;
         }

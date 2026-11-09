@@ -30,7 +30,6 @@ function getThrownErrorMessage(error: unknown): string {
 export function startV2SignIn(app: AuthFlowProps["app"], credentials: InitialCredentials) {
     return app.signInV2({
         username: credentials.username,
-        password: credentials.password || undefined,
         ...authorizationInputs,
     });
 }
@@ -68,18 +67,12 @@ export function V2SignInFlow({
 
         if (initialResult.isFailed()) {
             setError(getV2ErrorMessage(initialResult.error));
-        } else if (initialResult.isPasswordRequired()) {
+        } else if (initialResult.isState("passwordRequired")) {
             setSignInState(initialResult.state);
         } else if (initialResult.isState("codeRequired")) {
             setSignInState(initialResult.state);
         } else if (initialResult.isState("authMethodSelectionRequired")) {
             setSignInState(initialResult.state);
-        } else if (initialResult.isState("authMethodRegistrationRequired")) {
-            setSignInState(initialResult.state);
-        } else if (initialResult.isState("completed")) {
-            setSignInState(initialResult.state);
-            setCode("");
-            onCompletedRef.current(initialResult.data);
         } else {
             setError("Sign-in returned an unsupported state.");
         }

@@ -47,7 +47,6 @@
                 <app-sign-in-v2
                     *ngIf="flow.action === 'signIn'"
                     [initialUsername]="flow.username"
-                    [initialPassword]="flow.password || ''"
                     [autoStart]="true"
                     [embedded]="true"
                     (cancel)="cancelFlow()"
@@ -58,7 +57,7 @@
                 <app-sign-up-v2
                     *ngIf="flow.action === 'signUp'"
                     [initialUsername]="flow.username"
-                    [initialPassword]="flow.password || ''"
+                    [initialAttributesJson]="flow.attributesJson || ''"
                     [autoStart]="true"
                     [embedded]="true"
                     (cancel)="cancelFlow()"
@@ -121,6 +120,7 @@
             />
             <p *ngIf="initialFieldErrors['username']" id="unified-auth-username-error" class="auth-field-error" role="alert">{{ initialFieldErrors["username"] }}</p>
             <input
+                *ngIf="version === 'v1'"
                 id="unified-auth-password"
                 type="password"
                 name="password"
@@ -133,14 +133,31 @@
                 [attr.aria-invalid]="initialFieldErrors['password'] ? 'true' : null"
                 [attr.aria-describedby]="initialFieldErrors['password'] ? 'unified-auth-password-error' : null"
             />
-            <p *ngIf="initialFieldErrors['password']" id="unified-auth-password-error" class="auth-field-error" role="alert">{{ initialFieldErrors["password"] }}</p>
+            <p *ngIf="version === 'v1' && initialFieldErrors['password']" id="unified-auth-password-error" class="auth-field-error" role="alert">{{ initialFieldErrors["password"] }}</p>
             <p class="auth-helper-text">
                 {{
                     version === "v2"
-                        ? "Password is optional for Sign In and ignored for Sign Up. Reset Password uses only the email address."
+                        ? "Enter your email address. The service will request a password or verification code when required."
                         : "Password is optional for Sign In and Sign Up. Reset Password uses only the email address."
                 }}
             </p>
+
+            <div *ngIf="version === 'v2'">
+                <label for="unified-auth-signup-attributes">Sign-up profile attributes (optional JSON)</label>
+                <textarea
+                    id="unified-auth-signup-attributes"
+                    name="signUpAttributes"
+                    class="auth-input"
+                    [(ngModel)]="signUpAttributesJson"
+                    [disabled]="flowStarting"
+                    rows="3"
+                    placeholder='{"displayName":"Test User","city":"Seattle"}'
+                    aria-describedby="unified-auth-signup-attributes-help"
+                ></textarea>
+                <p id="unified-auth-signup-attributes-help" class="auth-helper-text">
+                    Used only for V2 Sign Up. Use string values; existing-account sign-in does not update the profile.
+                </p>
+            </div>
 
             <div class="auth-actions">
                 <button type="button" class="auth-button" [disabled]="loading || flowStarting" (click)="startFlow('signIn')">

@@ -9,6 +9,7 @@ import {
     AuthMethodVerificationRequiredStateV2,
     CompletedStateV2,
     MFAVerificationRequiredStateV2,
+    SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type { AuthenticationMethodRegistrationV2, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { AuthMethodRegistrationForm } from "../components/forms/AuthMethodRegistrationForm";
@@ -24,6 +25,7 @@ interface V2AuthMethodFlowProps {
         | AuthMethodVerificationRequiredStateV2;
     onStateChange: (state: AuthFlowStateBase) => void;
     onCompleted: (state: CompletedStateV2, account?: CustomAuthAccountData) => void;
+    onSignInContinuation?: (state: SignInContinuationStateV2) => Promise<void>;
     onErrorChange: (error: string) => void;
     onBusyChange: (busy: boolean) => void;
 }
@@ -36,6 +38,7 @@ export function V2AuthMethodFlow({
     state,
     onStateChange,
     onCompleted,
+    onSignInContinuation,
     onErrorChange,
     onBusyChange,
 }: V2AuthMethodFlowProps) {
@@ -122,6 +125,10 @@ export function V2AuthMethodFlow({
                 setCode("");
                 setResendCountdown(0);
                 onCompleted(result.state, result.data);
+            } else if (result.isState("signInContinuation") && onSignInContinuation) {
+                setCode("");
+                setResendCountdown(0);
+                await onSignInContinuation(result.state);
             } else {
                 setError("Code verification returned an unsupported state.");
             }

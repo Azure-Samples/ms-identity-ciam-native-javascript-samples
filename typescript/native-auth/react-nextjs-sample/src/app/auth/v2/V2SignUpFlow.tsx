@@ -13,12 +13,13 @@ import {
     ExistingAccountCodeRequiredStateV2,
     ExistingAccountPasswordRequiredStateV2,
     MFAVerificationRequiredStateV2,
-    SignInContinuationStateV2,
     PasswordRequiredStateV2,
+    SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
 import type {
     AuthFlowErrorV2,
     CustomAuthAccountData,
+    CustomAuthResultV2,
     UserAccountAttributes,
 } from "@azure/msal-browser/custom-auth";
 import { DynamicAttributesForm } from "../components/forms/DynamicAttributesForm";
@@ -172,6 +173,38 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         }
     };
 
+    const handleSubmissionResult = async (
+        result: CustomAuthResultV2<AuthFlowStateBase, CustomAuthAccountData | undefined>,
+        unsupportedMessage: string,
+    ) => {
+        if (result.isFailed()) {
+            applyV2Error(result.error);
+            return;
+        }
+
+        if (result.state instanceof CompletedStateV2) {
+            complete(result.state, result.data);
+        } else if (result.state instanceof SignInContinuationStateV2) {
+            setCode("");
+            setAttributeValues({});
+            setResendCountdown(0);
+            await continueSignIn(result.state);
+        } else if (
+            result.state instanceof PasswordRequiredStateV2 ||
+            result.state instanceof AttributesRequiredStateV2 ||
+            result.state instanceof AuthMethodSelectionRequiredStateV2 ||
+            result.state instanceof AuthMethodRegistrationRequiredStateV2
+        ) {
+            setCode("");
+            setAttributeValues({});
+            setFieldErrors({});
+            setResendCountdown(0);
+            setSignUpState(result.state);
+        } else {
+            setError(unsupportedMessage);
+        }
+    };
+
     const handleCodeSubmit = async (event: FormEvent) => {
         event.preventDefault();
         if (
@@ -187,32 +220,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         setLoading(true);
         try {
             const result = await signUpState.submitCode(code);
-            if (result.isFailed()) {
-                applyV2Error(result.error);
-                return;
-            }
-
-            if (result.isPasswordRequired() || result.isState("attributesRequired")) {
-                setCode("");
-                setAttributeValues({});
-                setFieldErrors({});
-                setSignUpState(result.state);
-            } else if (result.isState("signInContinuation")) {
-                setCode("");
-                await continueSignIn(result.state);
-            } else if (
-                result.isState("authMethodSelectionRequired") ||
-                result.isState("authMethodRegistrationRequired")
-            ) {
-                setCode("");
-                setAttributeValues({});
-                setResendCountdown(0);
-                setSignUpState(result.state);
-            } else if (result.isState("completed")) {
-                complete(result.state, result.data);
-            } else {
-                setError("Code verification returned an unsupported state.");
-            }
+            await handleSubmissionResult(result, "Code verification returned an unsupported state.");
         } catch (caughtError) {
             setError(getThrownErrorMessage(caughtError));
         } finally {
@@ -262,27 +270,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         setLoading(true);
         try {
             const result = await signUpState.submitAttributes(buildAttributes(attributeValues));
-            if (result.isFailed()) {
-                applyV2Error(result.error);
-                return;
-            }
-
-            if (result.isState("attributesRequired")) {
-                setAttributeValues({});
-                setCode("");
-                setFieldErrors({});
-                setSignUpState(result.state);
-            } else if (result.isState("signInContinuation")) {
-                setAttributeValues({});
-                await continueSignIn(result.state);
-            } else if (result.isState("authMethodRegistrationRequired")) {
-                setCode("");
-                setAttributeValues({});
-                setResendCountdown(0);
-                setSignUpState(result.state);
-            } else {
-                setError("Attribute submission returned an unsupported state.");
-            }
+            await handleSubmissionResult(result, "Attribute submission returned an unsupported state.");
         } catch (caughtError) {
             setError(getThrownErrorMessage(caughtError));
         } finally {
@@ -304,32 +292,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         setLoading(true);
         try {
             const result = await signUpState.submitPassword(password);
-            if (result.isFailed()) {
-                applyV2Error(result.error);
-                return;
-            }
-
-            if (result.isState("attributesRequired")) {
-                setAttributeValues({});
-                setCode("");
-                setFieldErrors({});
-                setSignUpState(result.state);
-            } else if (result.isState("signInContinuation")) {
-                setAttributeValues({});
-                await continueSignIn(result.state);
-            } else if (
-                result.isState("authMethodSelectionRequired") ||
-                result.isState("authMethodRegistrationRequired")
-            ) {
-                setCode("");
-                setAttributeValues({});
-                setResendCountdown(0);
-                setSignUpState(result.state);
-            } else if (result.isState("completed")) {
-                complete(result.state, result.data);
-            } else {
-                setError("Password submission returned an unsupported state.");
-            }
+            await handleSubmissionResult(result, "Password submission returned an unsupported state.");
         } catch (caughtError) {
             setError(getThrownErrorMessage(caughtError));
         } finally {
@@ -361,56 +324,45 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         signUpState instanceof ExistingAccountCodeRequiredStateV2
     ) {
         content = (
-            <>
-                {signUpState instanceof ExistingAccountCodeRequiredStateV2 && (
-                    <p className="auth-helper-text">
-                        This account already exists. Verify its email code to sign in.
-                    </p>
-                )}
-                <CodeForm
-                    onSubmit={handleCodeSubmit}
-                    code={code}
-                    setCode={setCode}
-                    loading={loading}
-                    onResendCode={handleResendCode}
-                    resendCountdown={resendCountdown}
-                    resendLoading={resendLoading}
-                    sentTo={signUpState.sentTo}
-                    channel={signUpState.channel}
-                    codeLength={signUpState.codeLength}
-                    showDeliveryHint
-                    noValidate
-                />
-            </>
-        );
-    } else if (signUpState instanceof ExistingAccountPasswordRequiredStateV2) {
-        content = (
-            <PasswordForm
-                onSubmit={handlePasswordSubmit}
-                submitButtonText="Sign In"
-                submitButtonLoadingText="Signing in..."
+            <CodeForm
+                onSubmit={handleCodeSubmit}
+                code={code}
+                setCode={setCode}
                 loading={loading}
+                onResendCode={handleResendCode}
+                resendCountdown={resendCountdown}
+                resendLoading={resendLoading}
+                sentTo={signUpState.sentTo}
+                channel={signUpState.channel}
+                codeLength={signUpState.codeLength}
+                showDeliveryHint
                 noValidate
-            >
-                <p className="auth-helper-text">
-                    This account already exists. Enter its current password to sign in.
-                </p>
-            </PasswordForm>
+            />
         );
-    } else if (signUpState instanceof PasswordRequiredStateV2) {
+    } else if (
+        signUpState instanceof PasswordRequiredStateV2 ||
+        signUpState instanceof ExistingAccountPasswordRequiredStateV2
+    ) {
+        const isExistingAccount = signUpState instanceof ExistingAccountPasswordRequiredStateV2;
+        const passwordAttribute = signUpState instanceof PasswordRequiredStateV2
+            ? signUpState.requestedPasswordAttribute
+            : undefined;
         content = (
             <PasswordForm
                 onSubmit={handlePasswordSubmit}
-                passwordLabel={signUpState.requestedPasswordAttribute?.label || "Password"}
-                passwordPattern={signUpState.requestedPasswordAttribute?.regex}
+                passwordLabel={passwordAttribute?.label || "Password"}
+                passwordPattern={passwordAttribute?.regex}
                 passwordError={fieldErrors.password}
                 onPasswordChange={() => clearFieldError("password")}
-                submitButtonText="Submit Password"
+                submitButtonText={isExistingAccount ? "Sign In" : "Submit Password"}
+                submitButtonLoadingText={isExistingAccount ? "Signing in..." : "Submitting..."}
                 loading={loading}
                 noValidate
             >
                 <p className="auth-helper-text">
-                    Choose your sign-up password. Profile attributes are collected separately when requested.
+                    {isExistingAccount
+                        ? "An account already exists. Enter its password to sign in."
+                        : "Choose the password for your new account. Profile attributes are collected separately when required."}
                 </p>
             </PasswordForm>
         );
@@ -437,6 +389,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
                 state={signUpState}
                 onStateChange={setSignUpState}
                 onCompleted={complete}
+                onSignInContinuation={continueSignIn}
                 onErrorChange={setError}
                 onBusyChange={setAuthMethodBusy}
             />

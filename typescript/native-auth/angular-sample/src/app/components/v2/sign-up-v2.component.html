@@ -1,16 +1,32 @@
 <app-auth-step-layout title="V2 Sign Up" [error]="error" [busy]="loading || resendLoading" (restart)="restart()">
     <div class="auth-signed-in-message" *ngIf="userData">Signed up and signed in as {{ userData.getAccount().username }}</div>
 
+    <div *ngIf="!state && !userData" class="auth-form">
+        <label for="signup-upfront-attributes">Upfront profile attributes (optional JSON)</label>
+        <textarea
+            id="signup-upfront-attributes"
+            class="auth-input"
+            [(ngModel)]="initialAttributesJson"
+            [disabled]="loading"
+            rows="3"
+            placeholder='{"displayName":"Test User","city":"Seattle"}'
+            aria-describedby="signup-upfront-attributes-help"
+        ></textarea>
+        <p id="signup-upfront-attributes-help" class="auth-helper-text">
+            Use string values. The SDK retains these for new-account collection and ignores them when signing in to an existing account.
+        </p>
+    </div>
+
     <app-auth-start-form
         *ngIf="!state && !userData"
         [(username)]="username"
-        [(password)]="password"
+        [showPassword]="false"
         [loading]="loading"
         [fieldErrors]="fieldErrors"
         usernamePlaceholder="Email"
         submitText="Sign Up"
         submittingText="Signing up..."
-        helperText="The password entered here is ignored. The service will request it later when required."
+        helperText="The service will request a password later if this sign-up flow requires one."
         (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignUp()"
     >
@@ -53,7 +69,7 @@
         (submitForm)="submitPassword()"
     >
         <p class="auth-helper-text">
-            Choose your sign-up password. Profile attributes are collected separately when requested.
+            Choose your sign-up password. Profile attributes are submitted separately when requested.
         </p>
     </app-password-form>
 

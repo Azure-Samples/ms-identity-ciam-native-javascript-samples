@@ -4,12 +4,12 @@
     <app-auth-start-form
         *ngIf="!state && !userData"
         [(username)]="username"
-        [(password)]="password"
+        [showPassword]="false"
         [loading]="loading"
         [fieldErrors]="fieldErrors"
         submitText="Sign In"
         submittingText="Signing in..."
-        helperText="Password is optional. Leave it empty to use another configured authentication method."
+        helperText="The service will request a password or verification code when required."
         (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignIn()"
     >

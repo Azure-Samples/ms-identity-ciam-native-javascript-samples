@@ -50,7 +50,6 @@ import {
 })
 export class SignInV2Component implements OnInit {
     @Input() initialUsername = "";
-    @Input() initialPassword = "";
     @Input() autoStart = false;
     @Input() embedded = false;
 
@@ -76,7 +75,6 @@ export class SignInV2Component implements OnInit {
 
     async ngOnInit(): Promise<void> {
         this.username = this.initialUsername;
-        this.password = this.initialPassword;
 
         const client = await this.auth.getClient();
         const accountResult = client.getCurrentAccount();
@@ -145,7 +143,6 @@ export class SignInV2Component implements OnInit {
             const client = await this.auth.getClient();
             const result = await client.signInV2({
                 username: this.username,
-                password: this.password || undefined,
                 ...authorizationInputs,
             });
 
@@ -154,12 +151,9 @@ export class SignInV2Component implements OnInit {
             } else if (
                 result.isPasswordRequired() ||
                 result.isState("codeRequired") ||
-                result.isState("authMethodSelectionRequired") ||
-                result.isState("authMethodRegistrationRequired")
+                result.isState("authMethodSelectionRequired")
             ) {
                 this.state = result.state;
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
             } else {
                 this.error = "Sign-in returned an unsupported state.";
             }
@@ -184,7 +178,7 @@ export class SignInV2Component implements OnInit {
         try {
             const result = await state.submitPassword(password);
             if (result.isFailed()) {
-                this.applyV2Error(result.error);
+                this.initialErrorPresentation = this.applyV2Error(result.error);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else if (result.isState("authMethodSelectionRequired")) {

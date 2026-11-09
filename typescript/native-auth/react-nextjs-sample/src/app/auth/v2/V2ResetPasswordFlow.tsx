@@ -9,6 +9,7 @@ import {
     AuthMethodVerificationRequiredStateV2,
     CodeRequiredStateV2,
     CompletedStateV2,
+    MFAVerificationRequiredStateV2,
     NewPasswordRequiredStateV2,
     SignInContinuationStateV2,
 } from "@azure/msal-browser/custom-auth";
@@ -50,6 +51,7 @@ export function V2ResetPasswordFlow({
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
     const [authMethodBusy, setAuthMethodBusy] = useState(false);
+    const [isPostResetMfa, setIsPostResetMfa] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [resetState, setResetState] = useState<AuthFlowStateBase | null>(null);
 
@@ -66,6 +68,7 @@ export function V2ResetPasswordFlow({
         setCode("");
         setError("");
         setResetState(null);
+        setIsPostResetMfa(false);
         setResendCountdown(0);
         setLoading(true);
 
@@ -224,9 +227,13 @@ export function V2ResetPasswordFlow({
                 return;
             }
 
-            if (result.isState("authMethodRegistrationRequired")) {
+            if (
+                result.isState("authMethodRegistrationRequired") ||
+                result.isState("authMethodSelectionRequired")
+            ) {
                 setCode("");
                 setResendCountdown(0);
+                setIsPostResetMfa(result.isState("authMethodSelectionRequired"));
                 setResetState(result.state);
             } else if (result.isState("signInContinuation")) {
                 await continueSignIn(result.state);
@@ -241,7 +248,7 @@ export function V2ResetPasswordFlow({
     };
 
     let content;
-    if (resetState instanceof AuthMethodSelectionRequiredStateV2) {
+    if (resetState instanceof AuthMethodSelectionRequiredStateV2 && !isPostResetMfa) {
         content = (
             <MethodSelectionForm
                 options={resetState.methods.map((method) => ({
@@ -288,6 +295,8 @@ export function V2ResetPasswordFlow({
             />
         );
     } else if (
+        resetState instanceof AuthMethodSelectionRequiredStateV2 ||
+        resetState instanceof MFAVerificationRequiredStateV2 ||
         resetState instanceof AuthMethodRegistrationRequiredStateV2 ||
         resetState instanceof AuthMethodVerificationRequiredStateV2
     ) {
@@ -296,6 +305,7 @@ export function V2ResetPasswordFlow({
                 state={resetState}
                 onStateChange={setResetState}
                 onCompleted={complete}
+                onSignInContinuation={continueSignIn}
                 onErrorChange={setError}
                 onBusyChange={setAuthMethodBusy}
             />

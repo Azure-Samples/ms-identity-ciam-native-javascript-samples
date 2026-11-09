@@ -39,7 +39,9 @@ export function AuthStartForm({
             throw new Error("The authentication form was submitted without a valid action.");
         }
 
-        const password = action === "resetPassword" ? undefined : passwordInputRef.current?.value || undefined;
+        const password = version === "v1" && action !== "resetPassword"
+            ? passwordInputRef.current?.value || undefined
+            : undefined;
         const request = onStart({ action, username, password });
         if (passwordInputRef.current) {
             passwordInputRef.current.value = "";
@@ -86,28 +88,32 @@ export function AuthStartForm({
                     {usernameError}
                 </p>
             )}
-            <input
-                id="auth-start-password"
-                ref={passwordInputRef}
-                type="password"
-                name="password"
-                placeholder="Password (optional)"
-                autoComplete="current-password"
-                className="auth-input"
-                onChange={() => onFieldChange?.("password")}
-                aria-invalid={passwordError ? true : undefined}
-                aria-describedby={passwordError ? "auth-start-password-error" : undefined}
-            />
-            {passwordError && (
-                <p id="auth-start-password-error" className="auth-field-error" role="alert">
-                    {passwordError}
+            {version === "v1" && (
+                <>
+                    <input
+                        id="auth-start-password"
+                        ref={passwordInputRef}
+                        type="password"
+                        name="password"
+                        placeholder="Password (optional)"
+                        autoComplete="current-password"
+                        className="auth-input"
+                        onChange={() => onFieldChange?.("password")}
+                        aria-invalid={passwordError ? true : undefined}
+                        aria-describedby={passwordError ? "auth-start-password-error" : undefined}
+                    />
+                    {passwordError && (
+                        <p id="auth-start-password-error" className="auth-field-error" role="alert">
+                            {passwordError}
+                        </p>
+                    )}
+                </>
+            )}
+            {version === "v1" && (
+                <p className="auth-helper-text">
+                    Password is optional for Sign In and Sign Up. Reset Password uses only the email address.
                 </p>
             )}
-            <p className="auth-helper-text">
-                {version === "v2"
-                    ? "Password is optional for Sign In and ignored for Sign Up. Reset Password uses only the email address."
-                    : "Password is optional for Sign In and Sign Up. Reset Password uses only the email address."}
-            </p>
             <div className="auth-actions">
                 <button
                     type="submit"

@@ -1,3 +1,4 @@
+import { isDevMode } from "@angular/core";
 import type { AuthFlowErrorV2 } from "@azure/msal-browser/custom-auth";
 
 export interface V2ErrorPresentation {
@@ -16,18 +17,21 @@ function normalizeAttributeIds(attributeIds: readonly string[] | undefined): rea
     return Array.isArray(attributeIds) ? attributeIds : [];
 }
 
-function getActionMessage(error: AuthFlowErrorV2, invalidAttributes: readonly string[]): string | undefined {
+function getActionMessage(
+    error: AuthFlowErrorV2,
+    requiredAttributes: readonly string[],
+    invalidAttributes: readonly string[],
+): string | undefined {
     if (error.isBrowserRequired()) {
         return "Browser authentication is required to continue.";
     }
-    if (error.isInvalidCredentials()) {
-        return "The username or password is incorrect.";
-    }
-    if (error.isInvalidCode()) {
+    if (error.isInvalidCode() || error.isInvalidChallenge()) {
         return "The verification code is invalid. Try again or request a new code.";
     }
     if (error.isInvalidPassword()) {
-        return "The password does not meet the required policy.";
+        return error.errorData.error === "invalidGrant" && error.innerErrorCode === "invalidUserNameOrPassword"
+            ? "The username or password is incorrect."
+            : "The password does not meet the required policy.";
     }
     if (error.isInvalidUsername()) {
         return "Enter a valid username.";
@@ -35,10 +39,7 @@ function getActionMessage(error: AuthFlowErrorV2, invalidAttributes: readonly st
     if (error.isUserNotFound()) {
         return "No account was found for this username.";
     }
-    if (error.isUserAlreadyExists()) {
-        return "An account already exists for this username.";
-    }
-    if (error.isMissingRequiredAttributes()) {
+    if (requiredAttributes.length > 0) {
         return invalidAttributes.length > 0
             ? "Complete all required account attributes and correct the invalid values."
             : "Complete all required account attributes.";
@@ -65,9 +66,25 @@ export function getV2ErrorPresentation(error: AuthFlowErrorV2 | null | undefined
         return createV2ErrorPresentation("No error details were returned.");
     }
 
+    if (isDevMode()) {
+        console.log("[Native Auth V2] error classifiers", {
+            ...(error.isInvalidInput() ? { errorDescription: error.errorData } : {}),
+            isBrowserRequired: error.isBrowserRequired(),
+            isInvalidInput: error.isInvalidInput(),
+            isInvalidUsername: error.isInvalidUsername(),
+            isUserNotFound: error.isUserNotFound(),
+            isInvalidCode: error.isInvalidCode(),
+            isInvalidChallenge: error.isInvalidChallenge(),
+            isInvalidAttributeError: error.isInvalidAttributes(),
+            isInvalidPassword: error.isInvalidPassword(),
+            requiredAttributes: error.requiredAttributes,
+            invalidAttributes: error.invalidAttributes,
+        });
+    }
+
     const requiredAttributes = normalizeAttributeIds(error.requiredAttributes);
     const invalidAttributes = normalizeAttributeIds(error.invalidAttributes);
-    const actionMessage = getActionMessage(error, invalidAttributes);
+    const actionMessage = getActionMessage(error, requiredAttributes, invalidAttributes);
 
     return {
         message: actionMessage || error.errorDescription || error.errorData.message || "The authentication request failed.",

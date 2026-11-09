@@ -62,7 +62,7 @@ type AttributeValues = Record<string, string>;
 })
 export class SignUpV2Component implements OnInit {
     @Input() initialUsername = "";
-    @Input() initialPassword = "";
+    @Input() initialAttributesJson = "";
     @Input() autoStart = false;
     @Input() embedded = false;
 
@@ -89,7 +89,6 @@ export class SignUpV2Component implements OnInit {
 
     async ngOnInit(): Promise<void> {
         this.username = this.initialUsername;
-        this.password = this.initialPassword;
 
         const client = await this.auth.getClient();
         const accountResult = client.getCurrentAccount();
@@ -181,10 +180,11 @@ export class SignUpV2Component implements OnInit {
         this.loading = true;
 
         try {
+            const attributes = this.buildInitialAttributes();
             const client = await this.auth.getClient();
             const result = await client.signUpV2({
                 username: this.username,
-                attributes: {},
+                attributes,
                 ...authorizationInputs,
             });
 
@@ -221,7 +221,18 @@ export class SignUpV2Component implements OnInit {
         try {
             const result = await state.submitCode(this.code);
             if (result.isFailed()) {
-                this.applyV2Error(result.error);
+                const presentation = this.applyV2Error(result.error);
+                if (
+                    state instanceof CodeRequiredStateV2 &&
+                    (presentation.invalidAttributes.length > 0 ||
+                        presentation.requiredAttributes.length > 0 ||
+                        presentation.innerErrorCode === "attributeValidationError")
+                ) {
+                    this.state = result.state;
+                    this.code = "";
+                    this.resendCountdown = 0;
+                    this.error += " Restart sign-up to correct the upfront profile attributes.";
+                }
             } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
                 this.code = "";
                 this.attributeValues = {};
@@ -334,8 +345,16 @@ export class SignUpV2Component implements OnInit {
         try {
             const result = await state.submitAttributes(this.buildAttributes());
             if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("attributesRequired")) {
+                const presentation = this.applyV2Error(result.error);
+                if (
+                    presentation.invalidAttributes.length > 0 ||
+                    presentation.requiredAttributes.length > 0 ||
+                    presentation.innerErrorCode === "attributeValidationError"
+                ) {
+                    this.state = result.state;
+                    this.error += " Restart sign-up to correct the profile attributes.";
+                }
+            } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
                 this.attributeValues = {};
                 this.code = "";
                 this.fieldErrors = {};
@@ -455,6 +474,10 @@ export class SignUpV2Component implements OnInit {
             const result = await state.submitChallenge(this.code);
             if (result.isFailed()) {
                 this.applyV2Error(result.error);
+            } else if (result.isState("signInContinuation")) {
+                this.code = "";
+                this.resendCountdown = 0;
+                await this.continueSignIn(result.state);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
             } else {
@@ -566,6 +589,25 @@ export class SignUpV2Component implements OnInit {
             if (value) {
                 attributes[name] = value;
             }
+        }
+        return attributes;
+    }
+
+    private buildInitialAttributes(): UserAccountAttributes {
+        const parsed: unknown = JSON.parse(this.initialAttributesJson.trim() || "{}");
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+            throw new Error("Upfront profile attributes must be a JSON object with string values.");
+        }
+
+        const attributes: UserAccountAttributes = {};
+        for (const [name, value] of Object.entries(parsed)) {
+            if (["__proto__", "prototype", "constructor"].includes(name)) {
+                throw new Error(`The upfront profile attribute name '${name}' is not supported.`);
+            }
+            if (typeof value !== "string") {
+                throw new Error("Upfront profile attributes must be a JSON object with string values.");
+            }
+            attributes[name] = value;
         }
         return attributes;
     }
