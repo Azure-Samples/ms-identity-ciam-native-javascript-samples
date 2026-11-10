@@ -24,9 +24,9 @@ The V2 sample requires `@azure/msal-browser` `^5.23.0`. Users can select V1 or V
   - Email + password
   - Email + OTP (passwordless registration)
 - During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
-- The sign-up flow may include email verification or additional steps as required by the backend.
+- In V2, new accounts start with email verification, followed by any required password or attribute-collection steps. Existing accounts continue with offered email-code or password authentication.
 - After successful registration, the app automatically continues to sign in the user.
-- During the automatic sign-in after registration, users can add authentication methods (email or SMS) if no strong auth method is registered.
+- Users can add authentication methods (email or SMS) if no strong auth method is registered. In V2, this occurs before continuation sign-in.
 - Handles validation and error feedback for user input.
 
 #### Self-Service Password Reset (SSPR)
@@ -34,8 +34,7 @@ The V2 sample requires `@azure/msal-browser` `^5.23.0`. Users can select V1 or V
 - In V1, the service selects the password-reset verification channel. In V2, users can select email or SMS when multiple first-factor methods are available.
 - Guides users through requesting a reset code, verifying their identity, and setting a new password.
 - After successful password reset, the app automatically continues to sign in the user.
-- During the automatic sign-in after password reset, users can add authentication methods if no strong auth method is registered.
-- Also, during the automatic sign-in after password reset, users may be required to complete additional verification if MFA is enabled.
+- Users may need to register an authentication method or complete MFA. In V2, these steps occur before continuation sign-in.
 - Handles errors such as invalid or expired reset codes.
 
 For more details on the SDK, see the official Microsoft documentation.
@@ -43,7 +42,7 @@ For more details on the SDK, see the official Microsoft documentation.
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20.x or later (16.x+ supported)
+- Node.js 20.9.0 or later
 - npm 10.x or later (7.x+ supported)
 
 ### Installation
@@ -52,6 +51,7 @@ For more details on the SDK, see the official Microsoft documentation.
 
 ```bash
 git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
+cd ms-identity-ciam-native-javascript-samples
 cd typescript/native-auth/react-nextjs-sample
 ```
 
@@ -66,7 +66,7 @@ npm install
 1. Open `src/config/auth-config.ts` and replace the following with the values obtained from the Microsoft Entra admin center:
    - `Enter_the_Application_Id_Here` → Application (client) ID
    - `Enter_the_Tenant_Subdomain_Here` → Tenant Subdomain
-2. If needed, open `src/config/v2-request-config.ts` to customize the scopes and claims sent by the V2 flows.
+2. If needed, open `src/config/authorization-request-config.ts` to customize the scopes and claims sent by the V1 and V2 flows.
 3. Save the files.
 
 ## Native Auth APIs with Cross-Origin Resource Sharing
@@ -102,9 +102,9 @@ When users open the Next.js sample, they can choose Native Auth V1 or V2 before 
 
 ### V2 request and state handling
 
-- V2 sign-in, sign-up, and password reset start with the scopes and claims configured in `src/config/v2-request-config.ts`. Required OpenID scopes are normalized by the SDK.
+- V2 sign-in, sign-up, and password reset start with the scopes and claims configured in `src/config/authorization-request-config.ts`. Required OpenID scopes are normalized by the SDK.
 - Continuation sign-in after sign-up or password reset is argument-free. The SDK retains the original authorization context and uses the entry scopes only when the token response omits its `scope` value.
-- If a supplied password cannot be used with the authentication methods returned by the service, the SDK can continue with an offered email-code challenge.
+- V2 sign-in starts with the username and collects the password only if the SDK returns `PasswordRequiredStateV2`.
 - Method-selection results are rendered from the state returned by `selectAuthMethod()`. The sample does not infer the next password, primary-code, or MFA state from the selected method.
 - Verification-code inputs are checked for a non-empty value. The service remains responsible for enforcing the expected code length.
 
@@ -162,7 +162,7 @@ react-nextjs-sample/
 │   │   └── Navbar.module.css
 │   └── config/
 │       ├── auth-config.ts        # MSAL/CIAM authentication configuration
-│       └── v2-request-config.ts  # V2 scopes and claims
+│       └── authorization-request-config.ts  # Shared V1/V2 scopes and claims
 └── ...other config and support files
 ```
 
@@ -190,7 +190,7 @@ The unified page starts each flow and renders the active SDK state. Version-spec
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
 
 ## Contributing
-See the [contributing guide](../../CONTRIBUTING.md) to learn about our development process.
+Report bugs or suggest improvements in the [repository issue tracker](https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples/issues).
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](../../../LICENSE) file for details.
