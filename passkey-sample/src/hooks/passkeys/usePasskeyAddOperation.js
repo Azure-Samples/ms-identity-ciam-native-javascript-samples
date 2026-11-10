@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { InteractionRequiredAuthError } from '@azure/msal-browser';
-import { registerSelfServicePasskey } from '../../services/selfServiceApiClient';
-import { createToastMessages, requiresFullReauthentication } from '../../utils/passkeyUtils';
-import { useAuthentication } from './useAuthentication';
+import { registerSelfServicePasskey } from '../../services/passkeyService';
+import { PASSKEY_CONSTANTS, createToastMessages, validateExpectedChange } from '../../utils/passkeyUtils';
+import { requiresFullReauthentication } from '../../utils/authenticationUtils';
+import { useAuthentication } from '../common/useAuthentication';
 
 const REGISTRATION_PROPAGATION_DELAY = 2000;
 
@@ -10,7 +11,7 @@ export const usePasskeyAddOperation = ({
     instance,
     account,
     onShowToast, 
-    fetchPasskeys,
+    fetchCredentials,
     currentPasskeys 
 }) => {
     const [showNameModal, setShowNameModal] = useState(false);
@@ -47,7 +48,7 @@ export const usePasskeyAddOperation = ({
                         onShowToast(createToastMessages.errorAdding(err.message));
                     }
                 }
-                await fetchPasskeys();
+                await fetchCredentials();
                 return;
             }
 
@@ -55,13 +56,17 @@ export const usePasskeyAddOperation = ({
 
             try {
                 await new Promise(resolve => setTimeout(resolve, REGISTRATION_PROPAGATION_DELAY));
-                await fetchPasskeys({
-                    type: 'add',
-                    expectedCount: currentCount + 1
-                }, {
-                    setLoadingState: true,
-                    showToast: true
+                const result = await fetchCredentials({
+                    maxRetries: PASSKEY_CONSTANTS.MAX_RETRIES,
+                    isExpectedResult: ({ passkeys }) => validateExpectedChange(passkeys, {
+                        type: 'add',
+                        expectedCount: currentCount + 1
+                    }),
+                    throwOnError: true
                 });
+                if (result?.passkeys.length > 0) {
+                    onShowToast?.(createToastMessages.passkeysRefreshed(result.passkeys.length));
+                }
             } catch (refreshError) {
                 console.warn('Passkey was added, but the passkey list could not be refreshed:', refreshError);
             }
