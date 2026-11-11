@@ -1,3 +1,4 @@
+import { appConfig } from '../authConfig';
 import { getSelfServiceAccessToken } from '../utils/selfServiceToken';
 import { base64urlToBuffer, bufferToBase64url, formatDetailedDate, formatPasskeyType, generateUniquePasskeyName } from '../utils/graphServiceUtils';
 import { METHODS_PATH, fetchSelfServiceMethods, requestMethod } from './selfServiceApiClient';
@@ -78,6 +79,10 @@ export async function registerSelfServicePasskey(instance, account, displayName 
     const options = start.publicKey;
     const publicKey = {
         ...options,
+        rp: {
+            ...options.rp,
+            id: appConfig.customDomain || options.rp.id,
+        },
         authenticatorSelection: { ...options.authenticatorSelection },
         challenge: base64urlToBuffer(options.challenge),
         user: { ...options.user, id: base64urlToBuffer(options.user.id) },

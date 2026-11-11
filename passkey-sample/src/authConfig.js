@@ -8,6 +8,7 @@ import { LogLevel } from '@azure/msal-browser';
 const clientId = '<your-client-id-here>';
 const tenantId = '<your-tenant-id>';
 const tenantName = '<your-tenant-name>';
+const customDomain = ''; // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
 
 /**
  * Configuration object to be passed to MSAL instance on creation. 
@@ -114,5 +115,5 @@ export const appConfig = {
     graphProxy: `${proxyOrigin}/graph`,
     appId: msalConfig.auth.clientId,
     tenantId,
-    customDomain: '', // Optional: your valid custom domain. If empty, the tenant subdomain from creationOptions.rp.id is used.
+    customDomain,
 };

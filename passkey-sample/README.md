@@ -162,6 +162,7 @@ Set the client ID, tenant ID, and external tenant subdomain in `src/authConfig.j
 const clientId = '<your-client-id-here>';
 const tenantId = '<your-tenant-id>';
 const tenantName = '<your-tenant-name>';
+const customDomain = '';
 
 export const msalConfig = {
     auth: {
@@ -178,6 +179,7 @@ export const msalConfig = {
 1. **Client ID**: Found in your app registration overview page
 2. **Tenant ID and subdomain**: Found in your tenant overview and CIAM tenant URL
 3. **Redirect URI**: The URL where users will be redirected after authentication **(must be registered in Entra portal)**
+4. **Custom domain (optional)**: Set `customDomain` to your valid custom domain. Leave it empty to use the tenant subdomain returned by the service.
 
 #### Step 2: Environment Configuration (.env file)
 
