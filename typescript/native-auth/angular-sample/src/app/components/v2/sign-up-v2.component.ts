@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
     AttributesRequiredStateV2,
@@ -60,9 +60,8 @@ type AttributeValues = Record<string, string>;
         PasswordFormComponent,
     ],
 })
-export class SignUpV2Component implements OnInit {
+export class SignUpV2Component implements OnInit, OnDestroy {
     @Input() initialUsername = "";
-    @Input() initialAttributesJson = "";
     @Input() autoStart = false;
     @Input() embedded = false;
 
@@ -84,6 +83,8 @@ export class SignUpV2Component implements OnInit {
     state: AuthFlowStateBase | null = null;
     userData: CustomAuthAccountData | undefined;
     private initialErrorPresentation: V2ErrorPresentation | undefined;
+    private resendTimer: number | undefined;
+    private destroyed = false;
 
     constructor(private auth: AuthService) {}
 
@@ -101,6 +102,11 @@ export class SignUpV2Component implements OnInit {
             this.initialErrorPresentation ??
                 (this.error ? createV2ErrorPresentation(this.error) : undefined),
         );
+    }
+
+    ngOnDestroy(): void {
+        this.destroyed = true;
+        this.stopResendCountdown();
     }
 
     get codeState(): CodeRequiredStateV2 | ExistingAccountCodeRequiredStateV2 | null {
@@ -180,11 +186,9 @@ export class SignUpV2Component implements OnInit {
         this.loading = true;
 
         try {
-            const attributes = this.buildInitialAttributes();
             const client = await this.auth.getClient();
             const result = await client.signUpV2({
                 username: this.username,
-                attributes,
                 ...authorizationInputs,
             });
 
@@ -230,8 +234,8 @@ export class SignUpV2Component implements OnInit {
                 ) {
                     this.state = result.state;
                     this.code = "";
-                    this.resendCountdown = 0;
-                    this.error += " Restart sign-up to correct the upfront profile attributes.";
+                    this.stopResendCountdown();
+                    this.error += " Restart sign-up to correct the profile attributes.";
                 }
             } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
                 this.code = "";
@@ -247,7 +251,7 @@ export class SignUpV2Component implements OnInit {
             ) {
                 this.code = "";
                 this.attributeValues = {};
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 this.state = result.state;
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
@@ -318,7 +322,7 @@ export class SignUpV2Component implements OnInit {
                 this.password = "";
                 this.attributeValues = {};
                 this.fieldErrors = {};
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 this.state = result.state;
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
@@ -400,7 +404,7 @@ export class SignUpV2Component implements OnInit {
             } else {
                 this.code = "";
                 this.password = "";
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 this.state = result.state;
             }
         } catch (error) {
@@ -418,6 +422,13 @@ export class SignUpV2Component implements OnInit {
         }
 
         this.selectedRegistrationMethod = method;
+        this.registrationContact = "";
+        this.error = "";
+        this.fieldErrors = {};
+    }
+
+    chooseAnotherRegistrationMethod(): void {
+        this.selectedRegistrationMethod = null;
         this.registrationContact = "";
         this.error = "";
         this.fieldErrors = {};
@@ -446,7 +457,7 @@ export class SignUpV2Component implements OnInit {
                 this.applyV2Error(result.error);
             } else if (result.isState("authMethodVerificationRequired")) {
                 this.code = "";
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 this.state = result.state;
                 this.selectedRegistrationMethod = null;
                 this.registrationContact = "";
@@ -476,7 +487,7 @@ export class SignUpV2Component implements OnInit {
                 this.applyV2Error(result.error);
             } else if (result.isState("signInContinuation")) {
                 this.code = "";
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 await this.continueSignIn(result.state);
             } else if (result.isState("completed")) {
                 this.complete(result.state, result.data);
@@ -593,25 +604,6 @@ export class SignUpV2Component implements OnInit {
         return attributes;
     }
 
-    private buildInitialAttributes(): UserAccountAttributes {
-        const parsed: unknown = JSON.parse(this.initialAttributesJson.trim() || "{}");
-        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-            throw new Error("Upfront profile attributes must be a JSON object with string values.");
-        }
-
-        const attributes: UserAccountAttributes = {};
-        for (const [name, value] of Object.entries(parsed)) {
-            if (["__proto__", "prototype", "constructor"].includes(name)) {
-                throw new Error(`The upfront profile attribute name '${name}' is not supported.`);
-            }
-            if (typeof value !== "string") {
-                throw new Error("Upfront profile attributes must be a JSON object with string values.");
-            }
-            attributes[name] = value;
-        }
-        return attributes;
-    }
-
     private applyV2Error(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
         const presentation = getV2ErrorPresentation(error);
         this.error = formatV2ErrorPresentation(presentation);
@@ -638,6 +630,7 @@ export class SignUpV2Component implements OnInit {
     }
 
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
+        this.stopResendCountdown();
         this.state = state;
         this.password = "";
         this.code = "";
@@ -645,12 +638,12 @@ export class SignUpV2Component implements OnInit {
         this.registrationContact = "";
         this.attributeValues = {};
         this.fieldErrors = {};
-        this.resendCountdown = 0;
         this.userData = account;
         this.completed.emit(account);
     }
 
     private resetFlow(): void {
+        this.stopResendCountdown();
         this.state = null;
         this.userData = undefined;
         this.code = "";
@@ -659,17 +652,28 @@ export class SignUpV2Component implements OnInit {
         this.error = "";
         this.attributeValues = {};
         this.fieldErrors = {};
-        this.resendCountdown = 0;
         this.initialErrorPresentation = undefined;
     }
 
     private startResendCountdown(): void {
+        this.stopResendCountdown();
+        if (this.destroyed) {
+            return;
+        }
         this.resendCountdown = 30;
-        const timer = window.setInterval(() => {
+        this.resendTimer = window.setInterval(() => {
             this.resendCountdown = Math.max(0, this.resendCountdown - 1);
             if (this.resendCountdown === 0) {
-                window.clearInterval(timer);
+                this.stopResendCountdown();
             }
         }, 1000);
+    }
+
+    private stopResendCountdown(): void {
+        if (this.resendTimer !== undefined) {
+            window.clearInterval(this.resendTimer);
+            this.resendTimer = undefined;
+        }
+        this.resendCountdown = 0;
     }
 }

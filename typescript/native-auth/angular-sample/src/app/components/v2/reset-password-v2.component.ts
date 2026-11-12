@@ -23,7 +23,7 @@ import {
     MethodOption,
     MethodSelectionFormComponent,
 } from "../shared/method-selection-form/method-selection-form.component";
-import { NewPasswordFormComponent } from "../shared/new-password-form/new-password-form.component";
+import { PasswordFormComponent } from "../shared/password-form/password-form.component";
 import {
     createV2ErrorPresentation,
     formatV2ErrorPresentation,
@@ -45,7 +45,7 @@ import {
         AuthStepLayoutComponent,
         CodeFormComponent,
         MethodSelectionFormComponent,
-        NewPasswordFormComponent,
+        PasswordFormComponent,
     ],
 })
 export class ResetPasswordV2Component implements OnInit, OnDestroy {
@@ -58,6 +58,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
     @Output() ready = new EventEmitter<V2ErrorPresentation | undefined>();
 
     username = "";
+    password = "";
     code = "";
     selectedRegistrationMethod: AuthenticationMethodRegistrationV2 | null = null;
     registrationContact = "";
@@ -254,6 +255,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
     }
 
     async submitNewPassword(newPassword: string): Promise<void> {
+        this.password = "";
         const state = this.newPasswordState;
         if (!state) {
             this.error = "Restart password reset before submitting a new password.";
@@ -296,6 +298,13 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         }
 
         this.selectedRegistrationMethod = method;
+        this.registrationContact = "";
+        this.error = "";
+        this.fieldErrors = {};
+    }
+
+    chooseAnotherRegistrationMethod(): void {
+        this.selectedRegistrationMethod = null;
         this.registrationContact = "";
         this.error = "";
         this.fieldErrors = {};
@@ -468,6 +477,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.stopResendCountdown();
         this.state = null;
         this.userData = undefined;
+        this.password = "";
         this.code = "";
         this.selectedRegistrationMethod = null;
         this.registrationContact = "";

@@ -43,7 +43,7 @@ function getActionMessage(
             ? "Complete all required account attributes and correct the invalid values."
             : "Complete all required account attributes.";
     }
-    if (error.isInvalidAttributes() || invalidAttributes.length > 0) {
+    if (invalidAttributes.length > 0) {
         return "Correct the invalid account attributes.";
     }
     if (error.isInvalidInput()) {

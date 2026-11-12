@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, isDevMode, OnInit } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import type { PopupRequest } from "@azure/msal-browser";
 import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
@@ -26,7 +26,6 @@ interface ActiveFlow {
     action: AuthAction;
     username: string;
     password?: string;
-    attributesJson?: string;
 }
 
 @Component({
@@ -48,7 +47,6 @@ export class UnifiedAuthComponent implements OnInit {
     version: AuthVersion = "v2";
     username = "";
     password = "";
-    signUpAttributesJson = "";
     error = "";
     initialFieldErrors: V2FieldErrors = {};
     loading = true;
@@ -96,8 +94,7 @@ export class UnifiedAuthComponent implements OnInit {
 
     startFlow(action: AuthAction): void {
         const username = this.username.trim();
-        // Temporarily let V2 development flows exercise SDK username validation.
-        if (!username && !(isDevMode() && this.version === "v2")) {
+        if (!username) {
             this.error = "Enter an email address.";
             return;
         }
@@ -112,9 +109,6 @@ export class UnifiedAuthComponent implements OnInit {
             username,
             ...(this.version === "v1" && (action === "signIn" || action === "signUp") && this.password
                 ? { password: this.password }
-                : {}),
-            ...(this.version === "v2" && action === "signUp"
-                ? { attributesJson: this.signUpAttributesJson }
                 : {}),
         };
         this.password = "";
@@ -234,7 +228,6 @@ export class UnifiedAuthComponent implements OnInit {
         this.activeFlow = undefined;
         this.username = "";
         this.password = "";
-        this.signUpAttributesJson = "";
         this.error = "";
         this.initialFieldErrors = {};
         this.account = account;

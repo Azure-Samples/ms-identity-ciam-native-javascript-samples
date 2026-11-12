@@ -1,4 +1,3 @@
-import { isDevMode } from "@angular/core";
 import type { AuthFlowErrorV2 } from "@azure/msal-browser/custom-auth";
 
 export interface V2ErrorPresentation {
@@ -64,22 +63,6 @@ export function createV2ErrorPresentation(message: string): V2ErrorPresentation 
 export function getV2ErrorPresentation(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
     if (!error) {
         return createV2ErrorPresentation("No error details were returned.");
-    }
-
-    if (isDevMode()) {
-        console.log("[Native Auth V2] error classifiers", {
-            ...(error.isInvalidInput() ? { errorDescription: error.errorData } : {}),
-            isBrowserRequired: error.isBrowserRequired(),
-            isInvalidInput: error.isInvalidInput(),
-            isInvalidUsername: error.isInvalidUsername(),
-            isUserNotFound: error.isUserNotFound(),
-            isInvalidCode: error.isInvalidCode(),
-            isInvalidChallenge: error.isInvalidChallenge(),
-            isInvalidAttributeError: error.isInvalidAttributes(),
-            isInvalidPassword: error.isInvalidPassword(),
-            requiredAttributes: error.requiredAttributes,
-            invalidAttributes: error.invalidAttributes,
-        });
     }
 
     const requiredAttributes = normalizeAttributeIds(error.requiredAttributes);

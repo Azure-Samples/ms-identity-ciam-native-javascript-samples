@@ -89,6 +89,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         const presentation = getV2ErrorPresentation(flowError);
         setError(formatV2ErrorPresentation(presentation));
         setFieldErrors(getV2FieldErrors(presentation));
+        return presentation;
     }, []);
 
     useEffect(() => {
@@ -178,7 +179,18 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
         unsupportedMessage: string,
     ) => {
         if (result.isFailed()) {
-            applyV2Error(result.error);
+            const presentation = applyV2Error(result.error);
+            if (
+                (signUpState instanceof CodeRequiredStateV2 || signUpState instanceof AttributesRequiredStateV2) &&
+                (presentation.invalidAttributes.length > 0 ||
+                    presentation.requiredAttributes.length > 0 ||
+                    presentation.innerErrorCode === "attributeValidationError")
+            ) {
+                setSignUpState(result.state);
+                setCode("");
+                setResendCountdown(0);
+                setError(`${formatV2ErrorPresentation(presentation)} Restart sign-up to correct the profile attributes.`);
+            }
             return;
         }
 
@@ -351,6 +363,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
             <PasswordForm
                 onSubmit={handlePasswordSubmit}
                 passwordLabel={passwordAttribute?.label || "Password"}
+                autoComplete={isExistingAccount ? "current-password" : "new-password"}
                 passwordPattern={passwordAttribute?.regex}
                 passwordError={fieldErrors.password}
                 onPasswordChange={() => clearFieldError("password")}
@@ -410,6 +423,11 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
 
     return (
         <AuthStepLayout title="V2 Sign Up" error={error} busy={loading || resendLoading || authMethodBusy} onCancel={handleCancel}>
+            {signUpState instanceof ExistingAccountCodeRequiredStateV2 && (
+                <p className="auth-helper-text">
+                    This account already exists. Verify its email code to sign in.
+                </p>
+            )}
             {content}
         </AuthStepLayout>
     );

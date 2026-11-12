@@ -10,7 +10,7 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import { AuthStepLayout } from "../components/AuthStepLayout";
 import { CodeForm } from "../components/forms/CodeForm";
-import { NewPasswordForm } from "../components/forms/NewPasswordForm";
+import { PasswordForm } from "../components/forms/PasswordForm";
 import type { AuthFlowProps } from "../types";
 import { isV1MfaOrRegistrationState, V1MfaAndRegistrationFlow } from "./V1MfaAndRegistrationFlow";
 import { authorizationInputs } from "../../../config/authorization-request-config";
@@ -226,7 +226,17 @@ export function V1ResetPasswordFlow({ initialResult, onCancel, onCompleted }: V1
             />
         );
     } else if (state instanceof ResetPasswordPasswordRequiredState) {
-        content = <NewPasswordForm onSubmit={handleNewPasswordSubmit} loading={loading} />;
+        content = (
+            <PasswordForm
+                onSubmit={handleNewPasswordSubmit}
+                loading={loading}
+                passwordLabel="New password"
+                passwordPlaceholder="Enter new password"
+                autoComplete="new-password"
+                submitButtonText="Set New Password"
+                submitButtonLoadingText="Setting password..."
+            />
+        );
     } else if (isV1MfaOrRegistrationState(state)) {
         content = (
             <V1MfaAndRegistrationFlow

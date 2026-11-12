@@ -320,7 +320,7 @@ export function V1SignUpFlow({ initialResult, onCancel, onCompleted }: V1SignUpF
             />
         );
     } else if (state instanceof SignUpPasswordRequiredState) {
-        content = <PasswordForm onSubmit={handlePasswordSubmit} loading={loading} />;
+        content = <PasswordForm onSubmit={handlePasswordSubmit} loading={loading} autoComplete="new-password" />;
     } else if (state instanceof SignUpAttributesRequiredState) {
         content = (
             <DynamicAttributesForm

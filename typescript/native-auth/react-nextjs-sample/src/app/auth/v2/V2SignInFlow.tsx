@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
     AuthFlowStateBase,
@@ -12,12 +12,17 @@ import {
     MFAVerificationRequiredStateV2,
     PasswordRequiredStateV2,
 } from "@azure/msal-browser/custom-auth";
-import type { CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
+import type { AuthFlowErrorV2, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { AuthStepLayout } from "../components/AuthStepLayout";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { V2AuthMethodFlow } from "./V2AuthMethodFlow";
-import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
+import {
+    formatV2ErrorPresentation,
+    getV2ErrorPresentation,
+    getV2FieldErrors,
+    type V2FieldErrors,
+} from "./utils/getV2ErrorMessage";
 import { authorizationInputs } from "../../../config/authorization-request-config";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 
@@ -43,11 +48,18 @@ export function V2SignInFlow({
     const onCompletedRef = useRef(onCompleted);
     const [code, setCode] = useState("");
     const [error, setError] = useState("");
+    const [fieldErrors, setFieldErrors] = useState<V2FieldErrors>({});
     const [loading, setLoading] = useState(false);
     const [resendLoading, setResendLoading] = useState(false);
     const [authMethodBusy, setAuthMethodBusy] = useState(false);
     const [resendCountdown, setResendCountdown] = useState(0);
     const [signInState, setSignInState] = useState<AuthFlowStateBase | null>(null);
+
+    const applyV2Error = useCallback((flowError: AuthFlowErrorV2 | null | undefined) => {
+        const presentation = getV2ErrorPresentation(flowError);
+        setError(formatV2ErrorPresentation(presentation));
+        setFieldErrors(getV2FieldErrors(presentation));
+    }, []);
 
     useEffect(() => {
         onCompletedRef.current = onCompleted;
@@ -61,12 +73,13 @@ export function V2SignInFlow({
         handledInitialResult.current = true;
         setCode("");
         setError("");
+        setFieldErrors({});
         setSignInState(null);
         setResendCountdown(0);
         setLoading(true);
 
         if (initialResult.isFailed()) {
-            setError(getV2ErrorMessage(initialResult.error));
+            applyV2Error(initialResult.error);
         } else if (initialResult.isState("passwordRequired")) {
             setSignInState(initialResult.state);
         } else if (initialResult.isState("codeRequired")) {
@@ -77,7 +90,7 @@ export function V2SignInFlow({
             setError("Sign-in returned an unsupported state.");
         }
         setLoading(false);
-    }, [initialResult]);
+    }, [applyV2Error, initialResult]);
 
     useEffect(() => {
         if (resendCountdown <= 0) {
@@ -94,12 +107,14 @@ export function V2SignInFlow({
     const complete = (state: CompletedStateV2, account?: CustomAuthAccountData) => {
         setSignInState(state);
         setCode("");
+        setFieldErrors({});
         setResendCountdown(0);
         onCompletedRef.current(account);
     };
 
     const handleCancel = () => {
         setCode("");
+        setFieldErrors({});
         onCancel();
     };
 
@@ -110,11 +125,12 @@ export function V2SignInFlow({
         }
 
         setError("");
+        setFieldErrors({});
         setLoading(true);
         try {
             const result = await signInState.submitPassword(password);
             if (result.isFailed()) {
-                setError(getV2ErrorMessage(result.error));
+                applyV2Error(result.error);
                 return;
             }
 
@@ -144,12 +160,13 @@ export function V2SignInFlow({
         }
 
         setError("");
+        setFieldErrors({});
         setLoading(true);
         try {
             const result = await signInState.submitCode(code);
 
             if (result.isFailed()) {
-                setError(getV2ErrorMessage(result.error));
+                applyV2Error(result.error);
                 return;
             }
 
@@ -180,12 +197,13 @@ export function V2SignInFlow({
         }
 
         setError("");
+        setFieldErrors({});
         setResendLoading(true);
         try {
             const result = await signInState.resendCode();
 
             if (result.isFailed()) {
-                setError(getV2ErrorMessage(result.error));
+                applyV2Error(result.error);
                 return;
             }
 
@@ -204,6 +222,8 @@ export function V2SignInFlow({
         content = (
             <PasswordForm
                 onSubmit={handlePasswordSubmit}
+                passwordError={fieldErrors.password}
+                onPasswordChange={() => setFieldErrors({})}
                 noValidate
                 loading={loading}
                 submitButtonText="Sign In"

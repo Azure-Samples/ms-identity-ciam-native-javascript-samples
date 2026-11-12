@@ -11,8 +11,6 @@
         (ngModelChange)="onCodeChange($event)"
         name="code"
         [placeholder]="placeholder"
-        [attr.maxlength]="codeLength || null"
-        inputmode="numeric"
         required
     />
     <button type="submit" class="auth-button" [disabled]="loading || resendLoading">

@@ -85,7 +85,7 @@
         <button type="submit" class="auth-button" [disabled]="loading || !registrationContact.trim()">
             {{ loading ? "Registering..." : "Register method" }}
         </button>
-        <button type="button" class="auth-secondary-button" [disabled]="loading" (click)="selectedRegistrationMethod = null">
+        <button type="button" class="auth-secondary-button" [disabled]="loading" (click)="chooseAnotherRegistrationMethod()">
             Choose another method
         </button>
     </form>

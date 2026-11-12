@@ -15,7 +15,7 @@ import {
 } from "@azure/msal-browser/custom-auth";
 import type { AuthenticationMethodV2, CustomAuthAccountData } from "@azure/msal-browser/custom-auth";
 import { AuthStepLayout } from "../components/AuthStepLayout";
-import { NewPasswordForm } from "../components/forms/NewPasswordForm";
+import { PasswordForm } from "../components/forms/PasswordForm";
 import { CodeForm } from "../components/forms/CodeForm";
 import { MethodSelectionForm } from "../components/forms/MethodSelectionForm";
 import { getV2ErrorMessage } from "./utils/getV2ErrorMessage";
@@ -288,9 +288,14 @@ export function V2ResetPasswordFlow({
         );
     } else if (resetState instanceof NewPasswordRequiredStateV2) {
         content = (
-            <NewPasswordForm
+            <PasswordForm
                 onSubmit={handleNewPasswordSubmit}
                 loading={loading}
+                passwordLabel="New password"
+                passwordPlaceholder="Enter new password"
+                autoComplete="new-password"
+                submitButtonText="Set New Password"
+                submitButtonLoadingText="Setting password..."
                 noValidate
             />
         );

@@ -3,6 +3,8 @@ interface PasswordFormProps {
     onSubmit: (password: string) => Promise<void>;
     noValidate?: boolean;
     passwordLabel?: string;
+    passwordPlaceholder?: string;
+    autoComplete?: "current-password" | "new-password";
     passwordPattern?: string;
     passwordError?: string;
     onPasswordChange?: () => void;
@@ -16,6 +18,8 @@ export function PasswordForm({
     noValidate = false,
     loading,
     passwordLabel = "Password",
+    passwordPlaceholder = "Password",
+    autoComplete = "current-password",
     passwordPattern,
     passwordError,
     onPasswordChange,
@@ -58,8 +62,8 @@ export function PasswordForm({
                     id="auth-password"
                     type="password"
                     name="password"
-                    placeholder="Password"
-                    autoComplete="current-password"
+                    placeholder={passwordPlaceholder}
+                    autoComplete={autoComplete}
                     pattern={passwordPattern}
                     style={formStyles.input}
                     onChange={onPasswordChange}

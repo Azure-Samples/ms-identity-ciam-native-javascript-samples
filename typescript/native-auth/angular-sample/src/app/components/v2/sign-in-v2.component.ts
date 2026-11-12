@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, OnInit, Output } from "@angular/core";
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
     type AuthFlowErrorV2,
@@ -48,7 +48,7 @@ import {
         PasswordFormComponent,
     ],
 })
-export class SignInV2Component implements OnInit {
+export class SignInV2Component implements OnInit, OnDestroy {
     @Input() initialUsername = "";
     @Input() autoStart = false;
     @Input() embedded = false;
@@ -70,6 +70,8 @@ export class SignInV2Component implements OnInit {
     state: AuthFlowStateBase | null = null;
     userData: CustomAuthAccountData | undefined;
     private initialErrorPresentation: V2ErrorPresentation | undefined;
+    private resendTimer: number | undefined;
+    private destroyed = false;
 
     constructor(private auth: AuthService) {}
 
@@ -87,6 +89,11 @@ export class SignInV2Component implements OnInit {
             this.initialErrorPresentation ??
                 (this.error ? createV2ErrorPresentation(this.error) : undefined),
         );
+    }
+
+    ngOnDestroy(): void {
+        this.destroyed = true;
+        this.stopResendCountdown();
     }
 
     get passwordState(): PasswordRequiredStateV2 | null {
@@ -271,6 +278,13 @@ export class SignInV2Component implements OnInit {
         this.fieldErrors = {};
     }
 
+    chooseAnotherRegistrationMethod(): void {
+        this.selectedRegistrationMethod = null;
+        this.registrationContact = "";
+        this.error = "";
+        this.fieldErrors = {};
+    }
+
     async enrollAuthMethod(): Promise<void> {
         const state = this.registrationState;
         const method = this.selectedRegistrationMethod;
@@ -294,7 +308,7 @@ export class SignInV2Component implements OnInit {
                 this.applyV2Error(result.error);
             } else if (result.isState("authMethodVerificationRequired")) {
                 this.code = "";
-                this.resendCountdown = 0;
+                this.stopResendCountdown();
                 this.state = result.state;
                 this.selectedRegistrationMethod = null;
                 this.registrationContact = "";
@@ -473,6 +487,7 @@ export class SignInV2Component implements OnInit {
     }
 
     private complete(state: CompletedStateV2, account?: CustomAuthAccountData): void {
+        this.stopResendCountdown();
         this.state = state;
         this.code = "";
         this.fieldErrors = {};
@@ -481,6 +496,7 @@ export class SignInV2Component implements OnInit {
     }
 
     private resetFlow(): void {
+        this.stopResendCountdown();
         this.state = null;
         this.userData = undefined;
         this.code = "";
@@ -488,17 +504,28 @@ export class SignInV2Component implements OnInit {
         this.selectedRegistrationMethod = null;
         this.error = "";
         this.fieldErrors = {};
-        this.resendCountdown = 0;
         this.initialErrorPresentation = undefined;
     }
 
     private startResendCountdown(): void {
+        this.stopResendCountdown();
+        if (this.destroyed) {
+            return;
+        }
         this.resendCountdown = 30;
-        const timer = window.setInterval(() => {
+        this.resendTimer = window.setInterval(() => {
             this.resendCountdown = Math.max(0, this.resendCountdown - 1);
             if (this.resendCountdown === 0) {
-                window.clearInterval(timer);
+                this.stopResendCountdown();
             }
         }, 1000);
+    }
+
+    private stopResendCountdown(): void {
+        if (this.resendTimer !== undefined) {
+            window.clearInterval(this.resendTimer);
+            this.resendTimer = undefined;
+        }
+        this.resendCountdown = 0;
     }
 }
