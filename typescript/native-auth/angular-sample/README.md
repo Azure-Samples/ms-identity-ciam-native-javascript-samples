@@ -7,7 +7,7 @@ This folder contains a sample project demonstrating Microsoft Identity CIAM (Cus
 ### Native Authentication with MSAL Custom Auth SDK
 This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement secure, standards-based native authentication flows with Microsoft Identity CIAM. All authentication logic is handled on the client side, and API calls are securely proxied to the backend using a CORS proxy.
 
-The V2 sample requires `@azure/msal-browser` `^5.23.0`. Users can select V1 or V2 before starting sign-in, sign-up, or self-service password reset.
+The V2 sample requires `@azure/msal-browser` `^5.29.0`. Users can select V1 or V2 before starting sign-in, sign-up, or self-service password reset.
 
 #### Sign-up
 - New users can register using either:
@@ -108,10 +108,10 @@ When users open the Angular sample, they can choose Native Auth V1 or V2 before 
 
 ### V2 error and attribute handling
 
-- Known failures are presented through `AuthFlowErrorV2` classifiers, including browser-required, invalid credentials, invalid code, invalid password, invalid username, missing user, and existing-user cases.
+- Known failures are presented through `AuthFlowErrorV2` classifiers, including browser-required, invalid credentials, invalid code, invalid password, invalid username, and account-not-found errors.
 - OAuth `subError` and HAL `innerErrorCode` remain distinct diagnostics. The correlation ID is also displayed when available.
 - `requiredAttributes` and `invalidAttributes` are mapped to the initial username/password fields and the active sign-up attribute form. Required and invalid fields receive inline messages and `aria-invalid="true"`.
-- Non-password attribute values remain available after service validation failures. Password fields are cleared after submission.
+- Non-password attribute values remain available while the attribute form is active. Password fields are cleared after submission.
 - A browser-required failure displays guidance to continue in a browser. The V2 state does not expose an automatic redirect or popup continuation, so the sample does not attempt one.
 
 ## Project Structure
@@ -148,7 +148,6 @@ angular-sample/
 │           │   ├── method-selection-form/
 │           │   ├── mfa-auth-method-selection-form/
 │           │   ├── mfa-challenge-form/
-│           │   ├── new-password-form/
 │           │   └── password-form/
 │           ├── navbar/
 │           │   ├── navbar.component.ts    # Navbar component logic
