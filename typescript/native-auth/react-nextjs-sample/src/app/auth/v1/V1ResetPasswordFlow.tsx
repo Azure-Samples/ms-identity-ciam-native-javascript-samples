@@ -13,7 +13,6 @@ import { CodeForm } from "../components/forms/CodeForm";
 import { PasswordForm } from "../components/forms/PasswordForm";
 import type { AuthFlowProps } from "../types";
 import { isV1MfaOrRegistrationState, V1MfaAndRegistrationFlow } from "./V1MfaAndRegistrationFlow";
-import { authorizationInputs } from "../../../config/authorization-request-config";
 
 type V1ResetPasswordFlowProps = Omit<
     Extract<AuthFlowProps, { version: "v1"; action: "resetPassword" }>,
@@ -71,7 +70,7 @@ export function V1ResetPasswordFlow({ initialResult, onCancel, onCompleted }: V1
         setLoading(true);
 
         try {
-            const result = await completedState.signIn(authorizationInputs);
+            const result = await completedState.signIn();
             if (hasFailed(result)) {
                 setError(result.error?.errorData.errorDescription || "An error occurred during automatic sign in.");
                 return;

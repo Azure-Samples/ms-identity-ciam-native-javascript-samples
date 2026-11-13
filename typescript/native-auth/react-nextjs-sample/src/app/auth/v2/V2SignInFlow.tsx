@@ -23,7 +23,6 @@ import {
     getV2FieldErrors,
     type V2FieldErrors,
 } from "./utils/getV2ErrorMessage";
-import { authorizationInputs } from "../../../config/authorization-request-config";
 import type { AuthFlowProps, InitialCredentials } from "../types";
 
 type V2SignInFlowProps = Omit<Extract<AuthFlowProps, { version: "v2"; action: "signIn" }>, "version" | "action">;
@@ -35,7 +34,6 @@ function getThrownErrorMessage(error: unknown): string {
 export function startV2SignIn(app: AuthFlowProps["app"], credentials: InitialCredentials) {
     return app.signInV2({
         username: credentials.username,
-        ...authorizationInputs,
     });
 }
 

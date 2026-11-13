@@ -35,7 +35,6 @@ import {
     getV2FieldErrors,
     type V2FieldErrors,
 } from "./utils/getV2ErrorMessage";
-import { authorizationInputs } from "../../../config/authorization-request-config";
 
 type V2SignUpFlowProps = Omit<Extract<AuthFlowProps, { version: "v2"; action: "signUp" }>, "version" | "action">;
 type AttributeValues = Record<string, string>;
@@ -68,7 +67,6 @@ export function startV2SignUp(app: AuthFlowProps["app"], credentials: InitialCre
     return app.signUpV2({
         username: credentials.username,
         attributes: {},
-        ...authorizationInputs,
     });
 }
 

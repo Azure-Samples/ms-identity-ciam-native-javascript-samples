@@ -27,7 +27,6 @@ import {
     AttributeValueChange,
     DynamicAttributesFormComponent,
 } from "../shared/dynamic-attributes-form/dynamic-attributes-form.component";
-import { authorizationInputs } from "../../config/authorization-request-config";
 
 function hasFailed(result: { isFailed(): boolean }): boolean {
     return result.isFailed();
@@ -539,7 +538,7 @@ export class SignUpComponent {
         this.error = "";
 
         if (this.signUpState instanceof SignUpCompletedState) {
-            const result = await this.signUpState.signIn(authorizationInputs);
+            const result = await this.signUpState.signIn();
 
             if (result.isFailed()) {
                 this.error = result.error?.errorData?.errorDescription || "An error occurred during auto sign-in";

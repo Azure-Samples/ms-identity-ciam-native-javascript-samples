@@ -66,8 +66,7 @@ npm install
 1. Open `src/config/auth-config.ts` and replace the following with the values obtained from the Microsoft Entra admin center:
    - `Enter_the_Application_Id_Here` → Application (client) ID
    - `Enter_the_Tenant_Subdomain_Here` → Tenant Subdomain
-2. If needed, open `src/config/authorization-request-config.ts` to customize the scopes and claims sent by the V1 and V2 flows.
-3. Save the files.
+2. Save the file.
 
 ## Native Auth APIs with Cross-Origin Resource Sharing
 The Native Auth APIs [currently don't support ](https://learn.microsoft.com/en-us/entra/identity-platform/reference-native-authentication-api?tabs=emailOtp) Cross-Origin Resource Sharing [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) so a proxy server must be setup between the web app and the APIs.
@@ -102,7 +101,7 @@ When users open the Next.js sample, they can choose Native Auth V1 or V2 before 
 
 ### V2 request and state handling
 
-- V2 sign-in, sign-up, and password reset start with the scopes and claims configured in `src/config/authorization-request-config.ts`. Required OpenID scopes are normalized by the SDK.
+- V2 sign-in, sign-up, and password reset use the SDK's default scopes without custom claims.
 - Continuation sign-in after sign-up or password reset is argument-free. The SDK retains the original authorization context and uses the entry scopes only when the token response omits its `scope` value.
 - V2 sign-in starts with the username and collects the password only if the SDK returns `PasswordRequiredStateV2`.
 - Method-selection results are rendered from the state returned by `selectAuthMethod()`. The sample does not infer the next password, primary-code, or MFA state from the selected method.
@@ -160,8 +159,7 @@ react-nextjs-sample/
 │   │   ├── Navbar.tsx
 │   │   └── Navbar.module.css
 │   └── config/
-│       ├── auth-config.ts        # MSAL/CIAM authentication configuration
-│       └── authorization-request-config.ts  # Shared V1/V2 scopes and claims
+│       └── auth-config.ts        # MSAL/CIAM authentication configuration
 └── ...other config and support files
 ```
 
