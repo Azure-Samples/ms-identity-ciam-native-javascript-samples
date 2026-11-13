@@ -1,0 +1,14 @@
+<div>
+    <h3 *ngIf="title">{{ title }}</h3>
+    <form class="auth-form" (ngSubmit)="submit()">
+        <div *ngIf="description">{{ description }}</div>
+        <select class="auth-input auth-capitalize" name="method" [(ngModel)]="selectedValue" [disabled]="loading || options.length === 0" required>
+            <option *ngFor="let option of options" [value]="option.value">
+                {{ option.label }}
+            </option>
+        </select>
+        <button type="submit" [class]="loading || !selectedValue ? 'auth-button-disabled' : 'auth-button'" [disabled]="loading || !selectedValue">
+            {{ loading ? submittingText : submitText }}
+        </button>
+    </form>
+</div>

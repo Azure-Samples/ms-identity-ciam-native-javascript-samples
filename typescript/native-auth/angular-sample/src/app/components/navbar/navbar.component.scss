@@ -39,7 +39,18 @@
   padding: 0.4rem 2.2rem;
   border-radius: 0.7rem;
   background: none;
+  border: none;
   box-shadow: none;
+}
+
+.navbar-signout:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.navbar-error {
+  color: #d13438;
+  font-size: 0.875rem;
 }
 
 .navbar-links a:hover,

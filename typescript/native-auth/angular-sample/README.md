@@ -1,20 +1,22 @@
 # Angular Native Auth Sample
 
-This folder contains a sample project demonstrating Microsoft Identity CIAM (Customer Identity and Access Management) integration using Angular with native authentication and a CORS proxy.
+This folder contains a sample project demonstrating Microsoft Identity CIAM (Customer Identity and Access Management) integration using Angular with native authentication and a CORS proxy. The home page provides a unified launcher for Native Auth V1 and V2.
 
 ## Features
 
 ### Native Authentication with MSAL Custom Auth SDK
 This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement secure, standards-based native authentication flows with Microsoft Identity CIAM. All authentication logic is handled on the client side, and API calls are securely proxied to the backend using a CORS proxy.
 
+The V2 sample requires `@azure/msal-browser` `^5.29.0`. Users can select V1 or V2 before starting sign-in, sign-up, or self-service password reset.
+
 #### Sign-up
 - New users can register using either:
   - Email + password
   - Email + OTP (passwordless registration)
 - During registration, users provide required attributes such as first name, last name, job title, city, country, email, and password (if applicable).
-- The sign-up flow may include email verification or additional steps as required by the backend.
+- In V2, new accounts start with email verification, followed by any required password or attribute-collection steps. Existing accounts continue with offered email-code or password authentication.
 - After successful registration, the app automatically continues to sign in the user.
-- During the automatic sign-in after registration, users can add authentication methods (email or SMS) if no strong auth method is registered.
+- Users can add authentication methods (email or SMS) if no strong auth method is registered. In V2, this occurs before continuation sign-in.
 - Handles validation and error feedback for user input.
 
 #### Sign-in
@@ -22,23 +24,23 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 - Users sign in with their email as the username.
 - Password-based: Enter email and password to authenticate.
 - Passwordless: Enter email to receive a one-time passcode (OTP) for authentication.
+- **Primary method selection (V2)**: If multiple first-factor methods are available, users explicitly select the method to continue with.
 - **Multi-Factor Authentication (MFA)**: If MFA is required, users select a verification method and complete a second factor challenge.
 - **Just-In-Time (JIT) Authentication Method Registration**: If no authentication method is registered, users can add one during sign-in.
 - Handles authentication errors and displays appropriate messages.
 
 #### Self-Service Password Reset (SSPR)
 - Users can initiate a self-serve password reset if they forget their password.
-- The password reset flow uses email OTP for authentication and verification.
+- In V1, the service selects the password-reset verification channel. In V2, users can select email or SMS when multiple first-factor methods are available.
 - Guides users through requesting a reset code, verifying their identity, and setting a new password.
 - After successful password reset, the app automatically continues to sign in the user.
-- During the automatic sign-in after password reset, users can add authentication methods if no strong auth method is registered.
-- Also, during the automatic sign-in after password reset, users may be requried to complete additional verification if MFA is enabled.
+- Users may need to register an authentication method or complete MFA. In V2, these steps occur before continuation sign-in.
 - Handles errors such as invalid or expired reset codes.
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 16.x or later
+- Node.js 22.x or later
 - npm 7.x or later
 
 ### Installation
@@ -47,6 +49,7 @@ This sample app leverages the `@azure/msal-browser/custom-auth` SDK to implement
 
 ```bash
 git clone https://github.com/Azure-Samples/ms-identity-ciam-native-javascript-samples
+cd ms-identity-ciam-native-javascript-samples
 cd typescript/native-auth/angular-sample
 ```
 
@@ -90,6 +93,26 @@ npm run start
 
 The app will be available at http://localhost:4200.
 
+## Unified V1/V2 Flow
+
+When users open the Angular sample, they can choose Native Auth V1 or V2 before starting sign-in, sign-up, or password reset. After a flow starts, the app displays the form required by the current SDK state.
+
+### V2 request and state handling
+
+- V2 sign-in, sign-up, and password reset use the SDK's default scopes without custom claims.
+- Continuation sign-in after sign-up or password reset is argument-free. The SDK retains the original authorization context and uses the entry scopes only when the token response omits its `scope` value.
+- V2 sign-in starts with the username and collects the password only if the SDK returns `PasswordRequiredStateV2`.
+- Method-selection results are rendered from the state returned by `selectAuthMethod()`. The sample does not infer the next password, primary-code, or MFA state from the selected method.
+- Verification-code inputs are checked for a non-empty value. The service remains responsible for enforcing the expected code length.
+
+### V2 error and attribute handling
+
+- Known failures are presented through `AuthFlowErrorV2` classifiers, including browser-required, invalid credentials, invalid code, invalid password, invalid username, and account-not-found errors.
+- OAuth `subError` and HAL `innerErrorCode` remain distinct diagnostics. The correlation ID is also displayed when available.
+- `requiredAttributes` and `invalidAttributes` are mapped to the initial username/password fields and the active sign-up attribute form. Required and invalid fields receive inline messages and `aria-invalid="true"`.
+- Non-password attribute values remain available while the attribute form is active. Password fields are cleared after submission.
+- A browser-required failure displays guidance to continue in a browser. The V2 state does not expose an automatic redirect or popup continuation, so the sample does not attempt one.
+
 ## Project Structure
 
 ```
@@ -108,53 +131,54 @@ angular-sample/
 │       ├── app.component.scss    # Root Angular component (styles)
 │       ├── app.module.ts         # Main Angular module definition
 │       ├── config/
-│       │   └── auth-config.ts    # MSAL/CIAM authentication configuration
+│       │   └── auth-config.ts        # MSAL/CIAM authentication configuration
 │       ├── services/
 │       │   └── auth.service.ts   # Authentication service (handles MSAL logic)
 │       └── components/
-│           ├── shared/            # Shared reusable components
-│           │   ├── auth-method-selection-form/           # JIT auth method registration
-│           │   ├── auth-method-challenge-form/           # JIT challenge verification
-│           │   ├── mfa-auth-method-selection-form/       # MFA method selection
-│           │   ├── mfa-challenge-form/                   # MFA challenge verification
-│           │   ├── code-form/                            # Reusable OTP code input
-│           │   └── password-form/                        # Reusable password input
+│           ├── unified-auth/      # Unified V1/V2 launcher and active flow
+│           ├── shared/            # Shared reusable forms and layouts
+│           │   ├── auth-method-challenge-form/
+│           │   ├── auth-method-selection-form/
+│           │   ├── auth-start-form/
+│           │   ├── auth-step-layout/
+│           │   ├── code-form/
+│           │   ├── dynamic-attributes-form/
+│           │   ├── method-selection-form/
+│           │   ├── mfa-auth-method-selection-form/
+│           │   ├── mfa-challenge-form/
+│           │   └── password-form/
 │           ├── navbar/
 │           │   ├── navbar.component.ts    # Navbar component logic
 │           │   ├── navbar.component.html  # Navbar component template
 │           │   └── navbar.component.scss  # Navbar component styles
-│           ├── sign-in/
-│           │   ├── sign-in.component.ts   # Sign-in page with MFA and JIT support
-│           │   ├── sign-in.component.html # Sign-in page template
-│           │   └── sign-in.component.scss # Sign-in page styles
-│           ├── sign-up/
-│           │   ├── sign-up.component.ts   # Sign-up page with MFA and JIT support
-│           │   ├── sign-up.component.html # Sign-up page template
-│           │   └── sign-up.component.scss # Sign-up page styles
-│           ├── reset-password/
-│           │   ├── reset-password.component.ts   # Reset password page with JIT support
-│           │   ├── reset-password.component.html # Reset password page template
-│           │   └── reset-password.component.scss # Reset password page styles
+│           ├── v1/
+│           │   ├── sign-in.component.ts
+│           │   ├── sign-up.component.ts
+│           │   └── reset-password.component.ts
+│           ├── v2/
+│           │   ├── sign-in-v2.component.ts
+│           │   ├── sign-up-v2.component.ts
+│           │   ├── reset-password-v2.component.ts
+│           │   └── v2-flow-utils.ts
 │           ├── welcome.component.ts        # Welcome/landing page logic
 │           ├── welcome.component.html      # Welcome/landing page template
 │           └── welcome.component.scss      # Welcome/landing page styles
 └── ...other config and support files
 ```
 
-- All authentication flows and UI are implemented in the `src/app/components/` directory.
-- Shared components for JIT and MFA are consolidated in `src/app/components/shared/` to promote code reuse.
-- Shared UI and logic are in `src/app/components/` and `src/app/services/`.
-- The CORS proxy and configuration files are at the project root.
+The unified launcher starts each flow and keeps the active step visible. Version-specific components orchestrate SDK transitions, while the shared components provide reusable code, password, method-selection, MFA, JIT, and attribute forms.
+
+- Authentication flows and UI are organized into separate V1 and V2 component areas.
+- Shared components consolidate reusable JIT, MFA, code, password, method-selection, and attribute forms.
+- The authentication service initializes the SDK and maintains shared account state.
+- The CORS proxy and its configuration remain at the project root.
 
 ## Development
-- `src/app/components/welcome.component.ts` - Main landing page
-- `src/app/components/navbar/navbar.component.ts` - Top navigation bar
-- Authentication components:
-  - `src/app/components/sign-in/sign-in.component.ts` - Sign-in page with MFA and JIT support
-  - `src/app/components/sign-up/sign-up.component.ts` - Sign-up page with MFA and JIT support
-  - `src/app/components/reset-password/reset-password.component.ts` - Password reset page with JIT support
-- Shared components:
-  - `src/app/components/shared/` - Reusable form components for JIT and MFA flows
+
+- The `unified-auth/` folder contains the main landing page and active-flow host.
+- The `navbar/` folder contains the account status and sign-out UI.
+- The `v1/` and `v2/` folders orchestrate version-specific sign-in, sign-up, and password-reset transitions.
+- The `shared/` folder contains reusable forms and layouts for both versions.
 
 ## Notes
 - Ensure the CORS proxy is running if your frontend needs to communicate with a backend API that does not allow cross-origin requests.
@@ -170,4 +194,4 @@ angular-sample/
 See the [contributing guide](../../CONTRIBUTING.md) to learn about our development process.
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](../../LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](../../../LICENSE) file for details.
