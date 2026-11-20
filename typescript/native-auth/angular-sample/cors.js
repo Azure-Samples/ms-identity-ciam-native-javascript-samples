@@ -14,7 +14,8 @@ const extraHeaders = [
 ];
 http.createServer((req, res) => {
     const reqUrl = url.parse(req.url);
-    const domain = url.parse(proxyConfig.proxy).hostname;
+    const proxyUrl = new URL(proxyConfig.proxy);
+    const domain = proxyUrl.hostname;
 
     // Echo the headers the browser asks about during preflight so custom headers
     // added by a CustomAuthRequestInterceptor are accepted without having to be
@@ -38,10 +39,23 @@ http.createServer((req, res) => {
         return;
     }
 
-    if (reqUrl.pathname.startsWith(proxyConfig.localApiPath)) {
-        const targetUrl = proxyConfig.proxy + reqUrl.pathname?.replace(proxyConfig.localApiPath, "") + (reqUrl.search || "");
+    const [, tenant, endpointGroup] = reqUrl.pathname.split("/");
+    const isTenantApiRequest =
+        reqUrl.pathname.startsWith("/") &&
+        Boolean(tenant) &&
+        (endpointGroup === "api" || endpointGroup === "oauth2");
 
-        console.log("Incoming request -> " + req.url + " ===> " + reqUrl.pathname);
+    let targetUrl;
+    if (reqUrl.pathname.startsWith(proxyConfig.localApiPath + "/")) {
+        targetUrl = proxyConfig.proxy + reqUrl.pathname.slice(proxyConfig.localApiPath.length) + (reqUrl.search || "");
+    } else if (isTenantApiRequest) {
+        // HAL links already include the service tenant, so retain only the configured origin.
+        targetUrl = proxyUrl.origin + reqUrl.pathname + (reqUrl.search || "");
+    }
+
+    if (targetUrl) {
+
+        console.log("Proxy: " + reqUrl.pathname + " -> " + targetUrl);
 
         const newHeaders = {};
         for (let [key, value] of Object.entries(req.headers)) {

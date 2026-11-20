@@ -414,7 +414,7 @@ export function V2SignUpFlow({ initialResult, onCancel, onCompleted }: V2SignUpF
             </button>
         );
     } else if (signUpState instanceof CompletedStateV2) {
-        content = <div className="auth-signed-in-message">Sign-up completed.</div>;
+        content = <div className="auth-signed-in-message">Authentication completed.</div>;
     } else {
         content = loading ? <p>Starting sign-up...</p> : null;
     }

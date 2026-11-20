@@ -1,5 +1,5 @@
 <app-auth-step-layout title="V2 Sign Up" [error]="error" [busy]="loading || resendLoading" (restart)="restart()">
-    <div class="auth-signed-in-message" *ngIf="userData">Signed up and signed in as {{ userData.getAccount().username }}</div>
+    <div class="auth-signed-in-message" *ngIf="userData">Signed in as {{ userData.getAccount().username }}</div>
 
     <app-auth-start-form
         *ngIf="!state && !userData"
@@ -10,7 +10,7 @@
         usernamePlaceholder="Email"
         submitText="Sign Up"
         submittingText="Signing up..."
-        helperText="The service will request a password later if this sign-up flow requires one."
+        helperText="Existing accounts continue through sign-in. New accounts are prompted for any required password or profile details."
         (fieldChange)="clearFieldError($event)"
         (submitForm)="startSignUp()"
     >
@@ -156,6 +156,6 @@
         <button *ngIf="!loading" type="button" class="auth-secondary-button" (click)="retryContinuation()">Retry sign-in</button>
     </div>
 
-    <div class="auth-signed-in-message" *ngIf="isCompleted && !userData">Sign-up completed.</div>
+    <div class="auth-signed-in-message" *ngIf="isCompleted && !userData">Authentication completed.</div>
     <p *ngIf="loading && !state">Starting sign-up...</p>
 </app-auth-step-layout>

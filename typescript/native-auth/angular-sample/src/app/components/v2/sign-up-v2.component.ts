@@ -644,6 +644,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.stopResendCountdown();
         this.state = null;
         this.userData = undefined;
+        this.password = "";
         this.code = "";
         this.selectedRegistrationMethod = null;
         this.registrationContact = "";
