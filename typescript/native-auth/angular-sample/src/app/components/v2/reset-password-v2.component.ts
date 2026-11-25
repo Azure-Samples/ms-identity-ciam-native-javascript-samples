@@ -2,7 +2,6 @@ import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
-    type AuthFlowErrorV2,
     AuthFlowStateBase,
     AuthMethodRegistrationRequiredStateV2,
     AuthMethodSelectionRequiredStateV2,
@@ -25,13 +24,11 @@ import {
 import { PasswordFormComponent } from "../shared/password-form/password-form.component";
 import {
     createV2ErrorPresentation,
-    formatV2ErrorPresentation,
     getThrownErrorMessage,
-    getV2ErrorPresentation,
-    getV2FieldErrors,
     type V2ErrorPresentation,
     type V2FieldErrors,
 } from "./v2-flow-utils";
+import { handleV2Result, type V2ResultContext } from "./v2-result-handler";
 
 @Component({
     selector: "app-reset-password-v2",
@@ -70,6 +67,17 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
     userData: CustomAuthAccountData | undefined;
     private initialErrorPresentation: V2ErrorPresentation | undefined;
     private resendTimer: number | undefined;
+    private readonly resultContext: V2ResultContext = {
+        flow: "resetPassword",
+        view: this,
+        rememberError: (presentation) => {
+            this.initialErrorPresentation = presentation;
+        },
+        complete: (state, account) => this.complete(state, account),
+        continueSignIn: (state) => this.continueSignIn(state),
+        startResendCountdown: () => this.startResendCountdown(),
+        stopResendCountdown: () => this.stopResendCountdown(),
+    };
 
     constructor(private auth: AuthService) {}
 
@@ -151,13 +159,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
             const result = await client.resetPasswordV2({
                 username: this.username,
             });
-            if (result.isFailed()) {
-                this.initialErrorPresentation = this.applyV2Error(result.error);
-            } else if (result.isState("authMethodSelectionRequired") || result.isState("codeRequired")) {
-                this.state = result.state;
-            } else {
-                this.error = "Password reset returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -183,15 +185,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("codeRequired") || result.isState("mfaVerificationRequired")) {
-                this.code = "";
-                this.state = result.state;
-                this.stopResendCountdown();
-            } else {
-                this.error = "Authentication method selection returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -211,14 +205,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitCode(this.code);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("newPasswordRequired")) {
-                this.code = "";
-                this.state = result.state;
-            } else {
-                this.error = "Code verification returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext, { type: "submitCode", state });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -238,13 +225,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.resendLoading = true;
         try {
             const result = await state.resendCode();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else {
-                this.code = "";
-                this.state = result.state;
-                this.startResendCountdown();
-            }
+            await handleV2Result(result, this.resultContext, { type: "resend" });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -265,22 +246,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitNewPassword(newPassword);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (
-                result.isState("authMethodRegistrationRequired") ||
-                result.isState("authMethodSelectionRequired")
-            ) {
-                this.state = result.state;
-                this.selectedRegistrationMethod = null;
-                this.registrationContact = "";
-                this.code = "";
-                this.stopResendCountdown();
-            } else if (result.isState("signInContinuation")) {
-                await this.continueSignIn(result.state);
-            } else {
-                this.error = "New password submission returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -333,17 +299,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method, contact);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("authMethodVerificationRequired")) {
-                this.state = result.state;
-                this.code = "";
-                this.stopResendCountdown();
-                this.selectedRegistrationMethod = null;
-                this.registrationContact = "";
-            } else {
-                this.error = "Authentication method registration returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected authentication method registration error occurred.");
         } finally {
@@ -363,20 +319,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitChallenge(this.code);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("signInContinuation")) {
-                this.code = "";
-                this.registrationContact = "";
-                this.stopResendCountdown();
-                await this.continueSignIn(result.state);
-            } else if (result.isState("completed")) {
-                this.code = "";
-                this.registrationContact = "";
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Authentication method verification returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected authentication method verification error occurred.");
         } finally {
@@ -396,18 +339,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.resendLoading = true;
         try {
             const result = await state.resendChallenge();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (
-                result.state instanceof AuthMethodVerificationRequiredStateV2 ||
-                result.state instanceof MFAVerificationRequiredStateV2
-            ) {
-                this.state = result.state;
-                this.code = "";
-                this.startResendCountdown();
-            } else {
-                this.error = "Resending the verification code returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext, { type: "resend" });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected verification code resend error occurred.");
         } finally {
@@ -449,13 +381,7 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.signIn();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Sign-in after password reset returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected password reset error occurred.");
         } finally {
@@ -483,13 +409,6 @@ export class ResetPasswordV2Component implements OnInit, OnDestroy {
         this.fieldErrors = {};
         this.resendCountdown = 0;
         this.initialErrorPresentation = undefined;
-    }
-
-    private applyV2Error(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
-        const presentation = getV2ErrorPresentation(error);
-        this.error = formatV2ErrorPresentation(presentation);
-        this.fieldErrors = getV2FieldErrors(presentation);
-        return presentation;
     }
 
     private startResendCountdown(): void {

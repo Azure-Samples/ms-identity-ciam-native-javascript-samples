@@ -3,7 +3,6 @@ import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from "@angu
 import { FormsModule } from "@angular/forms";
 import {
     AttributesRequiredStateV2,
-    type AuthFlowErrorV2,
     AuthFlowStateBase,
     type AuthenticationMethodRegistrationV2,
     AuthMethodRegistrationRequiredStateV2,
@@ -34,13 +33,11 @@ import {
 import { PasswordFormComponent } from "../shared/password-form/password-form.component";
 import {
     createV2ErrorPresentation,
-    formatV2ErrorPresentation,
     getThrownErrorMessage,
-    getV2ErrorPresentation,
-    getV2FieldErrors,
     type V2ErrorPresentation,
     type V2FieldErrors,
 } from "./v2-flow-utils";
+import { handleV2Result, type V2ResultContext } from "./v2-result-handler";
 
 type AttributeValues = Record<string, string>;
 
@@ -84,6 +81,17 @@ export class SignUpV2Component implements OnInit, OnDestroy {
     private initialErrorPresentation: V2ErrorPresentation | undefined;
     private resendTimer: number | undefined;
     private destroyed = false;
+    private readonly resultContext: V2ResultContext = {
+        flow: "signUp",
+        view: this,
+        rememberError: (presentation) => {
+            this.initialErrorPresentation = presentation;
+        },
+        complete: (state, account) => this.complete(state, account),
+        continueSignIn: (state) => this.continueSignIn(state),
+        startResendCountdown: () => this.startResendCountdown(),
+        stopResendCountdown: () => this.stopResendCountdown(),
+    };
 
     constructor(private auth: AuthService) {}
 
@@ -190,18 +198,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
                 username: this.username,
             });
 
-            if (result.isFailed()) {
-                this.initialErrorPresentation = this.applyV2Error(result.error);
-            } else if (
-                result.isState("codeRequired") ||
-                result.isState("existingAccountCodeRequired") ||
-                result.isState("existingAccountPasswordRequired") ||
-                result.isState("authMethodSelectionRequired")
-            ) {
-                this.state = result.state;
-            } else {
-                this.error = "Sign-up returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -222,40 +219,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitCode(this.code);
-            if (result.isFailed()) {
-                const presentation = this.applyV2Error(result.error);
-                if (
-                    state instanceof CodeRequiredStateV2 &&
-                    (presentation.invalidAttributes.length > 0 ||
-                        presentation.requiredAttributes.length > 0 ||
-                        presentation.innerErrorCode === "attributeValidationError")
-                ) {
-                    this.state = result.state;
-                    this.code = "";
-                    this.stopResendCountdown();
-                    this.error += " Restart sign-up to correct the profile attributes.";
-                }
-            } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
-                this.code = "";
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                this.state = result.state;
-            } else if (result.isState("signInContinuation")) {
-                this.code = "";
-                await this.continueSignIn(result.state);
-            } else if (
-                result.isState("authMethodSelectionRequired") ||
-                result.isState("authMethodRegistrationRequired")
-            ) {
-                this.code = "";
-                this.attributeValues = {};
-                this.stopResendCountdown();
-                this.state = result.state;
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Code verification returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext, { type: "submitCode", state });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -275,13 +239,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.resendLoading = true;
         try {
             const result = await state.resendCode();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else {
-                this.code = "";
-                this.state = result.state;
-                this.startResendCountdown();
-            }
+            await handleV2Result(result, this.resultContext, { type: "resend" });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -301,32 +259,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitPassword(this.password);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("attributesRequired")) {
-                this.password = "";
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                this.state = result.state;
-            } else if (result.isState("signInContinuation")) {
-                this.password = "";
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                await this.continueSignIn(result.state);
-            } else if (
-                result.isState("authMethodSelectionRequired") ||
-                result.isState("authMethodRegistrationRequired")
-            ) {
-                this.password = "";
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                this.stopResendCountdown();
-                this.state = result.state;
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Password submission returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -346,32 +279,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitAttributes(this.buildAttributes());
-            if (result.isFailed()) {
-                const presentation = this.applyV2Error(result.error);
-                if (
-                    presentation.invalidAttributes.length > 0 ||
-                    presentation.requiredAttributes.length > 0 ||
-                    presentation.innerErrorCode === "attributeValidationError"
-                ) {
-                    this.state = result.state;
-                    this.error += " Restart sign-up to correct the profile attributes.";
-                }
-            } else if (result.isPasswordRequired() || result.isState("attributesRequired")) {
-                this.attributeValues = {};
-                this.code = "";
-                this.fieldErrors = {};
-                this.state = result.state;
-            } else if (result.isState("signInContinuation")) {
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                await this.continueSignIn(result.state);
-            } else if (result.isState("authMethodRegistrationRequired")) {
-                this.attributeValues = {};
-                this.fieldErrors = {};
-                this.state = result.state;
-            } else {
-                this.error = "Attribute submission returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext, { type: "submitAttributes" });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -397,14 +305,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else {
-                this.code = "";
-                this.password = "";
-                this.stopResendCountdown();
-                this.state = result.state;
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -451,17 +352,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.selectAuthMethod(method, contact);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("authMethodVerificationRequired")) {
-                this.code = "";
-                this.stopResendCountdown();
-                this.state = result.state;
-                this.selectedRegistrationMethod = null;
-                this.registrationContact = "";
-            } else {
-                this.error = "Method registration returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected registration error occurred.");
         } finally {
@@ -481,17 +372,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.submitChallenge(this.code);
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("signInContinuation")) {
-                this.code = "";
-                this.stopResendCountdown();
-                await this.continueSignIn(result.state);
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Code verification returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected verification error occurred.");
         } finally {
@@ -511,18 +392,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.resendLoading = true;
         try {
             const result = await state.resendChallenge();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (
-                result.state instanceof AuthMethodVerificationRequiredStateV2 ||
-                result.state instanceof MFAVerificationRequiredStateV2
-            ) {
-                this.code = "";
-                this.state = result.state;
-                this.startResendCountdown();
-            } else {
-                this.error = "Verification-code resend returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext, { type: "resend" });
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected verification-code resend error occurred.");
         } finally {
@@ -578,13 +448,7 @@ export class SignUpV2Component implements OnInit, OnDestroy {
         this.loading = true;
         try {
             const result = await state.signIn();
-            if (result.isFailed()) {
-                this.applyV2Error(result.error);
-            } else if (result.isState("completed")) {
-                this.complete(result.state, result.data);
-            } else {
-                this.error = "Sign-in after sign-up returned an unsupported state.";
-            }
+            await handleV2Result(result, this.resultContext);
         } catch (error) {
             this.error = getThrownErrorMessage(error, "An unexpected sign-up error occurred.");
         } finally {
@@ -600,13 +464,6 @@ export class SignUpV2Component implements OnInit, OnDestroy {
             }
         }
         return attributes;
-    }
-
-    private applyV2Error(error: AuthFlowErrorV2 | null | undefined): V2ErrorPresentation {
-        const presentation = getV2ErrorPresentation(error);
-        this.error = formatV2ErrorPresentation(presentation);
-        this.fieldErrors = getV2FieldErrors(presentation);
-        return presentation;
     }
 
     private toAttributeFields(
